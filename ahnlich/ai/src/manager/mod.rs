@@ -80,7 +80,7 @@ impl ModelThread {
         model_params: &std::collections::HashMap<String, String>,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
-        let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
+        let processed_inputs = self.preprocess_store_input(process_action, action_type, inputs)?;
         let mut store_key = self
             .model
             .model_ndarray(
@@ -98,6 +98,7 @@ impl ModelThread {
     pub(crate) fn preprocess_store_input(
         &self,
         process_action: PreprocessAction,
+        action_type: InputAction,
         inputs: Arc<Vec<StoreInput>>,
     ) -> Result<ModelInput, AIProxyError> {
         // Determine sample type first before moving the Arc
@@ -161,7 +162,7 @@ impl ModelThread {
                         _ => None,
                     })
                     .collect();
-                let output = self.preprocess_audio(audio_bytes, process_action)?;
+                let output = self.preprocess_audio(audio_bytes, process_action, action_type)?;
                 Ok(ModelInput::Audios(output))
             }
         }
@@ -172,6 +173,7 @@ impl ModelThread {
         &self,
         inputs: Vec<Vec<u8>>,
         process_action: PreprocessAction,
+        action_type: InputAction,
     ) -> Result<Vec<crate::engine::ai::providers::processors::ChunkMetadata>, AIProxyError> {
         // CLAP (and any future model whose preprocessor converts raw bytes → mel spectrogram)
         // cannot meaningfully skip preprocessing: there is no tensor format a caller could
@@ -185,7 +187,7 @@ impl ModelThread {
             return Err(AIProxyError::AudioNoPreprocessingError);
         }
         match &self.model.provider {
-            ModelProviders::ORT(provider) => provider.preprocess_audios(inputs),
+            ModelProviders::ORT(provider) => provider.preprocess_audios(inputs, action_type),
         }
     }
     #[tracing::instrument(skip(self, inputs))]

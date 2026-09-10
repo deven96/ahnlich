@@ -192,12 +192,22 @@ func searchAudio(queryFile string, limit int, playAudio bool) error {
 	defer cancel()
 	defer conn.Close()
 
-	audioData, err := os.ReadFile(queryFile)
-	if err != nil {
-		return fmt.Errorf("read query failed: %w", err)
+	// Trim audio to 10 seconds for queries (server limit)
+	// Queries must produce exactly 1 embedding, so we take the first 10 seconds
+	trimmedFile := filepath.Join(os.TempDir(), "query_trimmed.wav")
+	defer os.Remove(trimmedFile)
+	
+	trimCmd := exec.Command("ffmpeg", "-y", "-i", queryFile, "-t", "10", "-acodec", "pcm_s16le", trimmedFile)
+	if output, err := trimCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to trim audio to 10s: %w\nOutput: %s", err, string(output))
 	}
 
-	fmt.Printf("Searching for: %s\n\n", filepath.Base(queryFile))
+	audioData, err := os.ReadFile(trimmedFile)
+	if err != nil {
+		return fmt.Errorf("read trimmed query failed: %w", err)
+	}
+
+	fmt.Printf("Searching for: %s (using first 10 seconds)\n\n", filepath.Base(queryFile))
 
 	resp, err := client.GetSimN(ctx, &aiquery.GetSimN{
 		Store: storeName,

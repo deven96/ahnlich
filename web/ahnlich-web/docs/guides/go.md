@@ -84,9 +84,10 @@ resp, _ := client.GetSimN(ctx, &aiquery.GetSimN{
 
 ## 🎵 Features
 
-- **Index songs**: Process entire music libraries
-- **Record & search**: Record from microphone and identify songs
-- **Audio chunking**: Automatically handles long audio (10-second chunks with 1-second overlap)
+- **Index songs**: Process entire music libraries (up to 10 minutes per file)
+- **Record & search**: Record from microphone and identify songs (10-second limit)
+- **Audio chunking**: Automatically handles long audio during indexing (10-second chunks with 1-second overlap)
+- **Query trimming**: Search queries automatically use first 10 seconds
 - **Cross-modal search**: Search audio using text descriptions
 - **Playback**: Play matched songs from the beginning
 

@@ -438,58 +438,86 @@ impl SingleStageModel {
                     if current_audio_chunks.len() == current_audio_total {
                         let mut chunk_embeddings = Vec::new();
 
-                        for chunk_meta in current_audio_chunks.drain(..) {
-                            let embeddings =
-                                self.batch_inference_audio(chunk_meta.input, &session)?;
+                        for batch_chunks in current_audio_chunks
+                            .drain(..)
+                            .chunks(self.model_batch_size)
+                            .into_iter()
+                        {
+                            let batch_vec: Vec<_> = batch_chunks.collect();
 
-                            let mut metadata = HashMap::new();
-                            metadata.insert(
-                                "chunk_start_sec".to_string(),
-                                MetadataValue {
-                                    value: Some(metadata_value::Value::RawString(
-                                        chunk_meta.start_sec.to_string(),
-                                    )),
-                                },
-                            );
-                            metadata.insert(
-                                "chunk_end_sec".to_string(),
-                                MetadataValue {
-                                    value: Some(metadata_value::Value::RawString(
-                                        chunk_meta.end_sec.to_string(),
-                                    )),
-                                },
-                            );
-                            metadata.insert(
-                                "chunk_duration_sec".to_string(),
-                                MetadataValue {
-                                    value: Some(metadata_value::Value::RawString(
-                                        chunk_meta.duration_sec.to_string(),
-                                    )),
-                                },
-                            );
-                            metadata.insert(
-                                "total_chunks".to_string(),
-                                MetadataValue {
-                                    value: Some(metadata_value::Value::RawString(
-                                        chunk_meta.total_chunks.to_string(),
-                                    )),
-                                },
-                            );
-                            metadata.insert(
-                                "audio_total_duration_sec".to_string(),
-                                MetadataValue {
-                                    value: Some(metadata_value::Value::RawString(
-                                        chunk_meta.audio_total_duration_sec.to_string(),
-                                    )),
-                                },
-                            );
+                            let mut batch_features = Vec::new();
+                            for chunk_meta in &batch_vec {
+                                batch_features.push(chunk_meta.input.input_features.view());
+                            }
 
-                            chunk_embeddings.push((
-                                StoreKey {
-                                    key: embeddings.row(0).to_vec(),
-                                },
-                                Some(metadata),
-                            ));
+                            let concatenated =
+                                ndarray::concatenate(ndarray::Axis(0), &batch_features).map_err(
+                                    |e| {
+                                        AIProxyError::ModelProviderPreprocessingError(format!(
+                                            "Failed to concatenate audio batch: {}",
+                                            e
+                                        ))
+                                    },
+                                )?;
+
+                            let batch_input =
+                                crate::engine::ai::providers::processors::AudioInput {
+                                    input_features: concatenated,
+                                };
+
+                            let embeddings = self.batch_inference_audio(batch_input, &session)?;
+
+                            // Split embeddings back to individual chunks
+                            for (idx, chunk_meta) in batch_vec.into_iter().enumerate() {
+                                let mut metadata = HashMap::new();
+                                metadata.insert(
+                                    "chunk_start_sec".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            chunk_meta.start_sec.to_string(),
+                                        )),
+                                    },
+                                );
+                                metadata.insert(
+                                    "chunk_end_sec".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            chunk_meta.end_sec.to_string(),
+                                        )),
+                                    },
+                                );
+                                metadata.insert(
+                                    "chunk_duration_sec".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            chunk_meta.duration_sec.to_string(),
+                                        )),
+                                    },
+                                );
+                                metadata.insert(
+                                    "total_chunks".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            chunk_meta.total_chunks.to_string(),
+                                        )),
+                                    },
+                                );
+                                metadata.insert(
+                                    "audio_total_duration_sec".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            chunk_meta.audio_total_duration_sec.to_string(),
+                                        )),
+                                    },
+                                );
+
+                                chunk_embeddings.push((
+                                    StoreKey {
+                                        key: embeddings.row(idx).to_vec(),
+                                    },
+                                    Some(metadata),
+                                ));
+                            }
                         }
 
                         all_responses.push(ModelResponse::OneToMany(chunk_embeddings));
