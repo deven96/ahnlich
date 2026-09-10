@@ -130,30 +130,6 @@ jobs:
       if: steps.benchmarks.outputs.found == 'true'
       shell: bash
       run: |
-        control_before_candidate() {
-          awk -F '    +' '
-            NF == 3 {
-              group[NR] = $1
-              control[NR] = $3
-              candidate[NR] = $2
-              row[NR] = 1
-              if (length(group[NR]) > group_width) group_width = length(group[NR])
-              if (length(control[NR]) > control_width) control_width = length(control[NR])
-              next
-            }
-            { original[NR] = $0 }
-            END {
-              for (line = 1; line <= NR; line++) {
-                if (row[line]) {
-                  printf "%-*s    %-*s    %s\n", group_width, group[line], control_width, control[line], candidate[line]
-                } else {
-                  print original[line]
-                }
-              }
-            }
-          '
-        }
-
         report="ahnlich/experiment_bench_results.md"
         {
           echo "## Opt-in Benchmark Results"
@@ -180,13 +156,12 @@ jobs:
           elif benchmark_output=$(critcmp \
             --target-dir ahnlich/target \
             "$pr_baseline" \
-            --filter '(^|/)(control|candidate)/' \
-            --group '^(.*)(?:control|candidate)/(.*)$' 2>&1); then
-            benchmark_output=$(control_before_candidate <<< "$benchmark_output")
-            comparison="first-time benchmark: control vs candidate"
+            --filter '(^|/)(candidate|control)/' \
+            --group '^(.*)(?:candidate|control)/(.*)$' 2>&1); then
+            comparison="first-time benchmark: candidate vs control"
           else
             comparison="first-time benchmark"
-            benchmark_output="No control/candidate pairs found. New benchmark targets must name comparable variants 'control' and 'candidate'."
+            benchmark_output="No candidate/control pairs found. New benchmark targets must name comparable variants 'candidate' and 'control'."
           fi
 
           {
