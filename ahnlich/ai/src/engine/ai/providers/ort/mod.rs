@@ -22,7 +22,7 @@ use ort::{
 };
 use strum::EnumIter;
 
-use crate::engine::ai::providers::processors::AudioInput;
+use crate::engine::ai::providers::processors;
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
@@ -399,21 +399,27 @@ impl ORTProvider {
     }
 
     #[tracing::instrument(skip(self, data))]
-    pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
+    pub fn preprocess_audios(
+        &self,
+        data: Vec<Vec<u8>>,
+        action: InputAction,
+    ) -> Result<Vec<processors::ChunkMetadata>, AIProxyError> {
         match &self.preprocessor {
-            ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
-                // Preserve caller-facing errors (InvalidArgument) so they are not obscured
-                // by the generic Internal wrapper used for unexpected preprocessing failures.
-                match e {
-                    AIProxyError::AudioTooLongError { .. } => e,
-                    AIProxyError::AudioNoPreprocessingError => e,
-                    other => AIProxyError::ModelProviderPreprocessingError(format!(
-                        "Audio preprocessing failed for {:?}: {}",
-                        self.supported_models.to_string(),
-                        other
-                    )),
-                }
-            }),
+            ORTPreprocessor::Audio(preprocessor) => {
+                preprocessor.process(data, action).map_err(|e| {
+                    // Preserve caller-facing errors (InvalidArgument) so they are not obscured
+                    // by the generic Internal wrapper used for unexpected preprocessing failures.
+                    match e {
+                        AIProxyError::AudioTooLongError { .. } => e,
+                        AIProxyError::AudioNoPreprocessingError => e,
+                        other => AIProxyError::ModelProviderPreprocessingError(format!(
+                            "Audio preprocessing failed for {:?}: {}",
+                            self.supported_models.to_string(),
+                            other
+                        )),
+                    }
+                })
+            }
             _ => Err(AIProxyError::ModelPreprocessingError {
                 model_name: self.supported_models.to_string(),
                 message: "Audio preprocessor not initialized".to_string(),

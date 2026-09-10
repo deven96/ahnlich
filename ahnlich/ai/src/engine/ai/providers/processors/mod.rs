@@ -15,6 +15,7 @@ pub struct AudioInput {
 }
 
 pub mod center_crop;
+mod chunk;
 pub mod imagearray_to_ndarray;
 pub mod normalize;
 mod onnx_output_transform;
@@ -24,6 +25,8 @@ pub mod preprocessor;
 pub mod rescale;
 pub mod resize;
 pub mod tokenize;
+
+pub use chunk::ChunkMetadata;
 
 pub const CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD: u32 = 384;
 

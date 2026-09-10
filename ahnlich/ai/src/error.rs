@@ -150,6 +150,13 @@ pub enum AIProxyError {
     AudioNoPreprocessingError,
 
     #[error(
+        "store_original is not supported for OneToMany models (e.g. ClapAudio with chunking). \
+         Storing the original input for every chunk would duplicate large files up to 67 times. \
+         Set store_original=false to proceed."
+    )]
+    StoreOriginalNotSupportedForOneToMany,
+
+    #[error(
         "Audio input is too long ({duration_ms}ms). \
          Model accepts at most {max_ms}ms per clip. Trim or split your audio before indexing."
     )]
@@ -239,6 +246,7 @@ impl From<AIProxyError> for Status {
             }
             | AIProxyError::AudioNoPreprocessingError
             | AIProxyError::AudioTooLongError { .. }
+            | AIProxyError::StoreOriginalNotSupportedForOneToMany
             | AIProxyError::FaceModelNoPreprocessingError
             | AIProxyError::UnknownEnumValue(_)
             | AIProxyError::InputNotSpecified(_)
