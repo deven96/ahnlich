@@ -235,6 +235,24 @@ impl<F: DistanceFn> NearestFirst<F> {
         self.heap.push(OrderedNode::new(node.id, closeness))
     }
 
+    /// Build a candidate queue from distances already computed by the caller.
+    pub(crate) fn from_scored(
+        nodes: impl Iterator<Item = OrderedNode>,
+        query: &Node,
+        distance_algorithm: F,
+    ) -> Self {
+        Self {
+            heap: nodes.collect(),
+            distance_algorithm,
+            query: query.value.clone(),
+        }
+    }
+
+    /// Admit a node without repeating its query-distance calculation.
+    pub(crate) fn push_scored(&mut self, node: OrderedNode) {
+        self.heap.push(node);
+    }
+
     pub(crate) fn pop(&mut self) -> Option<OrderedNode> {
         self.heap.pop()
     }
