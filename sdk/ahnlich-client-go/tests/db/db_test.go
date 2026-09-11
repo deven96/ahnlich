@@ -649,3 +649,97 @@ func TestUpsert_Succeeds(t *testing.T) {
 	require.Equal(t, "published", getResp.Entries[0].Value.Value["status"].GetRawString())
 	require.Equal(t, "123", getResp.Entries[0].Value.Value["id"].GetRawString())
 }
+
+func TestListStoreEntriesAndClearStore_Succeeds(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	storeName := "store_entry_operations"
+	_, err := client.CreateStore(context.Background(), &dbquery.CreateStore{
+		Store:            storeName,
+		Dimension:        3,
+		CreatePredicates: []string{"label"},
+		ErrorIfExists:    true,
+	})
+	require.NoError(t, err)
+
+	entries := []*keyval.DbStoreEntry{
+		{
+			Key: &keyval.StoreKey{Key: []float32{1, 0, 0}},
+			Value: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+				"label": {Value: &metadata.MetadataValue_RawString{RawString: "one"}},
+			}},
+		},
+		{
+			Key: &keyval.StoreKey{Key: []float32{0, 1, 0}},
+			Value: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+				"label": {Value: &metadata.MetadataValue_RawString{RawString: "two"}},
+			}},
+		},
+		{
+			Key: &keyval.StoreKey{Key: []float32{0, 0, 1}},
+			Value: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+				"label": {Value: &metadata.MetadataValue_RawString{RawString: "three"}},
+			}},
+		},
+	}
+	_, err = client.Set(context.Background(), &dbquery.Set{Store: storeName, Inputs: entries})
+	require.NoError(t, err)
+
+	pageLimit := uint32(2)
+	firstPage, err := client.ListStoreEntries(context.Background(), &dbquery.ListStoreEntries{
+		Store: storeName,
+		Limit: &pageLimit,
+	})
+	require.NoError(t, err)
+	require.Len(t, firstPage.Entries, 2)
+	require.NotNil(t, firstPage.NextCursor)
+
+	secondPage, err := client.ListStoreEntries(context.Background(), &dbquery.ListStoreEntries{
+		Store:  storeName,
+		Cursor: firstPage.NextCursor,
+		Limit:  &pageLimit,
+	})
+	require.NoError(t, err)
+	require.Len(t, secondPage.Entries, 1)
+	require.Nil(t, secondPage.NextCursor)
+
+	listedEntries := append(firstPage.Entries, secondPage.Entries...)
+	listedKeys := make([][]float32, 0, len(listedEntries))
+	listedLabels := make([]string, 0, len(listedEntries))
+	for _, entry := range listedEntries {
+		listedKeys = append(listedKeys, entry.Key.Key)
+		listedLabels = append(listedLabels, entry.Value.Value["label"].GetRawString())
+	}
+	require.ElementsMatch(t, [][]float32{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, listedKeys)
+	require.ElementsMatch(t, []string{"one", "two", "three"}, listedLabels)
+
+	clearResponse, err := client.ClearStore(
+		context.Background(),
+		&dbquery.ClearStore{Store: storeName},
+	)
+	require.NoError(t, err)
+	require.EqualValues(t, 3, clearResponse.DeletedCount)
+
+	storeInfo, err := client.GetStore(
+		context.Background(),
+		&dbquery.GetStore{Store: storeName},
+	)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, storeInfo.Len)
+	require.EqualValues(t, 3, storeInfo.Dimension)
+	require.Equal(t, []string{"label"}, storeInfo.PredicateIndices)
+
+	emptyPage, err := client.ListStoreEntries(
+		context.Background(),
+		&dbquery.ListStoreEntries{Store: storeName},
+	)
+	require.NoError(t, err)
+	require.Empty(t, emptyPage.Entries)
+	require.Nil(t, emptyPage.NextCursor)
+}

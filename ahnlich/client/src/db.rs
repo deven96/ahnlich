@@ -2,13 +2,15 @@ use ahnlich_types::{
     db::{
         pipeline::{DbQuery, DbRequestPipeline, DbResponsePipeline, db_query::Query},
         query::{
-            CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred,
-            DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
-            GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set, Upsert,
+            ClearStore, CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
+            DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey,
+            GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStoreEntries, ListStores,
+            Ping, Set, Upsert,
         },
         server::{
-            ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
-            StoreInfo, StoreList, Unit,
+            ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult,
+            ListStoreEntries as ListStoreEntriesResult, Pong, Set as SetResult, StoreInfo,
+            StoreList, Unit,
         },
     },
     services::db_service::db_service_client::DbServiceClient,
@@ -106,6 +108,14 @@ impl DbPipeline {
     pub fn list_stores(&mut self) {
         self.queries
             .push(Query::ListStores(ListStores { schema: None }));
+    }
+
+    pub fn list_store_entries(&mut self, params: ListStoreEntries) {
+        self.queries.push(Query::ListStoreEntries(params));
+    }
+
+    pub fn clear_store(&mut self, params: ClearStore) {
+        self.queries.push(Query::ClearStore(params));
     }
 
     pub fn list_clients(&mut self) {
@@ -414,6 +424,35 @@ impl DbClient {
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_clients(req).await?.into_inner())
+    }
+
+    pub async fn list_store_entries(
+        &self,
+        params: ListStoreEntries,
+        tracing_id: Option<String>,
+    ) -> Result<ListStoreEntriesResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+
+        Ok(self
+            .client
+            .clone()
+            .list_store_entries(req)
+            .await?
+            .into_inner())
+    }
+
+    pub async fn clear_store(
+        &self,
+        params: ClearStore,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+
+        Ok(self.client.clone().clear_store(req).await?.into_inner())
     }
 
     pub async fn drop_schema(
@@ -1123,5 +1162,128 @@ mod test {
                 }]
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_list_store_entries_and_clear_store() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+
+        tokio::spawn(async move {
+            server.start().await.expect("Failed to start db server");
+        });
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let db_client = DbClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let store = "Client Entries".to_string();
+
+        db_client
+            .create_store(
+                CreateStore {
+                    store: store.clone(),
+                    dimension: 2,
+                    create_predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not create store");
+
+        let entries = vec![
+            DbStoreEntry {
+                key: Some(StoreKey {
+                    key: vec![1.0, 0.0],
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            },
+            DbStoreEntry {
+                key: Some(StoreKey {
+                    key: vec![0.0, 1.0],
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            },
+        ];
+
+        db_client
+            .set(
+                Set {
+                    store: store.clone(),
+                    inputs: entries,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not store entries");
+
+        let first_page = db_client
+            .list_store_entries(
+                ListStoreEntries {
+                    store: store.clone(),
+                    cursor: None,
+                    limit: Some(1),
+                    condition: None,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not list first page");
+
+        assert_eq!(first_page.entries.len(), 1);
+        let cursor = first_page
+            .next_cursor
+            .expect("First page should have a cursor");
+
+        let second_page = db_client
+            .list_store_entries(
+                ListStoreEntries {
+                    store: store.clone(),
+                    cursor: Some(cursor),
+                    limit: Some(1),
+                    condition: None,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not list second page");
+
+        assert_eq!(second_page.entries.len(), 1);
+        assert_eq!(second_page.next_cursor, None);
+
+        let result = db_client
+            .clear_store(
+                ClearStore {
+                    store: store.clone(),
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not clear store");
+
+        assert_eq!(result.deleted_count, 2);
+
+        let store_info = db_client
+            .get_store(store, None)
+            .await
+            .expect("Store should still exist");
+
+        assert_eq!(store_info.len, 0);
+        assert_eq!(store_info.dimension, 2);
     }
 }

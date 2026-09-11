@@ -35,6 +35,8 @@ message DBQuery {
     shared.cluster.ClusterInfoQuery cluster_info = 18;
     db.query.DropSchema drop_schema = 19;
     db.query.Upsert upsert = 20;
+    db.query.ListStoreEntries list_store_entries = 21;
+    db.query.ClearStore clear_store = 22;
   }
 }
 
@@ -58,6 +60,7 @@ message DBServerResponse {
     shared.info.ErrorResponse error = 11;
     db.server.StoreInfo store_info = 12;
     shared.cluster.ClusterInfoResponse cluster_info = 13;
+    db.server.ListStoreEntries list_store_entries = 14;
   }
 }
 

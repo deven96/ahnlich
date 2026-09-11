@@ -41,6 +41,11 @@ message Get {
   repeated GetEntry entries = 1;
 }
 
+message ListStoreEntries {
+  repeated GetEntry entries = 1;
+  optional string next_cursor = 2;
+}
+
 message GetSimNEntry {
   optional keyval.StoreInput key = 1;
   keyval.StoreValue value = 2;

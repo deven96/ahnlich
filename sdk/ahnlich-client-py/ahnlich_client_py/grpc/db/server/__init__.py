@@ -4,7 +4,7 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import betterproto
 
@@ -48,6 +48,12 @@ class Set(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class Get(betterproto.Message):
     entries: List["__keyval__.DbStoreEntry"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ListStoreEntries(betterproto.Message):
+    entries: List["__keyval__.DbStoreEntry"] = betterproto.message_field(1)
+    next_cursor: Optional[str] = betterproto.string_field(2, optional=True)
 
 
 @dataclass(eq=False, repr=False)

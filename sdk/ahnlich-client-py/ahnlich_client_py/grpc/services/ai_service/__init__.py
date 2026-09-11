@@ -140,6 +140,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def list_store_entries(
+        self,
+        ai_query_list_store_entries: "__ai_query__.ListStoreEntries",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.ListStoreEntries":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/ListStoreEntries",
+            ai_query_list_store_entries,
+            __ai_server__.ListStoreEntries,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def set(
         self,
         ai_query_set: "__ai_query__.Set",
@@ -270,6 +287,23 @@ class AiServiceStub(betterproto.ServiceStub):
         return await self._unary_unary(
             "/services.ai_service.AIService/DropSchema",
             ai_query_drop_schema,
+            __ai_server__.Del,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def clear_store(
+        self,
+        ai_query_clear_store: "__ai_query__.ClearStore",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.Del":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/ClearStore",
+            ai_query_clear_store,
             __ai_server__.Del,
             timeout=timeout,
             deadline=deadline,
@@ -434,6 +468,11 @@ class AiServiceBase(ServiceBase):
     ) -> "__ai_server__.AiStoreInfo":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def list_store_entries(
+        self, ai_query_list_store_entries: "__ai_query__.ListStoreEntries"
+    ) -> "__ai_server__.ListStoreEntries":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def set(self, ai_query_set: "__ai_query__.Set") -> "__ai_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
@@ -470,6 +509,11 @@ class AiServiceBase(ServiceBase):
 
     async def drop_schema(
         self, ai_query_drop_schema: "__ai_query__.DropSchema"
+    ) -> "__ai_server__.Del":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def clear_store(
+        self, ai_query_clear_store: "__ai_query__.ClearStore"
     ) -> "__ai_server__.Del":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
@@ -561,6 +605,14 @@ class AiServiceBase(ServiceBase):
         response = await self.get_store(request)
         await stream.send_message(response)
 
+    async def __rpc_list_store_entries(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.ListStoreEntries, __ai_server__.ListStoreEntries]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.list_store_entries(request)
+        await stream.send_message(response)
+
     async def __rpc_set(
         self, stream: "grpclib.server.Stream[__ai_query__.Set, __ai_server__.Set]"
     ) -> None:
@@ -618,6 +670,14 @@ class AiServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.drop_schema(request)
+        await stream.send_message(response)
+
+    async def __rpc_clear_store(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.ClearStore, __ai_server__.Del]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.clear_store(request)
         await stream.send_message(response)
 
     async def __rpc_list_clients(
@@ -719,6 +779,12 @@ class AiServiceBase(ServiceBase):
                 __ai_query__.GetStore,
                 __ai_server__.AiStoreInfo,
             ),
+            "/services.ai_service.AIService/ListStoreEntries": grpclib.const.Handler(
+                self.__rpc_list_store_entries,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.ListStoreEntries,
+                __ai_server__.ListStoreEntries,
+            ),
             "/services.ai_service.AIService/Set": grpclib.const.Handler(
                 self.__rpc_set,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -765,6 +831,12 @@ class AiServiceBase(ServiceBase):
                 self.__rpc_drop_schema,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.DropSchema,
+                __ai_server__.Del,
+            ),
+            "/services.ai_service.AIService/ClearStore": grpclib.const.Handler(
+                self.__rpc_clear_store,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.ClearStore,
                 __ai_server__.Del,
             ),
             "/services.ai_service.AIService/ListClients": grpclib.const.Handler(

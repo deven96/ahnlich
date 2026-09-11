@@ -317,6 +317,37 @@ impl DbService for Server {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn clear_store(
+        &self,
+        request: tonic::Request<query::ClearStore>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let (metadata, _, params) = request.into_parts();
+
+        let deleted_count = (match &self.runtime {
+            StoreRuntime::Cluster(cluster) => {
+                submit_db_command!(
+                    cluster,
+                    metadata,
+                    query::ClearStore,
+                    params,
+                    DbCommand::ClearStore,
+                    |mut client, request| async move {
+                        client.clear_store(request).await.map(|response| {
+                            response.map(|response| response.deleted_count as usize)
+                        })
+                    }
+                )
+                .await?
+            }
+            StoreRuntime::Standalone(store_handler) => {
+                operations::clear_store(store_handler, params)?
+            }
+        }) as u64;
+
+        Ok(tonic::Response::new(server::Del { deleted_count }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn drop_store(
         &self,
         request: tonic::Request<query::DropStore>,
@@ -418,6 +449,20 @@ impl DbService for Server {
         let result = read_store_handler(&self.runtime, |store_handler| {
             operations::get_store(store_handler, params)
         })?;
+        Ok(tonic::Response::new(result))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn list_store_entries(
+        &self,
+        request: tonic::Request<query::ListStoreEntries>,
+    ) -> std::result::Result<tonic::Response<server::ListStoreEntries>, tonic::Status> {
+        let params = request.into_inner();
+
+        let result = read_store_handler(&self.runtime, |store_handler| {
+            operations::list_store_entries(store_handler, params)
+        })?;
+
         Ok(tonic::Response::new(result))
     }
 
@@ -621,6 +666,27 @@ impl DbService for Server {
                     }
                 }
 
+                Query::ListStoreEntries(params) => {
+                    match self
+                        .list_store_entries(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
+                        Ok(response) => response_vec.push(
+                            pipeline::db_server_response::Response::ListStoreEntries(
+                                response.into_inner(),
+                            ),
+                        ),
+                        Err(error) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: error.message().to_owned(),
+                                    code: error.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
+
                 Query::DelKey(params) => match self
                     .del_key(forwarded_request(metadata.clone(), params))
                     .await
@@ -767,6 +833,27 @@ impl DbService for Server {
                         ));
                     }
                 },
+
+                Query::ClearStore(params) => {
+                    match self
+                        .clear_store(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
+                        Ok(response) => {
+                            response_vec.push(pipeline::db_server_response::Response::Del(
+                                response.into_inner(),
+                            ));
+                        }
+                        Err(error) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: error.message().to_owned(),
+                                    code: error.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
 
                 Query::CreatePredIndex(params) => {
                     match self

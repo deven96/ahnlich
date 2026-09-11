@@ -8,14 +8,12 @@ package ai_service
 
 import (
 	context "context"
-
-	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
-
 	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
 	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
 	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -31,6 +29,7 @@ const (
 	AIService_GetPred_FullMethodName                       = "/services.ai_service.AIService/GetPred"
 	AIService_GetSimN_FullMethodName                       = "/services.ai_service.AIService/GetSimN"
 	AIService_GetStore_FullMethodName                      = "/services.ai_service.AIService/GetStore"
+	AIService_ListStoreEntries_FullMethodName              = "/services.ai_service.AIService/ListStoreEntries"
 	AIService_Set_FullMethodName                           = "/services.ai_service.AIService/Set"
 	AIService_Upsert_FullMethodName                        = "/services.ai_service.AIService/Upsert"
 	AIService_DropPredIndex_FullMethodName                 = "/services.ai_service.AIService/DropPredIndex"
@@ -39,6 +38,7 @@ const (
 	AIService_DelPred_FullMethodName                       = "/services.ai_service.AIService/DelPred"
 	AIService_DropStore_FullMethodName                     = "/services.ai_service.AIService/DropStore"
 	AIService_DropSchema_FullMethodName                    = "/services.ai_service.AIService/DropSchema"
+	AIService_ClearStore_FullMethodName                    = "/services.ai_service.AIService/ClearStore"
 	AIService_ListClients_FullMethodName                   = "/services.ai_service.AIService/ListClients"
 	AIService_ListStores_FullMethodName                    = "/services.ai_service.AIService/ListStores"
 	AIService_InfoServer_FullMethodName                    = "/services.ai_service.AIService/InfoServer"
@@ -61,6 +61,7 @@ type AIServiceClient interface {
 	GetPred(ctx context.Context, in *query.GetPred, opts ...grpc.CallOption) (*server.Get, error)
 	GetSimN(ctx context.Context, in *query.GetSimN, opts ...grpc.CallOption) (*server.GetSimN, error)
 	GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.AIStoreInfo, error)
+	ListStoreEntries(ctx context.Context, in *query.ListStoreEntries, opts ...grpc.CallOption) (*server.ListStoreEntries, error)
 	// * Update methods *
 	Set(ctx context.Context, in *query.Set, opts ...grpc.CallOption) (*server.Set, error)
 	Upsert(ctx context.Context, in *query.Upsert, opts ...grpc.CallOption) (*server.Set, error)
@@ -71,6 +72,7 @@ type AIServiceClient interface {
 	DelPred(ctx context.Context, in *query.DelPred, opts ...grpc.CallOption) (*server.Del, error)
 	DropStore(ctx context.Context, in *query.DropStore, opts ...grpc.CallOption) (*server.Del, error)
 	DropSchema(ctx context.Context, in *query.DropSchema, opts ...grpc.CallOption) (*server.Del, error)
+	ClearStore(ctx context.Context, in *query.ClearStore, opts ...grpc.CallOption) (*server.Del, error)
 	// * Ancillary info methods *
 	ListClients(ctx context.Context, in *query.ListClients, opts ...grpc.CallOption) (*server.ClientList, error)
 	ListStores(ctx context.Context, in *query.ListStores, opts ...grpc.CallOption) (*server.StoreList, error)
@@ -160,6 +162,16 @@ func (c *aIServiceClient) GetStore(ctx context.Context, in *query.GetStore, opts
 	return out, nil
 }
 
+func (c *aIServiceClient) ListStoreEntries(ctx context.Context, in *query.ListStoreEntries, opts ...grpc.CallOption) (*server.ListStoreEntries, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.ListStoreEntries)
+	err := c.cc.Invoke(ctx, AIService_ListStoreEntries_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aIServiceClient) Set(ctx context.Context, in *query.Set, opts ...grpc.CallOption) (*server.Set, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.Set)
@@ -234,6 +246,16 @@ func (c *aIServiceClient) DropSchema(ctx context.Context, in *query.DropSchema, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.Del)
 	err := c.cc.Invoke(ctx, AIService_DropSchema_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) ClearStore(ctx context.Context, in *query.ClearStore, opts ...grpc.CallOption) (*server.Del, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.Del)
+	err := c.cc.Invoke(ctx, AIService_ClearStore_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +345,7 @@ type AIServiceServer interface {
 	GetPred(context.Context, *query.GetPred) (*server.Get, error)
 	GetSimN(context.Context, *query.GetSimN) (*server.GetSimN, error)
 	GetStore(context.Context, *query.GetStore) (*server.AIStoreInfo, error)
+	ListStoreEntries(context.Context, *query.ListStoreEntries) (*server.ListStoreEntries, error)
 	// * Update methods *
 	Set(context.Context, *query.Set) (*server.Set, error)
 	Upsert(context.Context, *query.Upsert) (*server.Set, error)
@@ -333,6 +356,7 @@ type AIServiceServer interface {
 	DelPred(context.Context, *query.DelPred) (*server.Del, error)
 	DropStore(context.Context, *query.DropStore) (*server.Del, error)
 	DropSchema(context.Context, *query.DropSchema) (*server.Del, error)
+	ClearStore(context.Context, *query.ClearStore) (*server.Del, error)
 	// * Ancillary info methods *
 	ListClients(context.Context, *query.ListClients) (*server.ClientList, error)
 	ListStores(context.Context, *query.ListStores) (*server.StoreList, error)
@@ -373,6 +397,9 @@ func (UnimplementedAIServiceServer) GetSimN(context.Context, *query.GetSimN) (*s
 func (UnimplementedAIServiceServer) GetStore(context.Context, *query.GetStore) (*server.AIStoreInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStore not implemented")
 }
+func (UnimplementedAIServiceServer) ListStoreEntries(context.Context, *query.ListStoreEntries) (*server.ListStoreEntries, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListStoreEntries not implemented")
+}
 func (UnimplementedAIServiceServer) Set(context.Context, *query.Set) (*server.Set, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
@@ -396,6 +423,9 @@ func (UnimplementedAIServiceServer) DropStore(context.Context, *query.DropStore)
 }
 func (UnimplementedAIServiceServer) DropSchema(context.Context, *query.DropSchema) (*server.Del, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropSchema not implemented")
+}
+func (UnimplementedAIServiceServer) ClearStore(context.Context, *query.ClearStore) (*server.Del, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClearStore not implemented")
 }
 func (UnimplementedAIServiceServer) ListClients(context.Context, *query.ListClients) (*server.ClientList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
@@ -565,6 +595,24 @@ func _AIService_GetStore_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_ListStoreEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.ListStoreEntries)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).ListStoreEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_ListStoreEntries_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).ListStoreEntries(ctx, req.(*query.ListStoreEntries))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AIService_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(query.Set)
 	if err := dec(in); err != nil {
@@ -705,6 +753,24 @@ func _AIService_DropSchema_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AIServiceServer).DropSchema(ctx, req.(*query.DropSchema))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_ClearStore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.ClearStore)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).ClearStore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_ClearStore_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).ClearStore(ctx, req.(*query.ClearStore))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -871,6 +937,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AIService_GetStore_Handler,
 		},
 		{
+			MethodName: "ListStoreEntries",
+			Handler:    _AIService_ListStoreEntries_Handler,
+		},
+		{
 			MethodName: "Set",
 			Handler:    _AIService_Set_Handler,
 		},
@@ -901,6 +971,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DropSchema",
 			Handler:    _AIService_DropSchema_Handler,
+		},
+		{
+			MethodName: "ClearStore",
+			Handler:    _AIService_ClearStore_Handler,
 		},
 		{
 			MethodName: "ListClients",

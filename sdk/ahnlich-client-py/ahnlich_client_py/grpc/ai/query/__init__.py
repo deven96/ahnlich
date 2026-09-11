@@ -194,6 +194,29 @@ class ListStores(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ListStoreEntries(betterproto.Message):
+    store: str = betterproto.string_field(1)
+    """Lists entries in a store using cursor-based pagination."""
+
+    cursor: Optional[str] = betterproto.string_field(2, optional=True)
+    limit: Optional[int] = betterproto.uint32_field(3, optional=True)
+    condition: Optional["__predicates__.PredicateCondition"] = (
+        betterproto.message_field(4, optional=True)
+    )
+    schema: Optional[str] = betterproto.string_field(5, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class ClearStore(betterproto.Message):
+    store: str = betterproto.string_field(1)
+    """
+    Deletes all entries while preserving the store and its configuration.
+    """
+
+    schema: Optional[str] = betterproto.string_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
 class GetStore(betterproto.Message):
     store: str = betterproto.string_field(1)
     """

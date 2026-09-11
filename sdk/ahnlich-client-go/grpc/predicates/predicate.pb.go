@@ -7,13 +7,11 @@
 package predicates
 
 import (
-	reflect "reflect"
-	sync "sync"
-
+	metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-
-	metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (

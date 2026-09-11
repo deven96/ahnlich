@@ -721,6 +721,58 @@ export class DelPred extends Message<DelPred> {
 }
 
 /**
+ * Deletes all entries from a store while preserving the store and its indices.
+ *
+ * @generated from message db.query.ClearStore
+ */
+export class ClearStore extends Message<ClearStore> {
+  /**
+   * The name of the store to clear.
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 2;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<ClearStore>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "db.query.ClearStore";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ClearStore {
+    return new ClearStore().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ClearStore {
+    return new ClearStore().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ClearStore {
+    return new ClearStore().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: ClearStore | PlainMessage<ClearStore> | undefined,
+    b: ClearStore | PlainMessage<ClearStore> | undefined,
+  ): boolean {
+    return proto3.util.equals(ClearStore, a, b);
+  }
+}
+
+/**
  * Drops a store and deletes all its data and associated indices.
  * If `error_if_not_exists` is true, it will return an error if the store does not exist.
  *
@@ -857,6 +909,82 @@ export class ListStores extends Message<ListStores> {
     b: ListStores | PlainMessage<ListStores> | undefined,
   ): boolean {
     return proto3.util.equals(ListStores, a, b);
+  }
+}
+
+/**
+ * Lists entries in a store using cursor-based pagination.
+ *
+ * @generated from message db.query.ListStoreEntries
+ */
+export class ListStoreEntries extends Message<ListStoreEntries> {
+  /**
+   * The name of the store.
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * Opaque cursor returned by the previous request.
+   *
+   * @generated from field: optional string cursor = 2;
+   */
+  cursor?: string;
+
+  /**
+   * Number of entries to return. Defaults to 100.
+   *
+   * @generated from field: optional uint32 limit = 3;
+   */
+  limit?: number;
+
+  /**
+   * Optional metadata filter.
+   *
+   * @generated from field: optional predicates.PredicateCondition condition = 4;
+   */
+  condition?: PredicateCondition;
+
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 5;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<ListStoreEntries>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "db.query.ListStoreEntries";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "cursor", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 3, name: "limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 4, name: "condition", kind: "message", T: PredicateCondition, opt: true },
+    { no: 5, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: ListStoreEntries | PlainMessage<ListStoreEntries> | undefined,
+    b: ListStoreEntries | PlainMessage<ListStoreEntries> | undefined,
+  ): boolean {
+    return proto3.util.equals(ListStoreEntries, a, b);
   }
 }
 

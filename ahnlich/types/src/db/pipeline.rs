@@ -3,7 +3,7 @@
 pub struct DbQuery {
     #[prost(
         oneof = "db_query::Query",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22"
     )]
     pub query: ::core::option::Option<db_query::Query>,
 }
@@ -51,6 +51,10 @@ pub mod db_query {
         DropSchema(super::super::query::DropSchema),
         #[prost(message, tag = "20")]
         Upsert(super::super::query::Upsert),
+        #[prost(message, tag = "21")]
+        ListStoreEntries(super::super::query::ListStoreEntries),
+        #[prost(message, tag = "22")]
+        ClearStore(super::super::query::ClearStore),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -62,7 +66,7 @@ pub struct DbRequestPipeline {
 pub struct DbServerResponse {
     #[prost(
         oneof = "db_server_response::Response",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14"
     )]
     pub response: ::core::option::Option<db_server_response::Response>,
 }
@@ -96,6 +100,8 @@ pub mod db_server_response {
         StoreInfo(super::super::server::StoreInfo),
         #[prost(message, tag = "13")]
         ClusterInfo(super::super::super::shared::cluster::ClusterInfoResponse),
+        #[prost(message, tag = "14")]
+        ListStoreEntries(super::super::server::ListStoreEntries),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
