@@ -156,12 +156,12 @@ jobs:
           elif benchmark_output=$(critcmp \
             --target-dir ahnlich/target \
             "$pr_baseline" \
-            --filter '(^|/)(control|candidate)/' \
-            --group '^(.*)(?:control|candidate)/(.*)$' 2>&1); then
-            comparison="first-time benchmark: control vs candidate"
+            --filter '(^|/)(candidate|control)/' \
+            --group '^(.*)(?:candidate|control)/(.*)$' 2>&1); then
+            comparison="first-time benchmark: candidate vs control"
           else
             comparison="first-time benchmark"
-            benchmark_output="No control/candidate pairs found. New benchmark targets must name comparable variants 'control' and 'candidate'."
+            benchmark_output="No candidate/control pairs found. New benchmark targets must name comparable variants 'candidate' and 'control'."
           fi
 
           {

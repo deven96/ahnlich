@@ -1248,8 +1248,11 @@ impl Store {
             .collect();
 
         if let Some(predicate_insert) = predicate_insert {
-            self.predicate_indices
-                .add(predicate_insert, parallelism_config, active_requests);
+            self.predicate_indices.add_existing_index_candidate(
+                predicate_insert,
+                parallelism_config,
+                active_requests,
+            );
         }
 
         if !self.non_linear_indices.is_empty() {
