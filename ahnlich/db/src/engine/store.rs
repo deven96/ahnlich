@@ -645,7 +645,7 @@ impl StoreHandler {
     ) -> Result<StoreUpsert, ServerError> {
         let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         let store = self.get(store_name, schema)?;
-        let upsert = store.add(
+        let upsert = store.add_primary_map_candidate(
             new,
             &self.parallelism_config,
             self.active_requests.load(Ordering::Relaxed),
@@ -724,7 +724,7 @@ impl StoreHandler {
             Arc::try_unwrap(value).unwrap_or_else(|arc| (*arc).clone())
         };
 
-        let add_result = store.add(
+        let add_result = store.add_primary_map_candidate(
             vec![(
                 StoreKey {
                     // Try to unwrap the Arc if possible, otherwise clone the vector
@@ -1163,8 +1163,115 @@ impl Store {
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
+    #[allow(dead_code)]
     #[tracing::instrument(skip(self, new), fields(entry_length=new.len()))]
     fn add(
+        &self,
+        new: Vec<(StoreKey, StoreValue)>,
+        parallelism_config: &ParallelismConfig,
+        active_requests: usize,
+    ) -> Result<StoreUpsert, ServerError> {
+        if new.is_empty() {
+            return Ok(StoreUpsert {
+                inserted: 0,
+                updated: 0,
+            });
+        }
+        let store_dimension: usize = self.dimension.into();
+
+        let entry_size = size_of_val(&StoreKey {
+            key: vec![0.0; store_dimension],
+        }) + size_of_val(&StoreValue {
+            value: StdHashMap::new(),
+        }) + 64;
+        let estimated_bytes = new.len() * entry_size * 3;
+        #[cfg(feature = "server")]
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| ServerError::Allocation(e.into()))?;
+
+        // Validate dimensions and wrap value in Arc; key becomes EmbeddingKey(Arc<Vec<f32>>)
+        let check_and_wrap = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<
+            (StoreKeyId, EmbeddingKey, Arc<StoreValue>),
+            ServerError,
+        > {
+            let input_dimension = store_key.key.len();
+            if input_dimension != store_dimension {
+                Err(ServerError::StoreDimensionMismatch {
+                    store_dimension,
+                    input_dimension,
+                })
+            } else {
+                let key_id = StoreKeyId::from(&store_key);
+                let embedding_key = EmbeddingKey::new(store_key.key);
+                let arc_val = Arc::new(store_val);
+                Ok((key_id, embedding_key, arc_val))
+            }
+        };
+
+        // Consume input vec, wrapping each entry once
+        let res: Vec<(StoreKeyId, EmbeddingKey, Arc<StoreValue>)> = new
+            .into_par_iter()
+            .map(check_and_wrap)
+            .collect::<Result<_, _>>()?;
+
+        // Avoid staging predicate updates when this store has no predicate indexes.
+        let predicate_insert = if self.predicate_indices.has_configured_predicates() {
+            Some(
+                res.par_iter()
+                    .map(|(k, _, v)| (*k, Arc::clone(v)))
+                    .collect(),
+            )
+        } else {
+            None
+        };
+
+        let inserted = AtomicUsize::new(0);
+        let updated = AtomicUsize::new(0);
+
+        // Insert into main store, collecting keys for non-linear indices
+        let inserted_keys: Vec<_> = res
+            .into_par_iter()
+            .filter_map(|(k, embedding_key, arc_val)| {
+                let pinned = self.id_to_value.pin();
+                // EmbeddingKey clone is a cheap Arc pointer bump
+                if pinned
+                    .insert(k, (embedding_key.clone(), Arc::clone(&arc_val)))
+                    .is_some()
+                {
+                    updated.fetch_add(1, Ordering::SeqCst);
+                    None
+                } else {
+                    inserted.fetch_add(1, Ordering::SeqCst);
+                    // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
+                    Some(embedding_key)
+                }
+            })
+            .collect();
+
+        if let Some(predicate_insert) = predicate_insert {
+            self.predicate_indices.add_existing_index_candidate(
+                predicate_insert,
+                parallelism_config,
+                active_requests,
+            );
+        }
+
+        if !self.non_linear_indices.is_empty() {
+            self.non_linear_indices.insert(inserted_keys);
+        }
+
+        // Mark store as needing size recalculation
+        self.mark_size_dirty();
+
+        Ok(StoreUpsert {
+            inserted: inserted.into_inner() as u64,
+            updated: updated.into_inner() as u64,
+        })
+    }
+
+    /// Candidate `add` implementation that uses one primary-map guard.
+    #[tracing::instrument(skip(self, new), fields(entry_length=new.len()))]
+    fn add_primary_map_candidate(
         &self,
         new: Vec<(StoreKey, StoreValue)>,
         parallelism_config: &ParallelismConfig,
