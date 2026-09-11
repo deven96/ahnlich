@@ -236,7 +236,6 @@ impl<F: DistanceFn> NearestFirst<F> {
     }
 
     /// Build a candidate queue from distances already computed by the caller.
-    #[cfg(feature = "bench-experiments")]
     pub(crate) fn from_scored(
         nodes: impl Iterator<Item = OrderedNode>,
         query: &Node,
@@ -250,7 +249,6 @@ impl<F: DistanceFn> NearestFirst<F> {
     }
 
     /// Admit a node without repeating its query-distance calculation.
-    #[cfg(feature = "bench-experiments")]
     pub(crate) fn push_scored(&mut self, node: OrderedNode) {
         self.heap.push(node);
     }
