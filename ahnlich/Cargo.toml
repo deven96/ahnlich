@@ -66,4 +66,3 @@ lto = true
 
 [profile.release.package.ahnlich-wasm-db]
 opt-level = "z"
-strip = true

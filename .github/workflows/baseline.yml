@@ -60,7 +60,7 @@ jobs:
           CONCURRENCY_LEVELS: ${{ inputs.concurrency_levels || '1 10 50' }}
           REPEATS: ${{ inputs.repeats || '3' }}
           RESULTS_DIR: ${{ github.workspace }}/benchmarks/results/ci
-        run: ./run_baseline.sh
+        run: ./run_getsimn.sh
 
       - name: Publish summary
         if: always()
