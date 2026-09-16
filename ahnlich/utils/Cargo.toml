@@ -38,6 +38,7 @@ log.workspace = true
 fallible_collections.workspace = true
 clap.workspace = true
 papaya.workspace = true
+seize.workspace = true
 tracing.workspace = true
 
 # Server-only dependencies

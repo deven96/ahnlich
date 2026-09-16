@@ -33,7 +33,9 @@ jobs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         targets_file="$RUNNER_TEMP/benchmark-targets.tsv"
+        memory_targets_file="$RUNNER_TEMP/memory-benchmark-targets.tsv"
         : > "$targets_file"
+        : > "$memory_targets_file"
 
         while IFS= read -r path; do
           crate="${path#ahnlich/}"
@@ -54,13 +56,32 @@ jobs:
             | sort -u
         )
 
-        if [[ -s "$targets_file" ]]; then
+        while IFS= read -r path; do
+          crate="${path#ahnlich/}"
+          crate="${crate%%/*}"
+          target="${path##*/}"
+          target="${target%.rs}"
+
+          printf '%s\t%s\n' "$crate" "$target" >> "$memory_targets_file"
+        done < <(
+          git diff --name-only --diff-filter=AMR "$BASE_SHA...HEAD" -- \
+            'ahnlich/*/benches/memory/*.rs' \
+            | sort -u
+        )
+
+        if [[ -s "$targets_file" || -s "$memory_targets_file" ]]; then
           echo "found=true" >> "$GITHUB_OUTPUT"
-          echo "Changed Criterion targets:"
-          column -t -s $'\t' "$targets_file"
+          if [[ -s "$targets_file" ]]; then
+            echo "Changed Criterion targets:"
+            column -t -s $'\t' "$targets_file"
+          fi
+          if [[ -s "$memory_targets_file" ]]; then
+            echo "Changed memory report targets:"
+            column -t -s $'\t' "$memory_targets_file"
+          fi
         else
           echo "found=false" >> "$GITHUB_OUTPUT"
-          echo "No changed Criterion benchmark targets found."
+          echo "No changed benchmark targets found."
         fi
 
     - name: Set up Rust cache
@@ -126,6 +147,24 @@ jobs:
             --save-baseline "$baseline"
         done < "$RUNNER_TEMP/benchmark-targets.tsv"
 
+    - name: Run changed memory reports on PR branch
+      if: steps.benchmarks.outputs.found == 'true'
+      shell: bash
+      run: |
+        memory_report="$RUNNER_TEMP/memory-bench-results.md"
+        : > "$memory_report"
+
+        while IFS=$'\t' read -r crate target; do
+          target_report="$RUNNER_TEMP/${crate}-${target}.md"
+          cargo bench \
+            --manifest-path "ahnlich/${crate}/Cargo.toml" \
+            --bench "$target" \
+            --features bench-experiments \
+            -- \
+            --output "$target_report"
+          cat "$target_report" >> "$memory_report"
+        done < "$RUNNER_TEMP/memory-benchmark-targets.tsv"
+
     - name: Compare changed benchmarks
       if: steps.benchmarks.outputs.found == 'true'
       shell: bash
@@ -133,9 +172,14 @@ jobs:
         report="ahnlich/experiment_bench_results.md"
         {
           echo "## Opt-in Benchmark Results"
-          echo
-          echo "Criterion results from the benchmark targets changed by this PR."
         } > "$report"
+
+        if [[ -s "$RUNNER_TEMP/benchmark-targets.tsv" ]]; then
+          {
+            echo
+            echo "Criterion results from the benchmark targets changed by this PR."
+          } >> "$report"
+        fi
 
         while IFS=$'\t' read -r crate target exists_on_main; do
           main_baseline="main-${GITHUB_RUN_ID}-${crate}-${target}"
@@ -172,6 +216,13 @@ jobs:
             echo '```'
           } >> "$report"
         done < "$RUNNER_TEMP/benchmark-targets.tsv"
+
+        if [[ -s "$RUNNER_TEMP/memory-bench-results.md" ]]; then
+          {
+            echo
+            cat "$RUNNER_TEMP/memory-bench-results.md"
+          } >> "$report"
+        fi
 
         cat "$report"
         cat "$report" >> "$GITHUB_STEP_SUMMARY"

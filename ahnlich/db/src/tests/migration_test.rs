@@ -5,6 +5,10 @@ use ahnlich_types::algorithm::{
 };
 use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
 use ahnlich_types::metadata::{MetadataValue, metadata_value};
+use ahnlich_types::predicates::{
+    self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+    predicate_condition::Kind as PredicateConditionKind,
+};
 use ahnlich_types::schema::Schema;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
@@ -104,6 +108,19 @@ fn populated_db_old_flat_snapshot_json() -> Value {
         .expect("generated DB snapshot should contain public schema")
 }
 
+fn equals_condition(key: &str, value: &str) -> PredicateCondition {
+    PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: key.to_owned(),
+                value: Some(MetadataValue {
+                    value: Some(metadata_value::Value::RawString(value.to_owned())),
+                }),
+            })),
+        })),
+    }
+}
+
 fn assert_populated_db_snapshot(migrated: Stores) {
     let mut handler =
         StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
@@ -149,6 +166,53 @@ fn assert_populated_db_snapshot(migrated: Stores) {
             .iter()
             .any(|index| matches!(index.index, Some(non_linear_index::Index::Hnsw(_)))),
         "fixture should preserve HNSW index"
+    );
+
+    let store_name = StoreName {
+        value: "fixture_store".to_string(),
+    };
+    let fruit = equals_condition("category", "fruit");
+    assert_eq!(
+        handler
+            .get_pred_in_store(&store_name, &Schema::default(), &fruit)
+            .expect("restored predicate index should be queryable")
+            .len(),
+        1
+    );
+
+    handler
+        .set_in_store(
+            &store_name,
+            &Schema::default(),
+            vec![(
+                StoreKey {
+                    key: vec![0.3, 0.6, 0.9],
+                },
+                StoreValue {
+                    value: HashMap::from([
+                        (
+                            "category".to_string(),
+                            MetadataValue {
+                                value: Some(metadata_value::Value::RawString("fruit".to_string())),
+                            },
+                        ),
+                        (
+                            "color".to_string(),
+                            MetadataValue {
+                                value: Some(metadata_value::Value::RawString("blue".to_string())),
+                            },
+                        ),
+                    ]),
+                },
+            )],
+        )
+        .expect("restored store should accept indexed writes");
+    assert_eq!(
+        handler
+            .get_pred_in_store(&store_name, &Schema::default(), &fruit)
+            .expect("restored predicate index should contain the new entry")
+            .len(),
+        2
     );
 }
 

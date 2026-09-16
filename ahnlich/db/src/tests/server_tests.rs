@@ -283,7 +283,7 @@ async fn test_create_stores() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 0,
-                        size_in_bytes: 1056,
+                        size_in_bytes: 104,
                         non_linear_indices: vec![],
                         predicate_indices: vec![],
                         dimension: 3,
@@ -513,7 +513,7 @@ async fn test_del_pred() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1264,
+                        size_in_bytes: 312,
                         non_linear_indices: vec![],
                         predicate_indices: vec![],
                         dimension: 2,
@@ -556,7 +556,7 @@ async fn test_del_pred() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 0,
-                        size_in_bytes: 1056,
+                        size_in_bytes: 104,
                         non_linear_indices: vec![],
                         predicate_indices: vec![],
                         dimension: 2,
@@ -728,7 +728,7 @@ async fn test_del_key() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1176,
+                        size_in_bytes: 224,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -755,7 +755,7 @@ async fn test_del_key() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1128,
+                        size_in_bytes: 176,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -937,7 +937,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1304,
+                        size_in_bytes: 352,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -964,7 +964,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1256,
+                        size_in_bytes: 304,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -1096,6 +1096,78 @@ async fn test_server_with_persistence() {
 
     assert_eq!(expected, response.into_inner());
     assert!(!write_flag.load(Ordering::SeqCst));
+
+    let persisted_role = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "role".into(),
+                value: Some(MetadataValue {
+                    value: Some(MetadataValueEnum::Image(vec![1, 2, 3])),
+                }),
+            })),
+        })),
+    };
+    let persisted_matches = client
+        .get_pred(tonic::Request::new(db_query_types::GetPred {
+            store: "Main".to_string(),
+            condition: Some(persisted_role),
+            schema: None,
+        }))
+        .await
+        .expect("restored predicate index should be queryable")
+        .into_inner();
+    assert_eq!(persisted_matches.entries.len(), 1);
+
+    let new_entry = DbStoreEntry {
+        key: Some(StoreKey {
+            key: vec![2.1, 2.2, 2.3, 2.4],
+        }),
+        value: Some(StoreValue {
+            value: HashMap::from_iter([(
+                "role".into(),
+                MetadataValue {
+                    value: Some(MetadataValueEnum::RawString("admin".into())),
+                },
+            )]),
+        }),
+    };
+    let set_response = client
+        .set(tonic::Request::new(db_query_types::Set {
+            store: "Main".to_string(),
+            inputs: vec![new_entry.clone()],
+            schema: None,
+        }))
+        .await
+        .expect("restored store should accept indexed writes")
+        .into_inner();
+    assert_eq!(
+        set_response.upsert,
+        Some(StoreUpsert {
+            inserted: 1,
+            updated: 0,
+        })
+    );
+
+    let new_role = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "role".into(),
+                value: Some(MetadataValue {
+                    value: Some(MetadataValueEnum::RawString("admin".into())),
+                }),
+            })),
+        })),
+    };
+    let new_matches = client
+        .get_pred(tonic::Request::new(db_query_types::GetPred {
+            store: "Main".to_string(),
+            condition: Some(new_role),
+            schema: None,
+        }))
+        .await
+        .expect("new predicate bucket should be queryable")
+        .into_inner();
+    assert_eq!(new_matches.entries, vec![new_entry]);
 
     // Clean up - delete persistence file
     let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
@@ -1269,7 +1341,7 @@ async fn test_set_in_store() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1304,
+                        size_in_bytes: 352,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 3,
@@ -3189,7 +3261,7 @@ async fn test_drop_stores() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 0,
-                        size_in_bytes: 1056,
+                        size_in_bytes: 104,
                         non_linear_indices: vec![],
                         predicate_indices: vec![],
                         dimension: 3,
