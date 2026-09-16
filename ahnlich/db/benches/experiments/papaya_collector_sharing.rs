@@ -19,7 +19,7 @@ struct Scenario {
     parallel: bool,
 }
 
-const SCENARIOS: [Scenario; 8] = [
+const SCENARIOS: [Scenario; 6] = [
     Scenario {
         name: "first_low_cardinality_10k_sequential",
         initial_entries: 0,
@@ -60,20 +60,6 @@ const SCENARIOS: [Scenario; 8] = [
         initial_entries: 10,
         incoming_entries: 10_000,
         cardinality: 10,
-        parallel: true,
-    },
-    Scenario {
-        name: "first_unique_100k_sequential",
-        initial_entries: 0,
-        incoming_entries: 100_000,
-        cardinality: 100_000,
-        parallel: false,
-    },
-    Scenario {
-        name: "first_unique_100k_parallel",
-        initial_entries: 0,
-        incoming_entries: 100_000,
-        cardinality: 100_000,
         parallel: true,
     },
 ];
