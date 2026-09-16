@@ -5,7 +5,7 @@ use std::fmt::Write as _;
 use std::hint::black_box;
 use std::path::Path;
 use std::process::Command;
-use support::{populated_store, Scenario, SharingScope, MEMORY_SCENARIOS};
+use support::{MEMORY_SCENARIOS, Scenario, SharingScope, populated_store};
 use tikv_jemalloc_ctl::{epoch, stats};
 
 const SAMPLES: usize = 3;

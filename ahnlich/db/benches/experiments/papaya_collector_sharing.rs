@@ -2,10 +2,10 @@ use ahnlich_db::engine::predicate_experiments::{
     CollectorSharingVariant, PredicateCollectorFixture,
 };
 use ahnlich_db::engine::store::ParallelismConfig;
-use ahnlich_types::metadata::{metadata_value::Value, MetadataValue};
+use ahnlich_types::metadata::{MetadataValue, metadata_value::Value};
 use ahnlich_types::utils::StoreKeyId;
 use criterion::{
-    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
+    BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
