@@ -14,6 +14,69 @@ pub enum Variant {
     ExistingIndex,
 }
 
+#[derive(Clone, Copy)]
+pub enum CollectorSharingVariant {
+    Control,
+    Candidate,
+}
+
+enum CollectorIndex {
+    Control(PredicateIndex),
+    Candidate(SharedPredicateIndex),
+}
+
+pub struct PredicateCollectorFixture {
+    index: CollectorIndex,
+    config: crate::engine::store::ParallelismConfig,
+    active_requests: usize,
+}
+
+impl PredicateCollectorFixture {
+    pub fn new(
+        variant: CollectorSharingVariant,
+        initial: Vec<(MetadataValue, StoreKeyId)>,
+        config: crate::engine::store::ParallelismConfig,
+        active_requests: usize,
+    ) -> Self {
+        let index = match variant {
+            CollectorSharingVariant::Control => {
+                CollectorIndex::Control(PredicateIndex::init(initial, &config, active_requests))
+            }
+            CollectorSharingVariant::Candidate => CollectorIndex::Candidate(
+                SharedPredicateIndex::init(initial, &config, active_requests),
+            ),
+        };
+        Self {
+            index,
+            config,
+            active_requests,
+        }
+    }
+
+    pub fn add(&self, entries: Vec<(MetadataValue, StoreKeyId)>) {
+        match &self.index {
+            CollectorIndex::Control(index) => {
+                index.add(entries, &self.config, self.active_requests)
+            }
+            CollectorIndex::Candidate(index) => {
+                index.add(entries, &self.config, self.active_requests)
+            }
+        }
+    }
+
+    pub fn memberships(&self) -> BTreeMap<MetadataValue, BTreeSet<StoreKeyId>> {
+        let entries = match &self.index {
+            CollectorIndex::Control(index) => &index.0,
+            CollectorIndex::Candidate(index) => &index.inner,
+        };
+        entries
+            .pin()
+            .iter()
+            .map(|(value, ids)| (value.clone(), ids.pin().iter().copied().collect()))
+            .collect()
+    }
+}
+
 /// Narrow facade so benchmarks can exercise the real private predicate structures.
 /// Fixture construction and inspection belong outside the measured routine.
 pub struct PredicateIngestionFixture {
@@ -58,7 +121,7 @@ impl PredicateIngestionFixture {
             .iter()
             .map(|(key, index)| {
                 let buckets = index
-                    .0
+                    .inner
                     .pin()
                     .iter()
                     .map(|(value, ids)| (value.clone(), ids.pin().iter().copied().collect()))

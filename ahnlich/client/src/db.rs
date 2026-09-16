@@ -551,7 +551,7 @@ mod test {
                         stores: vec![StoreInfo {
                             name: "Main".to_string(),
                             len: 0,
-                            size_in_bytes: 1056,
+                            size_in_bytes: 104,
                             non_linear_indices: vec![],
                             predicate_indices: vec![],
                             dimension: 3,
@@ -833,7 +833,7 @@ mod test {
                         stores: vec![db_response_types::StoreInfo {
                             name: "Main".to_string(),
                             len: 0,
-                            size_in_bytes: 1056,
+                            size_in_bytes: 104,
                             non_linear_indices: vec![],
                             predicate_indices: vec![],
                             dimension: 3,
@@ -933,7 +933,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 2,
-                    size_in_bytes: 1340,
+                    size_in_bytes: 388,
                     non_linear_indices: vec![NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
@@ -974,7 +974,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 1,
-                    size_in_bytes: 1236,
+                    size_in_bytes: 284,
                     non_linear_indices: vec![NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
