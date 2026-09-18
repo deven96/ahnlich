@@ -26,9 +26,13 @@ fn db_fixture_dir() -> std::path::PathBuf {
 
 fn populated_db_fixture_handler() -> StoreHandler {
     let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
+
     let predicates = vec!["category".to_string(), "color".to_string()];
+
     let mut non_linear_indices: HashSet<non_linear_index::Index> = HashSet::new();
+
     non_linear_indices.insert(non_linear_index::Index::Kdtree(KdTreeConfig {}));
+
     non_linear_indices.insert(non_linear_index::Index::Hnsw(HnswConfig {
         distance: Some(DistanceMetric::Cosine as i32),
         ef_construction: Some(150),
@@ -52,24 +56,27 @@ fn populated_db_fixture_handler() -> StoreHandler {
         .unwrap();
 
     for (key, name, category, color) in [
-        (vec![0.5f32, 0.1, 0.8], "item1", "fruit", "red"),
-        (vec![0.2f32, 0.7, 0.3], "item2", "vegetable", "green"),
-        (vec![0.9f32, 0.4, 0.2], "item3", "grain", "yellow"),
+        (vec![0.5_f32, 0.1, 0.8], "item1", "fruit", "red"),
+        (vec![0.2_f32, 0.7, 0.3], "item2", "vegetable", "green"),
+        (vec![0.9_f32, 0.4, 0.2], "item3", "grain", "yellow"),
     ] {
-        let mut meta = HashMap::new();
-        meta.insert(
+        let mut metadata = HashMap::new();
+
+        metadata.insert(
             "name".to_string(),
             MetadataValue {
                 value: Some(metadata_value::Value::RawString(name.to_string())),
             },
         );
-        meta.insert(
+
+        metadata.insert(
             "category".to_string(),
             MetadataValue {
                 value: Some(metadata_value::Value::RawString(category.to_string())),
             },
         );
-        meta.insert(
+
+        metadata.insert(
             "color".to_string(),
             MetadataValue {
                 value: Some(metadata_value::Value::RawString(color.to_string())),
@@ -82,7 +89,7 @@ fn populated_db_fixture_handler() -> StoreHandler {
                     value: "fixture_store".to_string(),
                 },
                 &Schema::default(),
-                vec![(StoreKey { key }, StoreValue { value: meta })],
+                vec![(StoreKey { key }, StoreValue { value: metadata })],
             )
             .unwrap();
     }
@@ -90,9 +97,35 @@ fn populated_db_fixture_handler() -> StoreHandler {
     handler
 }
 
-fn populated_db_v2_snapshot_json() -> Value {
+fn populated_db_v3_snapshot_json() -> Value {
     serde_json::to_value(populated_db_fixture_handler().get_snapshot())
-        .expect("DB V2 snapshot serialization failed")
+        .expect("DB V3 snapshot serialization failed")
+}
+
+fn populated_db_v2_snapshot_json() -> Value {
+    let mut snapshot = populated_db_v3_snapshot_json();
+
+    snapshot["db_version"] = Value::String("2".to_string());
+
+    let schemas = snapshot
+        .get_mut("stores")
+        .and_then(Value::as_object_mut)
+        .expect("snapshot should contain stores");
+
+    for stores in schemas.values_mut() {
+        let stores = stores
+            .as_object_mut()
+            .expect("schema should contain stores");
+
+        for store in stores.values_mut() {
+            store
+                .as_object_mut()
+                .expect("store should be an object")
+                .remove("ordered_key_index");
+        }
+    }
+
+    snapshot
 }
 
 fn populated_db_old_flat_snapshot_json() -> Value {
@@ -107,7 +140,9 @@ fn populated_db_old_flat_snapshot_json() -> Value {
 fn assert_populated_db_snapshot(migrated: Stores) {
     let mut handler =
         StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
+
     handler.use_snapshot(migrated);
+
     let store_info = handler
         .get_store(
             &StoreName {
@@ -118,10 +153,12 @@ fn assert_populated_db_snapshot(migrated: Stores) {
         .expect("fixture store should load after migration");
 
     assert_eq!(store_info.len, 3, "fixture should preserve inserted values");
+
     assert_eq!(
         store_info.dimension, 3,
         "fixture should preserve store dimension"
     );
+
     assert!(
         store_info
             .predicate_indices
@@ -129,6 +166,7 @@ fn assert_populated_db_snapshot(migrated: Stores) {
             .any(|predicate| predicate == "category"),
         "fixture should preserve category predicate index"
     );
+
     assert!(
         store_info
             .predicate_indices
@@ -136,6 +174,7 @@ fn assert_populated_db_snapshot(migrated: Stores) {
             .any(|predicate| predicate == "color"),
         "fixture should preserve color predicate index"
     );
+
     assert!(
         store_info
             .non_linear_indices
@@ -143,6 +182,7 @@ fn assert_populated_db_snapshot(migrated: Stores) {
             .any(|index| matches!(index.index, Some(non_linear_index::Index::Kdtree(_)))),
         "fixture should preserve KDTree index"
     );
+
     assert!(
         store_info
             .non_linear_indices
@@ -150,20 +190,45 @@ fn assert_populated_db_snapshot(migrated: Stores) {
             .any(|index| matches!(index.index, Some(non_linear_index::Index::Hnsw(_)))),
         "fixture should preserve HNSW index"
     );
+
+    let snapshot =
+        serde_json::to_value(handler.get_snapshot()).expect("migrated snapshot should serialize");
+
+    assert_eq!(
+        snapshot.get("db_version").and_then(Value::as_str),
+        Some("3")
+    );
+
+    let ordered_ids = snapshot
+        .pointer("/stores/public/fixture_store/ordered_key_index/ids")
+        .and_then(Value::as_array)
+        .expect("V3 snapshot should contain ordered IDs");
+
+    assert_eq!(
+        ordered_ids.len(),
+        3,
+        "migration should build the ordered index"
+    );
 }
 
 #[test]
 fn test_db_migrate_old_flat_snapshot_via_json() {
     let old_format = populated_db_old_flat_snapshot_json();
+
     let json_bytes = serde_json::to_vec(&old_format).expect("Failed to serialize old format");
-    let migrated: Stores = StoreHandler::load_snapshot(&json_bytes).expect("Migration failed");
+
+    let migrated = StoreHandler::load_snapshot(&json_bytes).expect("Migration failed");
+
     {
         let guard = migrated.guard();
+
         let inner = migrated
             .get(&Schema::default(), &guard)
             .expect("No public schema after migration");
+
         assert_eq!(inner.len(), 1, "Expected 1 DB store under public schema");
     }
+
     assert_populated_db_snapshot(migrated);
 }
 
@@ -178,21 +243,28 @@ fn test_db_migrate_from_committed_fixture() {
     );
 
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
-    let migrated: Stores =
-        StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
+
+    let migrated = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
+
     {
         let guard = migrated.guard();
+
         let inner = migrated
             .get(&Schema::default(), &guard)
             .expect("No public schema after migration");
+
         assert_eq!(inner.len(), 1, "Expected 1 DB store under public schema");
+
         let pinned = inner.pin();
+
         let (key, _) = pinned.iter().next().expect("No store in result");
+
         assert_eq!(
             key.value, "fixture_store",
             "Store name preserved after migration"
         );
     }
+
     assert_populated_db_snapshot(migrated);
 }
 
@@ -200,25 +272,28 @@ fn test_db_migrate_from_committed_fixture() {
 #[ignore]
 fn generate_db_v2_fixture() {
     let fixture_dir = db_fixture_dir();
+
     let old_flat_path = fixture_dir.join("db_old_flat_snapshot.json");
+
     let old_flat_json =
         serde_json::to_string_pretty(&populated_db_old_flat_snapshot_json()).unwrap();
+
     std::fs::write(&old_flat_path, &old_flat_json).expect("Failed to write old flat fixture");
+
     eprintln!("Generated old flat fixture at: {:?}", old_flat_path);
 
     let v2_path = fixture_dir.join("db_v2_snapshot.json");
+
     let v2_json = serde_json::to_string_pretty(&populated_db_v2_snapshot_json()).unwrap();
+
     std::fs::write(&v2_path, &v2_json).expect("Failed to write V2 fixture");
+
     eprintln!("Generated V2 fixture at: {:?}", v2_path);
 }
 
 #[test]
 fn test_db_load_v2_snapshot() {
-    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src")
-        .join("tests")
-        .join("fixtures")
-        .join("db_v2_snapshot.json");
+    let fixture_path = db_fixture_dir().join("db_v2_snapshot.json");
 
     assert!(
         fixture_path.exists(),
@@ -227,16 +302,47 @@ fn test_db_load_v2_snapshot() {
     );
 
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
-    let loaded: Stores = StoreHandler::load_snapshot(&read_bytes).expect("V2 load failed");
+
+    let loaded = StoreHandler::load_snapshot(&read_bytes).expect("V2 load failed");
+
     {
         let guard = loaded.guard();
+
         let inner = loaded
             .get(&Schema::default(), &guard)
             .expect("No public schema after V2 load");
+
         assert_eq!(inner.len(), 1, "Expected 1 DB store under public schema");
+
         let pinned = inner.pin();
-        let (key, _store) = pinned.iter().next().expect("No store in result");
+
+        let (key, _) = pinned.iter().next().expect("No store in result");
+
         assert_eq!(key.value, "fixture_store", "Store name preserved in V2");
     }
+
+    assert_populated_db_snapshot(loaded);
+}
+
+#[test]
+fn test_db_v3_snapshot_round_trip() {
+    let snapshot = populated_db_v3_snapshot_json();
+
+    assert_eq!(
+        snapshot.get("db_version").and_then(Value::as_str),
+        Some("3")
+    );
+
+    let ordered_ids = snapshot
+        .pointer("/stores/public/fixture_store/ordered_key_index/ids")
+        .and_then(Value::as_array)
+        .expect("V3 snapshot should contain ordered IDs");
+
+    assert_eq!(ordered_ids.len(), 3);
+
+    let bytes = serde_json::to_vec(&snapshot).expect("V3 snapshot should serialize");
+
+    let loaded = StoreHandler::load_snapshot(&bytes).expect("V3 snapshot should load");
+
     assert_populated_db_snapshot(loaded);
 }
