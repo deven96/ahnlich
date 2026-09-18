@@ -111,6 +111,60 @@ fn entry_embedding(entry: &DbStoreEntry) -> Vec<f32> {
         .clone()
 }
 
+fn generated_entries(count: usize, offset: usize, category: &str) -> Vec<DbStoreEntry> {
+    (0..count)
+        .map(|index| {
+            store_entry(
+                vec![(offset + index) as f32, 1.0, 0.0],
+                &format!("{category}-{index}"),
+                category,
+            )
+        })
+        .collect()
+}
+
+fn sorted_entry_ids(entries: &[DbStoreEntry]) -> Vec<StoreKeyId> {
+    let mut ids = entries
+        .iter()
+        .map(|entry| StoreKeyId::from(entry.key.as_ref().expect("entry should have a key")))
+        .collect::<Vec<_>>();
+
+    ids.sort_unstable();
+    ids
+}
+
+fn list_all_entries(
+    handler: &StoreHandler,
+    limit: u32,
+    condition: Option<PredicateCondition>,
+) -> Vec<DbStoreEntry> {
+    let mut cursor = None;
+    let mut entries = Vec::new();
+
+    loop {
+        let page = operations::list_store_entries(
+            handler,
+            query::ListStoreEntries {
+                store: STORE_NAME.to_owned(),
+                cursor,
+                limit: Some(limit),
+                condition: condition.clone(),
+                schema: None,
+            },
+        )
+        .expect("listing entries should succeed");
+
+        entries.extend(page.entries);
+
+        match page.next_cursor {
+            Some(next_cursor) => {
+                cursor = Some(next_cursor);
+            }
+            None => return entries,
+        }
+    }
+}
+
 #[test]
 fn list_store_entries_returns_complete_ordered_pages() {
     let handler = seeded_store();
@@ -332,4 +386,72 @@ fn clear_store_preserves_configuration_and_remains_usable() {
     .expect("cleared store should remain usable");
 
     assert_eq!(page.entries.len(), 1);
+}
+#[test]
+fn list_store_entries_is_ordered_on_both_sides_of_sort_threshold() {
+    let handler = store_handler();
+    create_store(&handler);
+
+    // With limit 1, the measured sorting threshold is 10.
+    let selective_entries = generated_entries(10, 100, "selective");
+    let broad_entries = generated_entries(11, 1_000, "broad");
+
+    let expected_selective_ids = sorted_entry_ids(&selective_entries);
+    let expected_broad_ids = sorted_entry_ids(&broad_entries);
+
+    set_entries(
+        &handler,
+        selective_entries.into_iter().chain(broad_entries).collect(),
+    );
+
+    let selective_results = list_all_entries(&handler, 1, Some(category_condition("selective")));
+
+    let broad_results = list_all_entries(&handler, 1, Some(category_condition("broad")));
+
+    let selective_ids = selective_results
+        .iter()
+        .map(|entry| StoreKeyId::from(entry.key.as_ref().expect("entry should have a key")))
+        .collect::<Vec<_>>();
+
+    let broad_ids = broad_results
+        .iter()
+        .map(|entry| StoreKeyId::from(entry.key.as_ref().expect("entry should have a key")))
+        .collect::<Vec<_>>();
+
+    assert_eq!(selective_ids, expected_selective_ids);
+    assert_eq!(broad_ids, expected_broad_ids);
+}
+
+#[test]
+fn list_store_entries_excludes_deleted_ids_from_ordered_index() {
+    let entries = seeded_entries();
+
+    let deleted_key = entries[2].key.clone().expect("entry should have a key");
+
+    let deleted_id = StoreKeyId::from(&deleted_key);
+
+    let mut expected_ids = sorted_entry_ids(&entries);
+    expected_ids.retain(|id| *id != deleted_id);
+
+    let handler = store_handler();
+    create_store(&handler);
+    set_entries(&handler, entries);
+
+    let deleted = operations::del_key(
+        &handler,
+        query::DelKey {
+            store: STORE_NAME.to_owned(),
+            keys: vec![deleted_key],
+            schema: None,
+        },
+    )
+    .expect("deleting an entry should succeed");
+
+    assert_eq!(deleted, 1);
+
+    let listed = list_all_entries(&handler, 2, None);
+    let listed_ids = sorted_entry_ids(&listed);
+
+    assert_eq!(listed_ids, expected_ids);
+    assert!(!listed_ids.contains(&deleted_id));
 }
