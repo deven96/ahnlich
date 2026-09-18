@@ -972,7 +972,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 2,
-                    size_in_bytes: 1340,
+                    size_in_bytes: 1356,
                     non_linear_indices: vec![NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
@@ -1013,7 +1013,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 1,
-                    size_in_bytes: 1236,
+                    size_in_bytes: 1244,
                     non_linear_indices: vec![NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],

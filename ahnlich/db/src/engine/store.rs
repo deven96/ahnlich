@@ -20,12 +20,14 @@ use ahnlich_types::shared::info::StoreUpsert;
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::utils::{StoreKeyId, hash_f32_vec};
 use papaya::HashMap as ConcurrentHashMap;
-use serde::Deserialize;
-use serde::Serialize;
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
-use std::mem::size_of_val;
+use std::mem::{size_of, size_of_val};
 use std::num::NonZeroUsize;
+use std::ops::Bound::{Excluded, Unbounded};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
@@ -36,6 +38,55 @@ use utils::persistence::AhnlichPersistenceUtils;
 use utils::persistence::VersionedPersistence;
 
 type StoreEntry = (EmbeddingKey, Arc<StoreValue>);
+
+const LIST_ENTRIES_SORT_THRESHOLD_MULTIPLIER: usize = 10;
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct OrderedStoreKeyIndex {
+    ids: RwLock<BTreeSet<StoreKeyId>>,
+}
+
+impl OrderedStoreKeyIndex {
+    fn insert(&self, ids: impl IntoIterator<Item = StoreKeyId>) {
+        self.ids.write().extend(ids);
+    }
+
+    fn remove(&self, ids: impl IntoIterator<Item = StoreKeyId>) {
+        let mut ordered_ids = self.ids.write();
+
+        for id in ids {
+            ordered_ids.remove(&id);
+        }
+    }
+
+    fn rebuild(&self, ids: impl IntoIterator<Item = StoreKeyId>) {
+        let mut ordered_ids = self.ids.write();
+        ordered_ids.clear();
+        ordered_ids.extend(ids);
+    }
+
+    fn estimated_heap_size(&self) -> usize {
+        self.ids.read().len() * size_of::<StoreKeyId>()
+    }
+
+    fn page_after(
+        &self,
+        cursor: Option<StoreKeyId>,
+        limit: usize,
+        include: impl Fn(StoreKeyId) -> bool,
+    ) -> Vec<StoreKeyId> {
+        let start = cursor.map_or(Unbounded, Excluded);
+        let ordered_ids = self.ids.read();
+
+        ordered_ids
+            .range((start, Unbounded))
+            .copied()
+            .filter(|id| include(*id))
+            .take(limit)
+            .collect()
+    }
+}
+
 type StoreEntryWithSimilarity = (EmbeddingKey, Arc<StoreValue>, Similarity);
 
 #[derive(Debug)]
@@ -1009,6 +1060,9 @@ pub struct Store {
     /// StoreValue is wrapped in Arc to avoid expensive clones on query results; EmbeddingKey is
     /// already cheap to clone (Arc<Vec<f32>> pointer bump).
     id_to_value: ConcurrentHashMap<StoreKeyId, (EmbeddingKey, Arc<StoreValue>)>,
+    /// Ordered secondary index containing the same IDs as id_to_value.
+    #[serde(default)]
+    ordered_key_index: OrderedStoreKeyIndex,
     /// Indices to filter for the store
     predicate_indices: PredicateIndices,
     /// Non linear Indices
@@ -1032,12 +1086,22 @@ impl Store {
             dimension,
             id_to_value: fallible::try_new_hashmap()
                 .expect("Failed to initialize store id_to_value map"),
+            ordered_key_index: OrderedStoreKeyIndex::default(),
             predicate_indices: PredicateIndices::init(predicates),
             non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
             cached_len: AtomicU64::new(0),
             cached_size_bytes: AtomicU64::new(0),
             size_dirty: AtomicBool::new(true), // Mark as dirty initially to trigger first calculation
         }
+    }
+
+    pub(super) fn rebuild_ordered_key_index(&self) {
+        let pinned = self.id_to_value.pin();
+
+        self.ordered_key_index
+            .rebuild(pinned.into_iter().map(|(id, _)| *id));
+
+        self.mark_size_dirty();
     }
 
     /// Mark this store as needing size recalculation (called on any mutation)
@@ -1065,6 +1129,7 @@ impl Store {
     #[tracing::instrument(skip_all)]
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let pinned = self.id_to_value.pin();
+
         let (removed_entries, removed_embeddings): (Vec<_>, Vec<_>) = keys
             .filter_map(|store_key_id| {
                 pinned
@@ -1077,7 +1142,14 @@ impl Store {
                     })
             })
             .unzip();
+
         drop(pinned);
+
+        self.ordered_key_index.remove(
+            removed_entries
+                .iter()
+                .map(|(store_key_id, _)| *store_key_id),
+        );
 
         self.predicate_indices.remove_store_entries(
             removed_entries
@@ -1085,15 +1157,16 @@ impl Store {
                 .map(|(store_key_id, store_value)| (*store_key_id, store_value.as_ref())),
         );
 
-        let removed_count = removed_entries.len();
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.delete(&removed_embeddings);
         }
 
+        let removed_count = removed_entries.len();
+
         if removed_count > 0 {
-            // Mark store as needing size recalculation
             self.mark_size_dirty();
         }
+
         removed_count
     }
 
@@ -1221,25 +1294,38 @@ impl Store {
             .map(|condition| self.predicate_indices.matches(condition, self))
             .transpose()?;
 
+        let page_size = limit.get().saturating_add(1);
+        let sort_threshold = limit
+            .get()
+            .saturating_mul(LIST_ENTRIES_SORT_THRESHOLD_MULTIPLIER);
+
+        let page_ids = match matching_ids.as_ref() {
+            Some(ids) if ids.len() <= sort_threshold => {
+                let mut ids = ids
+                    .iter()
+                    .copied()
+                    .filter(|id| cursor.is_none_or(|cursor| *id > cursor))
+                    .collect::<Vec<_>>();
+
+                ids.sort_unstable();
+                ids.truncate(page_size);
+                ids
+            }
+            matching_ids => self.ordered_key_index.page_after(cursor, page_size, |id| {
+                matching_ids.is_none_or(|ids| ids.contains(&id))
+            }),
+        };
+
         let pinned = self.id_to_value.pin();
-        let mut entries = pinned
+
+        let mut entries = page_ids
             .into_iter()
-            .filter_map(|(id, (embedding_key, store_value))| {
-                let id = *id;
-
-                if cursor.is_some_and(|cursor| id <= cursor) {
-                    return None;
-                }
-
-                if matching_ids.as_ref().is_some_and(|ids| !ids.contains(&id)) {
-                    return None;
-                }
-
-                Some((id, embedding_key.clone(), Arc::clone(store_value)))
+            .filter_map(|id| {
+                pinned.get(&id).map(|(embedding_key, store_value)| {
+                    (id, embedding_key.clone(), Arc::clone(store_value))
+                })
             })
             .collect::<Vec<_>>();
-
-        entries.sort_unstable_by_key(|(id, _, _)| *id);
 
         let has_more = entries.len() > limit.get();
         entries.truncate(limit.get());
@@ -1330,21 +1416,20 @@ impl Store {
         let updated = AtomicUsize::new(0);
 
         // Insert into main store, collecting keys for non-linear indices
-        let inserted_keys: Vec<_> = res
+        let inserted_entries: Vec<_> = res
             .into_par_iter()
-            .filter_map(|(k, embedding_key, arc_val)| {
+            .filter_map(|(id, embedding_key, store_value)| {
                 let pinned = self.id_to_value.pin();
-                // EmbeddingKey clone is a cheap Arc pointer bump
+
                 if pinned
-                    .insert(k, (embedding_key.clone(), Arc::clone(&arc_val)))
+                    .insert(id, (embedding_key.clone(), Arc::clone(&store_value)))
                     .is_some()
                 {
                     updated.fetch_add(1, Ordering::SeqCst);
                     None
                 } else {
                     inserted.fetch_add(1, Ordering::SeqCst);
-                    // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
-                    Some(embedding_key)
+                    Some((id, embedding_key))
                 }
             })
             .collect();
@@ -1356,11 +1441,17 @@ impl Store {
                 active_requests,
             );
         }
+        self.ordered_key_index
+            .insert(inserted_entries.iter().map(|(id, _)| *id));
 
         if !self.non_linear_indices.is_empty() {
-            self.non_linear_indices.insert(inserted_keys);
+            self.non_linear_indices.insert(
+                inserted_entries
+                    .into_iter()
+                    .map(|(_, embedding_key)| embedding_key)
+                    .collect(),
+            );
         }
-
         // Mark store as needing size recalculation
         self.mark_size_dirty();
 
@@ -1448,11 +1539,14 @@ impl Store {
             } else {
                 inserted += 1;
                 // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
-                inserted_keys.push(embedding_key);
+                inserted_keys.push((k, embedding_key));
             }
         }
 
         drop(pinned);
+
+        self.ordered_key_index
+            .insert(inserted_keys.iter().map(|(id, _)| *id));
 
         if let Some(predicate_insert) = predicate_insert {
             self.predicate_indices.add_existing_index_candidate(
@@ -1463,7 +1557,12 @@ impl Store {
         }
 
         if !self.non_linear_indices.is_empty() {
-            self.non_linear_indices.insert(inserted_keys);
+            self.non_linear_indices.insert(
+                inserted_keys
+                    .into_iter()
+                    .map(|(_, embedding_key)| embedding_key)
+                    .collect(),
+            );
         }
 
         // Mark store as needing size recalculation
@@ -1564,6 +1663,7 @@ impl Store {
                             .sum::<usize>()
                 })
                 .sum::<usize>()
+            + self.ordered_key_index.estimated_heap_size()
             + self.predicate_indices.size()
             + self.non_linear_indices.size()
     }
@@ -2386,7 +2486,7 @@ mod tests {
                 StoreInfo {
                     name: odd_store.value,
                     len: 2,
-                    size_in_bytes: 1400,
+                    size_in_bytes: 1416,
                     non_linear_indices: vec![],
                     predicate_indices: vec!["rank".to_string()],
                     dimension: 3,
