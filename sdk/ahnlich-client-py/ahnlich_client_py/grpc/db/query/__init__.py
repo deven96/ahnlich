@@ -146,6 +146,16 @@ class DelPred(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ClearStore(betterproto.Message):
+    """
+    Deletes all entries from a store while preserving the store and its indices.
+    """
+
+    store: str = betterproto.string_field(1)
+    schema: Optional[str] = betterproto.string_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
 class DropStore(betterproto.Message):
     """
     Drops a store and deletes all its data and associated indices.
@@ -171,6 +181,19 @@ class ListStores(betterproto.Message):
     """
 
     schema: Optional[str] = betterproto.string_field(1, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class ListStoreEntries(betterproto.Message):
+    """Lists entries in a store using cursor-based pagination."""
+
+    store: str = betterproto.string_field(1)
+    cursor: Optional[str] = betterproto.string_field(2, optional=True)
+    limit: Optional[int] = betterproto.uint32_field(3, optional=True)
+    condition: Optional["__predicates__.PredicateCondition"] = (
+        betterproto.message_field(4, optional=True)
+    )
+    schema: Optional[str] = betterproto.string_field(5, optional=True)
 
 
 @dataclass(eq=False, repr=False)

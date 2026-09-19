@@ -191,6 +191,12 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
 
                 encode_raw_result!(query::DropSchema, &dropped)
             }
+            DbCommand::ClearStore(payload) => {
+                let params = decode_payload!(query::ClearStore, payload)?;
+                let deleted = operations::clear_store(&self.store_handler, params)
+                    .map_err(|err| operation_error!(query::ClearStore, err))?;
+                encode_raw_result!(query::ClearStore, &deleted)
+            }
         }
     }
 
