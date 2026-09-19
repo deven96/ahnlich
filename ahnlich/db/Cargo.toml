@@ -65,7 +65,7 @@ bitcode.workspace = true
 futures.workspace = true
 once_cell.workspace = true
 pretty_assertions.workspace = true
-criterion = "0.4"
+criterion = { version = "0.4", features = ["html_reports"] }
 rand.workspace = true
 fastrand = "1.9"
 rcgen = "0.13"
@@ -73,6 +73,8 @@ tempfile = "3"
 ahnlich_client_rs = { path = "../client", version = "*" }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 tikv-jemalloc-ctl.workspace = true
+parking_lot.workspace = true
+crossbeam-skiplist = "0.1"
 
 [[bench]]
 name = "database"
@@ -119,3 +121,23 @@ name = "predicate_existing_index_ingestion"
 path = "benches/experiments/predicate_existing_index_ingestion.rs"
 harness = false
 required-features = ["bench-experiments"]
+
+[[bench]]
+name = "ordered_store_key_index"
+path = "benches/experiments/ordered_store_key_index.rs"
+harness = false
+
+[[bench]]
+name = "ordered_store_key_index_memory"
+path = "benches/experiments/ordered_store_key_index_memory.rs"
+harness = false
+
+[[bench]]
+name = "ordered_store_key_index_contention"
+path = "benches/experiments/ordered_store_key_index_contention.rs"
+harness = false
+
+[[bench]]
+name = "list_store_entries_strategy"
+path = "benches/experiments/list_store_entries_strategy.rs"
+harness = false
