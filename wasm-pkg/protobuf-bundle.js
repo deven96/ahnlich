@@ -8805,7 +8805,7 @@ var require_query_pb = __commonJS({
   "../../sdk/ahnlich-client-node/dist/grpc/db/query_pb.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.Upsert = exports.Set = exports.DropSchema = exports.GetStore = exports.Ping = exports.ListClients = exports.ListStores = exports.InfoServer = exports.DropStore = exports.DelPred = exports.DelKey = exports.DropNonLinearAlgorithmIndex = exports.DropPredIndex = exports.CreateNonLinearAlgorithmIndex = exports.CreatePredIndex = exports.GetSimN = exports.GetPred = exports.GetKey = exports.CreateStore = void 0;
+    exports.Upsert = exports.Set = exports.DropSchema = exports.GetStore = exports.Ping = exports.ListClients = exports.ListStoreEntries = exports.ListStores = exports.InfoServer = exports.DropStore = exports.ClearStore = exports.DelPred = exports.DelKey = exports.DropNonLinearAlgorithmIndex = exports.DropPredIndex = exports.CreateNonLinearAlgorithmIndex = exports.CreatePredIndex = exports.GetSimN = exports.GetPred = exports.GetKey = exports.CreateStore = void 0;
     var protobuf_1 = require_cjs();
     var nonlinear_pb_js_1 = require_nonlinear_pb();
     var keyval_pb_js_1 = require_keyval_pb();
@@ -9409,6 +9409,49 @@ var require_query_pb = __commonJS({
       }
     };
     exports.DelPred = DelPred;
+    var ClearStore = class _ClearStore extends protobuf_1.Message {
+      /**
+       * The name of the store to clear.
+       *
+       * @generated from field: string store = 1;
+       */
+      store = "";
+      /**
+       * Optional schema/namespace for the store. Defaults to "public".
+       *
+       * @generated from field: optional string schema = 2;
+       */
+      schema;
+      constructor(data) {
+        super();
+        protobuf_1.proto3.util.initPartial(data, this);
+      }
+      static runtime = protobuf_1.proto3;
+      static typeName = "db.query.ClearStore";
+      static fields = protobuf_1.proto3.util.newFieldList(() => [
+        {
+          no: 1,
+          name: "store",
+          kind: "scalar",
+          T: 9
+          /* ScalarType.STRING */
+        },
+        { no: 2, name: "schema", kind: "scalar", T: 9, opt: true }
+      ]);
+      static fromBinary(bytes, options) {
+        return new _ClearStore().fromBinary(bytes, options);
+      }
+      static fromJson(jsonValue, options) {
+        return new _ClearStore().fromJson(jsonValue, options);
+      }
+      static fromJsonString(jsonString, options) {
+        return new _ClearStore().fromJsonString(jsonString, options);
+      }
+      static equals(a, b) {
+        return protobuf_1.proto3.util.equals(_ClearStore, a, b);
+      }
+    };
+    exports.ClearStore = ClearStore;
     var DropStore = class _DropStore extends protobuf_1.Message {
       /**
        * The name of the store.
@@ -9517,6 +9560,70 @@ var require_query_pb = __commonJS({
       }
     };
     exports.ListStores = ListStores;
+    var ListStoreEntries = class _ListStoreEntries extends protobuf_1.Message {
+      /**
+       * The name of the store.
+       *
+       * @generated from field: string store = 1;
+       */
+      store = "";
+      /**
+       * Opaque cursor returned by the previous request.
+       *
+       * @generated from field: optional string cursor = 2;
+       */
+      cursor;
+      /**
+       * Number of entries to return. Defaults to 100.
+       *
+       * @generated from field: optional uint32 limit = 3;
+       */
+      limit;
+      /**
+       * Optional metadata filter.
+       *
+       * @generated from field: optional predicates.PredicateCondition condition = 4;
+       */
+      condition;
+      /**
+       * Optional schema/namespace for the store. Defaults to "public".
+       *
+       * @generated from field: optional string schema = 5;
+       */
+      schema;
+      constructor(data) {
+        super();
+        protobuf_1.proto3.util.initPartial(data, this);
+      }
+      static runtime = protobuf_1.proto3;
+      static typeName = "db.query.ListStoreEntries";
+      static fields = protobuf_1.proto3.util.newFieldList(() => [
+        {
+          no: 1,
+          name: "store",
+          kind: "scalar",
+          T: 9
+          /* ScalarType.STRING */
+        },
+        { no: 2, name: "cursor", kind: "scalar", T: 9, opt: true },
+        { no: 3, name: "limit", kind: "scalar", T: 13, opt: true },
+        { no: 4, name: "condition", kind: "message", T: predicate_pb_js_1.PredicateCondition, opt: true },
+        { no: 5, name: "schema", kind: "scalar", T: 9, opt: true }
+      ]);
+      static fromBinary(bytes, options) {
+        return new _ListStoreEntries().fromBinary(bytes, options);
+      }
+      static fromJson(jsonValue, options) {
+        return new _ListStoreEntries().fromJson(jsonValue, options);
+      }
+      static fromJsonString(jsonString, options) {
+        return new _ListStoreEntries().fromJsonString(jsonString, options);
+      }
+      static equals(a, b) {
+        return protobuf_1.proto3.util.equals(_ListStoreEntries, a, b);
+      }
+    };
+    exports.ListStoreEntries = ListStoreEntries;
     var ListClients = class _ListClients extends protobuf_1.Message {
       constructor(data) {
         super();
@@ -10066,7 +10173,7 @@ var require_server_pb = __commonJS({
   "../../sdk/ahnlich-client-node/dist/grpc/db/server_pb.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    exports.StoreInfo = exports.ServerResponse = exports.CreateIndex = exports.Del = exports.GetSimN = exports.GetSimNEntry = exports.Get = exports.Set = exports.InfoServer = exports.StoreList = exports.ClientList = exports.Pong = exports.Unit = void 0;
+    exports.StoreInfo = exports.ServerResponse = exports.CreateIndex = exports.Del = exports.GetSimN = exports.GetSimNEntry = exports.ListStoreEntries = exports.Get = exports.Set = exports.InfoServer = exports.StoreList = exports.ClientList = exports.Pong = exports.Unit = void 0;
     var protobuf_1 = require_cjs();
     var client_pb_js_1 = require_client_pb();
     var info_pb_js_1 = require_info_pb();
@@ -10257,6 +10364,39 @@ var require_server_pb = __commonJS({
       }
     };
     exports.Get = Get;
+    var ListStoreEntries = class _ListStoreEntries extends protobuf_1.Message {
+      /**
+       * @generated from field: repeated keyval.DbStoreEntry entries = 1;
+       */
+      entries = [];
+      /**
+       * @generated from field: optional string next_cursor = 2;
+       */
+      nextCursor;
+      constructor(data) {
+        super();
+        protobuf_1.proto3.util.initPartial(data, this);
+      }
+      static runtime = protobuf_1.proto3;
+      static typeName = "db.server.ListStoreEntries";
+      static fields = protobuf_1.proto3.util.newFieldList(() => [
+        { no: 1, name: "entries", kind: "message", T: keyval_pb_js_1.DbStoreEntry, repeated: true },
+        { no: 2, name: "next_cursor", kind: "scalar", T: 9, opt: true }
+      ]);
+      static fromBinary(bytes, options) {
+        return new _ListStoreEntries().fromBinary(bytes, options);
+      }
+      static fromJson(jsonValue, options) {
+        return new _ListStoreEntries().fromJson(jsonValue, options);
+      }
+      static fromJsonString(jsonString, options) {
+        return new _ListStoreEntries().fromJsonString(jsonString, options);
+      }
+      static equals(a, b) {
+        return protobuf_1.proto3.util.equals(_ListStoreEntries, a, b);
+      }
+    };
+    exports.ListStoreEntries = ListStoreEntries;
     var GetSimNEntry = class _GetSimNEntry extends protobuf_1.Message {
       /**
        * @generated from field: keyval.StoreKey key = 1;
