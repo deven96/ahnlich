@@ -1,9 +1,26 @@
 {
   "name": "@deven96/ahnlich-client-node",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Node.js gRPC client for Ahnlich AI and DB servers",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "require": "./dist/src/index.js",
+      "default": "./dist/src/index.js"
+    },
+    "./grpc/*": {
+      "types": "./dist/grpc/*.d.ts",
+      "require": "./dist/grpc/*.js",
+      "default": "./dist/grpc/*.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "dist/grpc",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/.bin/jest",
@@ -11,11 +28,11 @@
     "format-check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\""
   },
   "dependencies": {
+    "@bufbuild/protobuf": "^1.10.0",
     "@connectrpc/connect": "^1.7.0",
     "@connectrpc/connect-node": "^1.7.0"
   },
   "devDependencies": {
-    "@bufbuild/protobuf": "^1.10.0",
     "@bufbuild/protoc-gen-es": "^1.10.0",
     "@connectrpc/protoc-gen-connect-es": "^1.6.1",
     "@types/jest": "^29.0.0",
