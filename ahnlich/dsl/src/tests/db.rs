@@ -7,9 +7,9 @@ use ahnlich_types::{
     db::{
         pipeline::db_query::Query as DBQuery,
         query::{
-            CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
+            ClearStore, CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
-            GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set,
+            GetSimN, GetStore, InfoServer, ListClients, ListStoreEntries, ListStores, Ping, Set,
         },
     },
     keyval::{DbStoreEntry, StoreKey, StoreValue},
@@ -688,6 +688,55 @@ fn test_get_pred_parse() {
                 )
             ),
             schema: None,
+        })]
+    );
+}
+#[test]
+fn test_list_store_entries_parse() {
+    let input = "LISTSTOREENTRIES movies";
+
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::ListStoreEntries(ListStoreEntries {
+            store: "movies".to_string(),
+            cursor: None,
+            limit: None,
+            condition: None,
+            schema: None,
+        })]
+    );
+
+    let input = "LISTSTOREENTRIES movies LIMIT 50 CURSOR 00000000000000ff \
+                 WHERE (category = drama) SCHEMA catalog";
+
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::ListStoreEntries(ListStoreEntries {
+            store: "movies".to_string(),
+            cursor: Some("00000000000000ff".to_string()),
+            limit: Some(50),
+            condition: Some(PredicateCondition {
+                kind: Some(Kind::Value(Predicate {
+                    kind: Some(PredicateKind::Equals(Equals {
+                        key: "category".to_string(),
+                        value: Some(MetadataValue {
+                            value: Some(Value::RawString("drama".to_string())),
+                        }),
+                    })),
+                })),
+            }),
+            schema: Some("catalog".to_string()),
+        })]
+    );
+}
+
+#[test]
+fn test_clear_store_parse() {
+    assert_eq!(
+        parse_db_query("CLEARSTORE movies SCHEMA catalog").expect("Could not parse query input"),
+        vec![DBQuery::ClearStore(ClearStore {
+            store: "movies".to_string(),
+            schema: Some("catalog".to_string()),
         })]
     );
 }

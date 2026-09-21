@@ -415,3 +415,44 @@ async fn test_db_multiple_commands() {
         "Output should not contain ANSI codes"
     );
 }
+
+#[tokio::test]
+async fn test_db_list_and_clear_store_entries() {
+    let port = provision_db_server().await;
+
+    let output = run_cli_command(
+        "db",
+        port,
+        concat!(
+            "CREATESTORE cli_store DIMENSION 2;",
+            "SET (([1, 2], {category: docs})) IN cli_store;",
+            "LISTSTOREENTRIES cli_store LIMIT 1;",
+            "CLEARSTORE cli_store;",
+            "LISTSTOREENTRIES cli_store"
+        ),
+    )
+    .await;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "Command failed.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    assert!(
+        stdout.contains("\"category\""),
+        "Expected the first listing to contain the stored entry: {stdout}"
+    );
+
+    assert!(
+        stdout.contains("deleted_count: 1"),
+        "Expected CLEARSTORE to delete one entry: {stdout}"
+    );
+
+    assert!(
+        stdout.contains("entries: []"),
+        "Expected the store to be empty after CLEARSTORE: {stdout}"
+    );
+}
