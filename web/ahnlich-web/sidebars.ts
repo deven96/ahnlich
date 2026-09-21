@@ -107,8 +107,10 @@ const sidebars: SidebarsConfig = {
         'stores/get-key',
         'stores/get-simn',
         'stores/get-by-predicate',
+        'stores/list-store-entries',
         'stores/delete-key',
         'stores/delete-predicate',
+        'stores/clear-store',
       ],
     },
     {
