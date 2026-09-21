@@ -47,7 +47,7 @@ use utils::parallel;
 /// pass in order to obtain keys that satisfy the condition
 type InnerPredicateIndexVal = ConcurrentHashSet<StoreKeyId>;
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, InnerPredicateIndexVal>;
-type InnerPredicateIndices = ConcurrentHashMap<String, SharedPredicateIndex>;
+type InnerPredicateIndices = ConcurrentHashMap<String, PredicateIndex>;
 
 /// Extension trait for StoreValue to evaluate predicates
 pub(crate) trait PredicateEvaluator {
@@ -248,8 +248,7 @@ impl PredicateIndices {
                             .map(|(_, val)| (val.clone(), *store_key_id))
                     })
                     .collect::<Vec<_>>();
-                let pred =
-                    SharedPredicateIndex::init(val.clone(), parallelism_config, active_requests);
+                let pred = PredicateIndex::init(val.clone(), parallelism_config, active_requests);
 
                 if let Err(existing_predicate) = pinned_inner.try_insert(new_predicate, pred) {
                     existing_predicate
@@ -319,7 +318,7 @@ impl PredicateIndices {
         for (key, val) in iter {
             // If there exists a predicate index as we want to update it, just add to that
             // predicate index instead
-            let pred = SharedPredicateIndex::init(val.clone(), parallelism_config, active_requests);
+            let pred = PredicateIndex::init(val.clone(), parallelism_config, active_requests);
 
             if let Err(existing_predicate) = predicate_values.try_insert(key, pred) {
                 existing_predicate
@@ -391,7 +390,7 @@ impl PredicateIndices {
             }
 
             // Build before publication; a competing creator may still win try_insert.
-            let pred = SharedPredicateIndex::init(val.clone(), parallelism_config, active_requests);
+            let pred = PredicateIndex::init(val.clone(), parallelism_config, active_requests);
 
             if let Err(existing_predicate) = predicate_values.try_insert(key, pred) {
                 existing_predicate
@@ -466,11 +465,11 @@ impl PredicateIndices {
 #[cfg(feature = "bench-experiments")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-struct PredicateIndex(InnerPredicateIndex);
+struct IndependentControllerPredicateIndex(InnerPredicateIndex);
 
 #[cfg(feature = "bench-experiments")]
 #[allow(dead_code)]
-impl PredicateIndex {
+impl IndependentControllerPredicateIndex {
     #[tracing::instrument(skip(self))]
     fn size(&self) -> usize {
         size_of_val(&self)
@@ -612,12 +611,12 @@ impl PredicateIndex {
 /// ids. This is essential in helping us filter down the entire dataset using a predicate before
 /// performing similarity algorithmic search
 #[derive(Debug)]
-struct SharedPredicateIndex {
+struct PredicateIndex {
     inner: InnerPredicateIndex,
     collector: Arc<Collector>,
 }
 
-impl Serialize for SharedPredicateIndex {
+impl Serialize for PredicateIndex {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -626,19 +625,19 @@ impl Serialize for SharedPredicateIndex {
     }
 }
 
-impl<'de> Deserialize<'de> for SharedPredicateIndex {
+impl<'de> Deserialize<'de> for PredicateIndex {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_map(SharedPredicateIndexVisitor)
+        deserializer.deserialize_map(PredicateIndexVisitor)
     }
 }
 
-struct SharedPredicateIndexVisitor;
+struct PredicateIndexVisitor;
 
-impl<'de> Visitor<'de> for SharedPredicateIndexVisitor {
-    type Value = SharedPredicateIndex;
+impl<'de> Visitor<'de> for PredicateIndexVisitor {
+    type Value = PredicateIndex;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a predicate index map")
@@ -648,7 +647,7 @@ impl<'de> Visitor<'de> for SharedPredicateIndexVisitor {
     where
         A: MapAccess<'de>,
     {
-        let index = SharedPredicateIndex::try_new_shared_hashmap(access.size_hint().unwrap_or(1))
+        let index = PredicateIndex::try_new_shared_hashmap(access.size_hint().unwrap_or(1))
             .map_err(DeserializeError::custom)?;
         let buckets = index.inner.pin();
 
@@ -672,7 +671,7 @@ impl<'de> Visitor<'de> for SharedPredicateIndexVisitor {
     }
 }
 
-impl SharedPredicateIndex {
+impl PredicateIndex {
     fn try_new_shared_hashmap(capacity: usize) -> Result<Self, String> {
         let collector = Arc::new(Collector::new());
         let inner =
@@ -955,8 +954,8 @@ mod tests {
         shared_pred
     }
 
-    fn create_shared_predicate() -> Arc<SharedPredicateIndex> {
-        let shared_pred = Arc::new(SharedPredicateIndex::init(
+    fn create_shared_predicate() -> Arc<PredicateIndex> {
+        let shared_pred = Arc::new(PredicateIndex::init(
             vec![],
             &test_parallelism_config(),
             TEST_ACTIVE_REQUESTS,
@@ -1310,7 +1309,7 @@ mod tests {
         assert_eq!(shared_pred.inner.pin().get(&odd).unwrap().len(), 1);
     }
 
-    fn assert_per_index_collector_sharing(index: &SharedPredicateIndex) {
+    fn assert_per_index_collector_sharing(index: &PredicateIndex) {
         let index_guard = index.inner.guard();
         assert!(std::ptr::eq(
             index_guard.collector(),
@@ -1328,7 +1327,7 @@ mod tests {
     }
 
     fn predicate_index_entries(
-        index: &SharedPredicateIndex,
+        index: &PredicateIndex,
     ) -> StdHashMap<MetadataValue, StdHashSet<StoreKeyId>> {
         index
             .inner
@@ -1360,8 +1359,7 @@ mod tests {
         );
 
         let snapshot = utils::snapshot::serialize_snapshot(index.as_ref()).unwrap();
-        let restored: SharedPredicateIndex =
-            utils::snapshot::deserialize_snapshot(&snapshot).unwrap();
+        let restored: PredicateIndex = utils::snapshot::deserialize_snapshot(&snapshot).unwrap();
         assert_per_index_collector_sharing(&restored);
         assert_eq!(
             predicate_index_entries(&restored),

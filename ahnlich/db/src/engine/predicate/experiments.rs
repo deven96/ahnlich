@@ -21,8 +21,8 @@ pub enum CollectorSharingVariant {
 }
 
 enum CollectorIndex {
-    Control(PredicateIndex),
-    Candidate(SharedPredicateIndex),
+    Control(IndependentControllerPredicateIndex),
+    Candidate(PredicateIndex),
 }
 
 pub struct PredicateCollectorFixture {
@@ -39,12 +39,12 @@ impl PredicateCollectorFixture {
         active_requests: usize,
     ) -> Self {
         let index = match variant {
-            CollectorSharingVariant::Control => {
-                CollectorIndex::Control(PredicateIndex::init(initial, &config, active_requests))
-            }
-            CollectorSharingVariant::Candidate => CollectorIndex::Candidate(
-                SharedPredicateIndex::init(initial, &config, active_requests),
+            CollectorSharingVariant::Control => CollectorIndex::Control(
+                IndependentControllerPredicateIndex::init(initial, &config, active_requests),
             ),
+            CollectorSharingVariant::Candidate => {
+                CollectorIndex::Candidate(PredicateIndex::init(initial, &config, active_requests))
+            }
         };
         Self {
             index,
