@@ -14,9 +14,10 @@ use crate::{
 use ahnlich_types::db::{
     pipeline::db_query::Query as DBQuery,
     query::{
-        CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
+        ClearStore, CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
         DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
-        GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set, Upsert,
+        GetSimN, GetStore, InfoServer, ListClients, ListStoreEntries, ListStores, Ping, Set,
+        Upsert,
     },
 };
 use pest::Parser;
@@ -29,6 +30,8 @@ pub const COMMANDS: &[&str] = &[
     "ping",
     "listclients",
     "liststores",
+    "liststoreentries",
+    "clearstore",
     "dropschema",
     "getstore",
     "infoserver",
@@ -63,6 +66,64 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .map(parse_schema_clause)
                     .transpose()?;
                 DBQuery::ListStores(ListStores { schema })
+            }
+            Rule::list_store_entries => {
+                let mut inner_pairs = statement.into_inner();
+
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+
+                let mut cursor = None;
+                let mut limit = None;
+                let mut condition = None;
+                let mut schema = None;
+
+                for pair in inner_pairs {
+                    match pair.as_rule() {
+                        Rule::non_zero => {
+                            limit = Some(pair.as_str().parse::<u32>()?);
+                        }
+                        Rule::cursor_value => {
+                            cursor = Some(pair.as_str().to_string());
+                        }
+                        Rule::predicate_condition => {
+                            condition = Some(parse_predicate_expression(pair)?);
+                        }
+                        Rule::schema_clause => {
+                            schema = Some(parse_schema_clause(pair)?);
+                        }
+                        _ => {
+                            return Err(DslError::UnexpectedSpan((
+                                pair.as_span().start(),
+                                pair.as_span().end(),
+                            )));
+                        }
+                    }
+                }
+
+                DBQuery::ListStoreEntries(ListStoreEntries {
+                    store,
+                    cursor,
+                    limit,
+                    condition,
+                    schema,
+                })
+            }
+            Rule::clear_store => {
+                let mut inner_pairs = statement.into_inner();
+
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+
+                let schema = inner_pairs.next().map(parse_schema_clause).transpose()?;
+
+                DBQuery::ClearStore(ClearStore { store, schema })
             }
             Rule::info_server => DBQuery::InfoServer(InfoServer {}),
             Rule::get_store => {

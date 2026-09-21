@@ -7,6 +7,8 @@ ai_statement = _{
     ping |
     info_server |
     list_stores |
+    list_store_entries |
+    clear_store |
     purge_stores |
     drop_schema |
     get_pred |
@@ -29,6 +31,8 @@ db_statement = _{
     ping |
     info_server |
     list_stores |
+    list_store_entries |
+    clear_store |
     list_clients |
     drop_schema |
     get_store |
@@ -50,6 +54,29 @@ db_statement = _{
 ping = { whitespace* ~ ^"ping" ~ whitespace* ~ !(ASCII_ALPHANUMERIC) }
 info_server = { whitespace* ~ ^"infoserver" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
 list_stores = { whitespace* ~ ^"liststores" ~ (whitespace+ ~ schema_clause)? ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
+list_store_entries = {
+    whitespace* ~
+    ^"liststoreentries" ~
+    whitespace+ ~
+    store_name ~
+    (whitespace+ ~ ^"limit" ~ whitespace+ ~ non_zero)? ~
+    (whitespace+ ~ ^"cursor" ~ whitespace+ ~ cursor_value)? ~
+    (whitespace+ ~ ^"where" ~ whitespace* ~ predicate_condition)? ~
+    (whitespace* ~ schema_clause)? ~
+    whitespace*
+}
+
+clear_store = {
+    whitespace* ~
+    ^"clearstore" ~
+    whitespace+ ~
+    store_name ~
+    (whitespace+ ~ schema_clause)? ~
+    whitespace*
+}
+
+cursor_value = @{ ASCII_HEX+ }
+
 list_clients = { whitespace* ~ ^"listclients" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
 get_store = { whitespace* ~ ^"getstore" ~ whitespace* ~ store_name ~ (whitespace* ~ schema_clause)? ~ whitespace* }
 purge_stores = { whitespace* ~ ^"purgestores" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
