@@ -54,6 +54,7 @@ log.workspace = true
 fallible_collections.workspace = true
 pulp.workspace = true
 papaya.workspace = true
+seize.workspace = true
 ahnlich_types = { path = "../types", version = "*", default-features = false, features = [] }
 tonic = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
@@ -118,5 +119,17 @@ required-features = ["bench-experiments"]
 [[bench]]
 name = "predicate_existing_index_ingestion"
 path = "benches/experiments/predicate_existing_index_ingestion.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "papaya_collector_sharing"
+path = "benches/experiments/papaya_collector_sharing.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "papaya_collector_memory"
+path = "benches/memory/papaya_collector_memory.rs"
 harness = false
 required-features = ["bench-experiments"]

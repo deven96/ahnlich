@@ -11,10 +11,12 @@ use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
 use rayon::prelude::*;
-use serde::Deserialize;
-use serde::Serialize;
+use seize::Collector;
+use serde::de::{Error as DeserializeError, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::collections::HashSet as StdHashSet;
+use std::fmt;
 use std::mem::size_of_val;
 use std::sync::Arc;
 use utils::fallible;
@@ -460,11 +462,14 @@ impl PredicateIndices {
 /// A predicate index is a simple datastructure that stores a value key to all matching store key
 /// ids. This is essential in helping us filter down the entire dataset using a predicate before
 /// performing similarity algorithmic search
+#[cfg(feature = "bench-experiments")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(transparent)]
-struct PredicateIndex(InnerPredicateIndex);
+struct IndependentControllerPredicateIndex(InnerPredicateIndex);
 
-impl PredicateIndex {
+#[cfg(feature = "bench-experiments")]
+#[allow(dead_code)]
+impl IndependentControllerPredicateIndex {
     #[tracing::instrument(skip(self))]
     fn size(&self) -> usize {
         size_of_val(&self)
@@ -602,9 +607,224 @@ impl PredicateIndex {
     }
 }
 
+/// A predicate index is a simple datastructure that stores a value key to all matching store key
+/// ids. This is essential in helping us filter down the entire dataset using a predicate before
+/// performing similarity algorithmic search
+#[derive(Debug)]
+struct PredicateIndex {
+    inner: InnerPredicateIndex,
+    collector: Arc<Collector>,
+}
+
+impl Serialize for PredicateIndex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.inner.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PredicateIndex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(PredicateIndexVisitor)
+    }
+}
+
+struct PredicateIndexVisitor;
+
+impl<'de> Visitor<'de> for PredicateIndexVisitor {
+    type Value = PredicateIndex;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a predicate index map")
+    }
+
+    fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let index = PredicateIndex::try_new_shared_hashmap(access.size_hint().unwrap_or(1))
+            .map_err(DeserializeError::custom)?;
+        let buckets = index.inner.pin();
+
+        while let Some((predicate_value, store_key_ids)) =
+            access.next_entry::<MetadataValue, Vec<StoreKeyId>>()?
+        {
+            let bucket = index
+                .try_new_shared_hashset(store_key_ids.len())
+                .map_err(DeserializeError::custom)?;
+            {
+                let bucket = bucket.pin();
+                for store_key_id in store_key_ids {
+                    bucket.insert(store_key_id);
+                }
+            }
+            buckets.insert(predicate_value, bucket);
+        }
+
+        drop(buckets);
+        Ok(index)
+    }
+}
+
+impl PredicateIndex {
+    fn try_new_shared_hashmap(capacity: usize) -> Result<Self, String> {
+        let collector = Arc::new(Collector::new());
+        let inner =
+            fallible::try_new_hashmap_with_shared_collector(Arc::clone(&collector), capacity)?;
+        Ok(Self { inner, collector })
+    }
+
+    fn try_new_shared_hashset(&self, capacity: usize) -> Result<InnerPredicateIndexVal, String> {
+        fallible::try_new_hashset_with_shared_collector(Arc::clone(&self.collector), capacity)
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn size(&self) -> usize {
+        size_of_val(&self)
+            + self
+                .inner
+                .iter(&self.inner.guard())
+                .map(|(k, v)| size_of_val(k) + v.iter(&v.guard()).map(size_of_val).sum::<usize>())
+                .sum::<usize>()
+    }
+
+    #[tracing::instrument(skip(init), fields(input_length = init.len()))]
+    fn init(
+        init: Vec<(MetadataValue, StoreKeyId)>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
+    ) -> Self {
+        let new =
+            Self::try_new_shared_hashmap(1).expect("Failed to initialize PredicateIndex inner map");
+        new.add(init, parallelism_config, active_requests);
+        new
+    }
+
+    fn remove_store_key(&self, metadata_value: &MetadataValue, store_key_id: &StoreKeyId) {
+        let buckets = self.inner.pin();
+        if let Some(store_key_ids) = buckets.get(metadata_value) {
+            store_key_ids.pin().remove(store_key_id);
+        }
+    }
+
+    /// adds a store key id to the index using the predicate value
+    /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
+    /// the default number when ran using Loom, this may cause an issue down the line
+    #[tracing::instrument(skip_all, fields(update_len = update.len()))]
+    fn add(
+        &self,
+        update: Vec<(MetadataValue, StoreKeyId)>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
+    ) {
+        if update.is_empty() {
+            return;
+        }
+
+        let use_parallel = parallelism_config.should_use_parallel(update.len(), active_requests);
+
+        if use_parallel {
+            let chunk_size = parallel::chunk_size(update.len());
+            update
+                .into_par_iter()
+                .chunks(chunk_size)
+                .for_each(|values| {
+                    let pinned = self.inner.pin();
+                    for (predicate_value, store_key_id) in values {
+                        if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
+                            value.insert(store_key_id, &value.guard());
+                        } else {
+                            let new_hashset = self
+                                .try_new_shared_hashset(1)
+                                .expect("Failed to initialize new predicate hashset");
+                            new_hashset.insert(store_key_id, &new_hashset.guard());
+                            if let Err(error_current) =
+                                pinned.try_insert(predicate_value, new_hashset)
+                            {
+                                error_current
+                                    .current
+                                    .insert(store_key_id, &error_current.current.guard());
+                            }
+                        }
+                    }
+                });
+        } else {
+            let pinned = self.inner.pin();
+            for (predicate_value, store_key_id) in update {
+                if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
+                    value.insert(store_key_id, &value.guard());
+                } else {
+                    let new_hashset = self
+                        .try_new_shared_hashset(1)
+                        .expect("Failed to initialize new predicate hashset");
+                    new_hashset.insert(store_key_id, &new_hashset.guard());
+                    if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset) {
+                        error_current
+                            .current
+                            .insert(store_key_id, &error_current.current.guard());
+                    }
+                }
+            }
+        }
+    }
+
+    /// checks the predicate index for a predicate op and value. The return type is a StdHashSet<_>
+    /// because we do not modify it at any point so we do not need concurrency protection
+    #[tracing::instrument(skip(self))]
+    fn matches(&self, predicate: &Predicate) -> StdHashSet<StoreKeyId> {
+        let pinned = self.inner.pin();
+
+        match predicate {
+            Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals { value, .. })),
+            } => {
+                if let Some(Some(set)) = value.as_ref().map(|v| pinned.get(v)) {
+                    set.pin().iter().cloned().collect::<StdHashSet<_>>()
+                } else {
+                    StdHashSet::new()
+                }
+            }
+            Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals { value, .. })),
+            } => pinned
+                .iter()
+                .filter(|(key, _)| value.as_ref() != Some(*key))
+                .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
+                .collect(),
+            Predicate {
+                kind: Some(PredicateKind::In(predicates::In { values, .. })),
+            } => {
+                let mut matches = StdHashSet::new();
+                for value in values {
+                    if let Some(store_key_ids) = pinned.get(value) {
+                        matches.extend(store_key_ids.pin().iter().copied());
+                    }
+                }
+                matches
+            }
+
+            Predicate {
+                kind: Some(PredicateKind::NotIn(predicates::NotIn { values, .. })),
+            } => pinned
+                .iter()
+                .filter(|(key, _)| !values.contains(key))
+                .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
+                .collect(),
+
+            Predicate { kind: None } => unreachable!(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use papaya::Guard as _;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap as StdHashMap;
     use std::num::NonZeroUsize;
@@ -1078,15 +1298,104 @@ mod tests {
                 "Odd".to_string(),
             )),
         };
-        assert_eq!(shared_pred.0.len(), 2);
-        assert_eq!(shared_pred.0.pin().get(&even).unwrap().len(), 2);
-        assert_eq!(shared_pred.0.pin().get(&odd).unwrap().len(), 2);
+        assert_eq!(shared_pred.inner.len(), 2);
+        assert_eq!(shared_pred.inner.pin().get(&even).unwrap().len(), 2);
+        assert_eq!(shared_pred.inner.pin().get(&odd).unwrap().len(), 2);
 
         shared_pred.remove_store_key(&odd, &StoreKeyId(1));
         shared_pred.remove_store_key(&even, &StoreKeyId(0));
 
-        assert_eq!(shared_pred.0.pin().get(&even).unwrap().len(), 1);
-        assert_eq!(shared_pred.0.pin().get(&odd).unwrap().len(), 1);
+        assert_eq!(shared_pred.inner.pin().get(&even).unwrap().len(), 1);
+        assert_eq!(shared_pred.inner.pin().get(&odd).unwrap().len(), 1);
+    }
+
+    fn assert_per_index_collector_sharing(index: &PredicateIndex) {
+        let index_guard = index.inner.guard();
+        assert!(std::ptr::eq(
+            index_guard.collector(),
+            index.collector.as_ref(),
+        ));
+
+        let buckets = index.inner.pin();
+        for bucket in buckets.values() {
+            let bucket_guard = bucket.guard();
+            assert!(std::ptr::eq(
+                bucket_guard.collector(),
+                index.collector.as_ref(),
+            ));
+        }
+    }
+
+    fn predicate_index_entries(
+        index: &PredicateIndex,
+    ) -> StdHashMap<MetadataValue, StdHashSet<StoreKeyId>> {
+        index
+            .inner
+            .pin()
+            .iter()
+            .map(|(value, store_key_ids)| {
+                (value.clone(), store_key_ids.pin().iter().copied().collect())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn predicate_indexes_share_collectors_only_with_their_own_buckets() {
+        let first = create_shared_predicate();
+        let second = create_shared_predicate();
+
+        assert_per_index_collector_sharing(&first);
+        assert_per_index_collector_sharing(&second);
+        assert!(!Arc::ptr_eq(&first.collector, &second.collector));
+    }
+
+    #[test]
+    fn predicate_index_round_trips_restore_per_index_collector_sharing() {
+        let index = create_shared_predicate();
+
+        assert_eq!(
+            serde_json::to_value(index.as_ref()).unwrap(),
+            serde_json::to_value(&index.inner).unwrap(),
+        );
+
+        let snapshot = utils::snapshot::serialize_snapshot(index.as_ref()).unwrap();
+        let restored: PredicateIndex = utils::snapshot::deserialize_snapshot(&snapshot).unwrap();
+        assert_per_index_collector_sharing(&restored);
+        assert_eq!(
+            predicate_index_entries(&restored),
+            predicate_index_entries(&index)
+        );
+
+        let added = MetadataValue {
+            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                "Added after restore".to_string(),
+            )),
+        };
+        restored.add(
+            vec![(added.clone(), StoreKeyId(4))],
+            &test_parallelism_config(),
+            TEST_ACTIVE_REQUESTS,
+        );
+        restored.remove_store_key(
+            &MetadataValue {
+                value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                    "Even".to_string(),
+                )),
+            },
+            &StoreKeyId(0),
+        );
+
+        assert_per_index_collector_sharing(&restored);
+        let restored_entries = predicate_index_entries(&restored);
+        assert_eq!(
+            restored_entries.get(&added),
+            Some(&StdHashSet::from([StoreKeyId(4)]))
+        );
+        assert!(
+            !restored_entries
+                .values()
+                .any(|ids| ids.contains(&StoreKeyId(0)))
+        );
     }
 
     #[test]

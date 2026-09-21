@@ -1303,6 +1303,7 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "rcgen",
+ "seize",
  "serde",
  "serde_json",
  "task-manager",
@@ -3275,9 +3276,8 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 
 [[package]]
 name = "papaya"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f92dd0b07c53a0a0c764db2ace8c541dc47320dad97c2200c2a637ab9dd2328f"
+version = "0.2.5"
+source = "git+https://github.com/jimezesinachi/papaya.git?rev=1d914b94d846da6185380b814d09758624fd9f7e#1d914b94d846da6185380b814d09758624fd9f7e"
 dependencies = [
  "equivalent",
  "seize",
@@ -5800,6 +5800,7 @@ dependencies = [
  "papaya",
  "pin-project",
  "rayon",
+ "seize",
  "serde",
  "serde_json",
  "sha2",
