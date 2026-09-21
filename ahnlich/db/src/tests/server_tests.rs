@@ -513,7 +513,7 @@ async fn test_del_pred() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1280,
+                        size_in_bytes: 328,
                         non_linear_indices: vec![],
                         predicate_indices: vec![],
                         dimension: 2,
@@ -728,7 +728,7 @@ async fn test_del_key() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1192,
+                        size_in_bytes: 240,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -755,7 +755,7 @@ async fn test_del_key() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1136,
+                        size_in_bytes: 184,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -937,7 +937,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1320,
+                        size_in_bytes: 368,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -964,7 +964,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1264,
+                        size_in_bytes: 312,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 4,
@@ -1341,7 +1341,7 @@ async fn test_set_in_store() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1320,
+                        size_in_bytes: 368,
                         non_linear_indices: vec![],
                         predicate_indices: vec!["role".to_string()],
                         dimension: 3,

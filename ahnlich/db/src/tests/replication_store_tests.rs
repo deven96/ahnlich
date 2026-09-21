@@ -374,7 +374,10 @@ fn clear_store_command_removes_entries_without_dropping_store() {
             1,
             1,
             2,
-            encode_command(&set_query("products"), DbCommand::Set),
+            encode_command(
+                &set_query("products", vec![1.0, 2.0], "alpha"),
+                DbCommand::Set,
+            ),
         ),
         normal_entry(
             1,

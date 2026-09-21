@@ -2492,7 +2492,7 @@ mod tests {
                 StoreInfo {
                     name: odd_store.value,
                     len: 2,
-                    size_in_bytes: 1416,
+                    size_in_bytes: 464,
                     non_linear_indices: vec![],
                     predicate_indices: vec!["rank".to_string()],
                     dimension: 3,

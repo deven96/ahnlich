@@ -226,6 +226,53 @@ fn assert_populated_db_snapshot(migrated: Stores) {
         3,
         "migration should build the ordered index"
     );
+
+    let store_name = StoreName {
+        value: "fixture_store".to_string(),
+    };
+    let fruit = equals_condition("category", "fruit");
+    assert_eq!(
+        handler
+            .get_pred_in_store(&store_name, &Schema::default(), &fruit)
+            .expect("restored predicate index should be queryable")
+            .len(),
+        1
+    );
+
+    handler
+        .set_in_store(
+            &store_name,
+            &Schema::default(),
+            vec![(
+                StoreKey {
+                    key: vec![0.3, 0.6, 0.9],
+                },
+                StoreValue {
+                    value: HashMap::from([
+                        (
+                            "category".to_string(),
+                            MetadataValue {
+                                value: Some(metadata_value::Value::RawString("fruit".to_string())),
+                            },
+                        ),
+                        (
+                            "color".to_string(),
+                            MetadataValue {
+                                value: Some(metadata_value::Value::RawString("blue".to_string())),
+                            },
+                        ),
+                    ]),
+                },
+            )],
+        )
+        .expect("restored store should accept indexed writes");
+    assert_eq!(
+        handler
+            .get_pred_in_store(&store_name, &Schema::default(), &fruit)
+            .expect("restored predicate index should contain the new entry")
+            .len(),
+        2
+    );
 }
 
 #[test]
