@@ -61,6 +61,7 @@ prost = { workspace = true, optional = true }
 openraft = { workspace = true, optional = true }
 ahnlich-replication = { path = "../replication", version = "*", optional = true }
 bitcode.workspace = true
+parking_lot = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 futures.workspace = true

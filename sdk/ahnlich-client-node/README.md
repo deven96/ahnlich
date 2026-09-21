@@ -57,7 +57,7 @@ A Node.js/TypeScript client that interacts with both Ahnlich DB and AI over gRPC
 ## Installation
 
 ```bash
-npm install ahnlich-client-node
+npm install @deven96/ahnlich-client-node
 ```
 
 ## Package Information
@@ -72,7 +72,7 @@ This package provides:
 ### DB Client
 
 ```ts
-import { createDbClient } from "ahnlich-client-node";
+import { createDbClient } from "@deven96/ahnlich-client-node";
 
 const client = createDbClient("127.0.0.1:1369");
 ```
@@ -80,7 +80,7 @@ const client = createDbClient("127.0.0.1:1369");
 ### AI Client
 
 ```ts
-import { createAiClient } from "ahnlich-client-node";
+import { createAiClient } from "@deven96/ahnlich-client-node";
 
 const client = createAiClient("127.0.0.1:1370");
 ```
@@ -91,7 +91,7 @@ When the server is started with `--enable-auth`, pass a CA certificate and crede
 
 ```ts
 import * as fs from "fs";
-import { createDbClient } from "ahnlich-client-node";
+import { createDbClient } from "@deven96/ahnlich-client-node";
 
 const client = createDbClient("127.0.0.1:1369", {
   caCert: fs.readFileSync("ca.crt"),
@@ -114,7 +114,7 @@ const client = createDbClient("127.0.0.1:1369", {
 ### Ping
 
 ```ts
-import { Ping } from "ahnlich-client-node/grpc/db/query_pb";
+import { Ping } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 const response = await client.ping(new Ping());
 console.log(response); // Pong
@@ -123,7 +123,7 @@ console.log(response); // Pong
 ### Info Server
 
 ```ts
-import { InfoServer } from "ahnlich-client-node/grpc/db/query_pb";
+import { InfoServer } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 const response = await client.infoServer(new InfoServer());
 console.log(response.info?.version);
@@ -132,7 +132,7 @@ console.log(response.info?.version);
 ### List Connected Clients
 
 ```ts
-import { ListClients } from "ahnlich-client-node/grpc/db/query_pb";
+import { ListClients } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 const response = await client.listClients(new ListClients());
 console.log(response.clients);
@@ -141,7 +141,7 @@ console.log(response.clients);
 ### List Stores
 
 ```ts
-import { ListStores } from "ahnlich-client-node/grpc/db/query_pb";
+import { ListStores } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 const response = await client.listStores(new ListStores());
 console.log(response.stores.map((s) => s.name));
@@ -154,7 +154,7 @@ Each `StoreInfo` object in `response.stores` includes `name`, `len`, `sizeInByte
 Returns detailed information about a single store by name.
 
 ```ts
-import { GetStore } from "ahnlich-client-node/grpc/db/query_pb";
+import { GetStore } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 const response = await client.getStore(new GetStore({ store: "my_store" }));
 console.log(response.name);            // store name
@@ -168,7 +168,7 @@ console.log(response.sizeInBytes);     // size on disk
 ### Create Store
 
 ```ts
-import { CreateStore } from "ahnlich-client-node/grpc/db/query_pb";
+import { CreateStore } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 await client.createStore(
   new CreateStore({
@@ -185,9 +185,9 @@ Store dimension is fixed at creation — all inserted vectors must match it.
 ### Set
 
 ```ts
-import { Set } from "ahnlich-client-node/grpc/db/query_pb";
-import { DbStoreEntry, StoreKey, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
-import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { Set } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { DbStoreEntry, StoreKey, StoreValue } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "@deven96/ahnlich-client-node/grpc/metadata_pb";
 
 await client.set(
   new Set({
@@ -209,10 +209,10 @@ await client.set(
 ### Upsert
 
 ```ts
-import { Upsert } from "ahnlich-client-node/grpc/db/query_pb";
-import { StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
-import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
-import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
+import { Upsert } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { StoreValue } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "@deven96/ahnlich-client-node/grpc/metadata_pb";
+import { PredicateCondition, Predicate, Equals } from "@deven96/ahnlich-client-node/grpc/predicate_pb";
 
 const condition = new PredicateCondition({
   kind: {
@@ -250,9 +250,9 @@ await client.upsert(
 Returns the closest N entries to a query vector.
 
 ```ts
-import { GetSimN } from "ahnlich-client-node/grpc/db/query_pb";
-import { StoreKey } from "ahnlich-client-node/grpc/keyval_pb";
-import { Algorithm } from "ahnlich-client-node/grpc/algorithm/algorithm_pb";
+import { GetSimN } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { StoreKey } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
+import { Algorithm } from "@deven96/ahnlich-client-node/grpc/algorithm/algorithm_pb";
 
 const response = await client.getSimN(
   new GetSimN({
@@ -268,8 +268,8 @@ console.log(response.entries);
 ### Get Key
 
 ```ts
-import { GetKey } from "ahnlich-client-node/grpc/db/query_pb";
-import { StoreKey } from "ahnlich-client-node/grpc/keyval_pb";
+import { GetKey } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { StoreKey } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
 
 const response = await client.getKey(
   new GetKey({
@@ -283,9 +283,9 @@ console.log(response.entries);
 ### Get By Predicate
 
 ```ts
-import { GetPred } from "ahnlich-client-node/grpc/db/query_pb";
-import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicate_pb";
-import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { GetPred } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { PredicateCondition, Predicate, Equals } from "@deven96/ahnlich-client-node/grpc/predicate_pb";
+import { MetadataValue } from "@deven96/ahnlich-client-node/grpc/metadata_pb";
 
 const response = await client.getPred(
   new GetPred({
@@ -311,7 +311,7 @@ const response = await client.getPred(
 ### Create Predicate Index
 
 ```ts
-import { CreatePredIndex } from "ahnlich-client-node/grpc/db/query_pb";
+import { CreatePredIndex } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 await client.createPredIndex(
   new CreatePredIndex({ store: "my_store", predicates: ["label"] }),
@@ -321,7 +321,7 @@ await client.createPredIndex(
 ### Drop Predicate Index
 
 ```ts
-import { DropPredIndex } from "ahnlich-client-node/grpc/db/query_pb";
+import { DropPredIndex } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 await client.dropPredIndex(
   new DropPredIndex({ store: "my_store", predicates: ["label"], errorIfNotExists: true }),
@@ -331,8 +331,8 @@ await client.dropPredIndex(
 ### Create Non Linear Algorithm Index
 
 ```ts
-import { CreateNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/db/query_pb";
-import { NonLinearIndex, KDTreeConfig, HNSWConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { CreateNonLinearAlgorithmIndex } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { NonLinearIndex, KDTreeConfig, HNSWConfig } from "@deven96/ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
 // Create a KDTree index
 await client.createNonLinearAlgorithmIndex(
@@ -354,8 +354,8 @@ await client.createNonLinearAlgorithmIndex(
 ### Drop Non Linear Algorithm Index
 
 ```ts
-import { DropNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/db/query_pb";
-import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { DropNonLinearAlgorithmIndex } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { NonLinearAlgorithm } from "@deven96/ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
 await client.dropNonLinearAlgorithmIndex(
   new DropNonLinearAlgorithmIndex({
@@ -369,8 +369,8 @@ await client.dropNonLinearAlgorithmIndex(
 ### Delete Key
 
 ```ts
-import { DelKey } from "ahnlich-client-node/grpc/db/query_pb";
-import { StoreKey } from "ahnlich-client-node/grpc/keyval_pb";
+import { DelKey } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+import { StoreKey } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
 
 await client.delKey(
   new DelKey({
@@ -383,7 +383,7 @@ await client.delKey(
 ### Delete Predicate
 
 ```ts
-import { DelPred } from "ahnlich-client-node/grpc/db/query_pb";
+import { DelPred } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 await client.delPred(
   new DelPred({
@@ -396,7 +396,7 @@ await client.delPred(
 ### Drop Store
 
 ```ts
-import { DropStore } from "ahnlich-client-node/grpc/db/query_pb";
+import { DropStore } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
 
 await client.dropStore(new DropStore({ store: "my_store", errorIfNotExists: true }));
 ```
@@ -408,7 +408,7 @@ await client.dropStore(new DropStore({ store: "my_store", errorIfNotExists: true
 ### Ping
 
 ```ts
-import { Ping } from "ahnlich-client-node/grpc/ai/query_pb";
+import { Ping } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 const response = await client.ping(new Ping());
 ```
@@ -416,7 +416,7 @@ const response = await client.ping(new Ping());
 ### Info Server
 
 ```ts
-import { InfoServer } from "ahnlich-client-node/grpc/ai/query_pb";
+import { InfoServer } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 const response = await client.infoServer(new InfoServer());
 ```
@@ -424,7 +424,7 @@ const response = await client.infoServer(new InfoServer());
 ### List Stores
 
 ```ts
-import { ListStores } from "ahnlich-client-node/grpc/ai/query_pb";
+import { ListStores } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 const response = await client.listStores(new ListStores());
 console.log(response.stores.map((s) => s.name));
@@ -435,7 +435,7 @@ console.log(response.stores.map((s) => s.name));
 Returns detailed information about a single AI store by name.
 
 ```ts
-import { GetStore } from "ahnlich-client-node/grpc/ai/query_pb";
+import { GetStore } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 const response = await client.getStore(new GetStore({ store: "ai_store" }));
 console.log(response.name);           // store name
@@ -450,8 +450,8 @@ console.log(response.dbInfo);         // optional DB store info (when AI is conn
 ### Create Store
 
 ```ts
-import { CreateStore } from "ahnlich-client-node/grpc/ai/query_pb";
-import { AIModel } from "ahnlich-client-node/grpc/ai/models_pb";
+import { CreateStore } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { AIModel } from "@deven96/ahnlich-client-node/grpc/ai/models_pb";
 
 await client.createStore(
   new CreateStore({
@@ -468,10 +468,10 @@ await client.createStore(
 ### Set
 
 ```ts
-import { Set } from "ahnlich-client-node/grpc/ai/query_pb";
-import { AiStoreEntry, StoreInput, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
-import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
-import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+import { Set } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { AiStoreEntry, StoreInput, StoreValue } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "@deven96/ahnlich-client-node/grpc/metadata_pb";
+import { PreprocessAction } from "@deven96/ahnlich-client-node/grpc/ai/preprocess_pb";
 
 await client.set(
   new Set({
@@ -494,11 +494,11 @@ await client.set(
 ### Upsert
 
 ```ts
-import { Upsert } from "ahnlich-client-node/grpc/ai/query_pb";
-import { StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
-import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
-import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
-import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+import { Upsert } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { StoreValue } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "@deven96/ahnlich-client-node/grpc/metadata_pb";
+import { PredicateCondition, Predicate, Equals } from "@deven96/ahnlich-client-node/grpc/predicate_pb";
+import { PreprocessAction } from "@deven96/ahnlich-client-node/grpc/ai/preprocess_pb";
 
 const condition = new PredicateCondition({
   kind: {
@@ -534,9 +534,9 @@ await client.upsert(
 ### Get Sim N
 
 ```ts
-import { GetSimN } from "ahnlich-client-node/grpc/ai/query_pb";
-import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
-import { Algorithm } from "ahnlich-client-node/grpc/algorithm/algorithm_pb";
+import { GetSimN } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
+import { Algorithm } from "@deven96/ahnlich-client-node/grpc/algorithm/algorithm_pb";
 
 const response = await client.getSimN(
   new GetSimN({
@@ -552,7 +552,7 @@ console.log(response.entries);
 ### Get By Predicate
 
 ```ts
-import { GetPred } from "ahnlich-client-node/grpc/ai/query_pb";
+import { GetPred } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 const response = await client.getPred(
   new GetPred({
@@ -565,7 +565,7 @@ const response = await client.getPred(
 ### Create Predicate Index
 
 ```ts
-import { CreatePredIndex } from "ahnlich-client-node/grpc/ai/query_pb";
+import { CreatePredIndex } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 await client.createPredIndex(
   new CreatePredIndex({ store: "ai_store", predicates: ["brand"] }),
@@ -575,7 +575,7 @@ await client.createPredIndex(
 ### Drop Predicate Index
 
 ```ts
-import { DropPredIndex } from "ahnlich-client-node/grpc/ai/query_pb";
+import { DropPredIndex } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 await client.dropPredIndex(
   new DropPredIndex({ store: "ai_store", predicates: ["brand"], errorIfNotExists: true }),
@@ -585,8 +585,8 @@ await client.dropPredIndex(
 ### Create Non Linear Algorithm Index
 
 ```ts
-import { CreateNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/ai/query_pb";
-import { NonLinearIndex, KDTreeConfig, HNSWConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { CreateNonLinearAlgorithmIndex } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { NonLinearIndex, KDTreeConfig, HNSWConfig } from "@deven96/ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
 // Create a KDTree index
 await client.createNonLinearAlgorithmIndex(
@@ -608,8 +608,8 @@ await client.createNonLinearAlgorithmIndex(
 ### Drop Non Linear Algorithm Index
 
 ```ts
-import { DropNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/ai/query_pb";
-import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { DropNonLinearAlgorithmIndex } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { NonLinearAlgorithm } from "@deven96/ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
 await client.dropNonLinearAlgorithmIndex(
   new DropNonLinearAlgorithmIndex({
@@ -623,8 +623,8 @@ await client.dropNonLinearAlgorithmIndex(
 ### Delete Key
 
 ```ts
-import { DelKey } from "ahnlich-client-node/grpc/ai/query_pb";
-import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
+import { DelKey } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "@deven96/ahnlich-client-node/grpc/keyval_pb";
 
 await client.delKey(
   new DelKey({
@@ -637,7 +637,7 @@ await client.delKey(
 ### Drop Store
 
 ```ts
-import { DropStore } from "ahnlich-client-node/grpc/ai/query_pb";
+import { DropStore } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
 
 await client.dropStore(new DropStore({ store: "ai_store", errorIfNotExists: true }));
 ```

@@ -13,6 +13,7 @@ import type {
 } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 import {
+  ClearStore,
   ConvertStoreInputToEmbeddings,
   CreateNonLinearAlgorithmIndex,
   CreatePredIndex,
@@ -29,6 +30,7 @@ import {
   GetStore,
   InfoServer,
   ListClients,
+  ListStoreEntries,
   ListStores,
   Ping,
   PurgeStores,
@@ -43,6 +45,7 @@ import {
   Get,
   GetSimN as GetSimN$1,
   InfoServer as InfoServer$1,
+  ListStoreEntries as ListStoreEntries$1,
   Pong,
   Set as Set$1,
   StoreInputToEmbeddingsList,
@@ -206,6 +209,20 @@ export class AIQuery extends Message<AIQuery> {
         value: Upsert;
         case: "upsert";
       }
+    | {
+        /**
+         * @generated from field: ai.query.ListStoreEntries list_store_entries = 22;
+         */
+        value: ListStoreEntries;
+        case: "listStoreEntries";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.ClearStore clear_store = 23;
+         */
+        value: ClearStore;
+        case: "clearStore";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIQuery>) {
@@ -255,6 +272,8 @@ export class AIQuery extends Message<AIQuery> {
     { no: 19, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
     { no: 20, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
     { no: 21, name: "upsert", kind: "message", T: Upsert, oneof: "query" },
+    { no: 22, name: "list_store_entries", kind: "message", T: ListStoreEntries, oneof: "query" },
+    { no: 23, name: "clear_store", kind: "message", T: ClearStore, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIQuery {
@@ -416,6 +435,13 @@ export class AIServerResponse extends Message<AIServerResponse> {
         value: AIStoreInfo;
         case: "storeInfo";
       }
+    | {
+        /**
+         * @generated from field: ai.server.ListStoreEntries list_store_entries = 14;
+         */
+        value: ListStoreEntries$1;
+        case: "listStoreEntries";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIServerResponse>) {
@@ -445,6 +471,13 @@ export class AIServerResponse extends Message<AIServerResponse> {
       oneof: "response",
     },
     { no: 13, name: "store_info", kind: "message", T: AIStoreInfo, oneof: "response" },
+    {
+      no: 14,
+      name: "list_store_entries",
+      kind: "message",
+      T: ListStoreEntries$1,
+      oneof: "response",
+    },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIServerResponse {

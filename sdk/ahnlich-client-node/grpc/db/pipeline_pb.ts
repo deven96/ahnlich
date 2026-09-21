@@ -13,6 +13,7 @@ import type {
 } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 import {
+  ClearStore,
   CreateNonLinearAlgorithmIndex,
   CreatePredIndex,
   CreateStore,
@@ -28,6 +29,7 @@ import {
   GetStore,
   InfoServer,
   ListClients,
+  ListStoreEntries,
   ListStores,
   Ping,
   Set,
@@ -41,6 +43,7 @@ import {
   Get,
   GetSimN as GetSimN$1,
   InfoServer as InfoServer$1,
+  ListStoreEntries as ListStoreEntries$1,
   Pong,
   Set as Set$1,
   StoreInfo,
@@ -197,6 +200,20 @@ export class DBQuery extends Message<DBQuery> {
         value: Upsert;
         case: "upsert";
       }
+    | {
+        /**
+         * @generated from field: db.query.ListStoreEntries list_store_entries = 21;
+         */
+        value: ListStoreEntries;
+        case: "listStoreEntries";
+      }
+    | {
+        /**
+         * @generated from field: db.query.ClearStore clear_store = 22;
+         */
+        value: ClearStore;
+        case: "clearStore";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBQuery>) {
@@ -239,6 +256,8 @@ export class DBQuery extends Message<DBQuery> {
     { no: 18, name: "cluster_info", kind: "message", T: ClusterInfoQuery, oneof: "query" },
     { no: 19, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
     { no: 20, name: "upsert", kind: "message", T: Upsert, oneof: "query" },
+    { no: 21, name: "list_store_entries", kind: "message", T: ListStoreEntries, oneof: "query" },
+    { no: 22, name: "clear_store", kind: "message", T: ClearStore, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBQuery {
@@ -400,6 +419,13 @@ export class DBServerResponse extends Message<DBServerResponse> {
         value: ClusterInfoResponse;
         case: "clusterInfo";
       }
+    | {
+        /**
+         * @generated from field: db.server.ListStoreEntries list_store_entries = 14;
+         */
+        value: ListStoreEntries$1;
+        case: "listStoreEntries";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBServerResponse>) {
@@ -423,6 +449,13 @@ export class DBServerResponse extends Message<DBServerResponse> {
     { no: 11, name: "error", kind: "message", T: ErrorResponse, oneof: "response" },
     { no: 12, name: "store_info", kind: "message", T: StoreInfo, oneof: "response" },
     { no: 13, name: "cluster_info", kind: "message", T: ClusterInfoResponse, oneof: "response" },
+    {
+      no: 14,
+      name: "list_store_entries",
+      kind: "message",
+      T: ListStoreEntries$1,
+      oneof: "response",
+    },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBServerResponse {

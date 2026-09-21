@@ -147,3 +147,21 @@ Read-only mode exposes only:
 - `list_stores`
 - `similarity_search`
 - `get_by_metadata`
+
+## Troubleshooting
+
+### uv cannot resolve dependencies
+
+Ahnlich MCP requires a pre-release version of `betterproto`. Upgrade to uv
+0.12.0 or newer:
+
+```bash
+uv self update
+```
+
+If you cannot upgrade, add this to your project's `pyproject.toml` and retry:
+
+```toml
+[tool.uv]
+prerelease = "allow"
+```
