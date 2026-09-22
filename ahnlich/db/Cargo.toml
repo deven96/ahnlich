@@ -119,3 +119,15 @@ name = "predicate_existing_index_ingestion"
 path = "benches/experiments/predicate_existing_index_ingestion.rs"
 harness = false
 required-features = ["bench-experiments"]
+
+[[bench]]
+name = "predicate_linear_search_current"
+path = "benches/experiments/predicate_linear_search_current.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "predicate_linear_search_historical"
+path = "benches/experiments/predicate_linear_search_historical.rs"
+harness = false
+required-features = ["bench-experiments"]

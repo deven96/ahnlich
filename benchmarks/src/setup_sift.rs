@@ -1,8 +1,9 @@
 //! Loads the SIFT dataset into a running ahnlich-db and writes the ghz payloads.
 //!
-//! Both stores hold the same vectors, so the only difference between runs is the search
-//! path: `sift_linear` has no index, `sift_hnsw` does. Payloads are generated rather
-//! than hand-written to keep the `algorithm` field matched to its store.
+//! All stores hold the same vectors. `sift_linear` has no index, `sift_hnsw` has an
+//! HNSW index, and `sift_linear_indexed` has predicate indexes for selective predicate
+//! workloads. Payloads are generated rather than hand-written to keep the `algorithm`
+//! field matched to its store.
 
 mod sift;
 
@@ -12,8 +13,8 @@ use ahnlich_types::db::query::{CreateStore, DropStore, GetSimN, Set};
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
 use ahnlich_types::metadata::{MetadataValue, metadata_value};
 use ahnlich_types::predicates::{
-    PredicateCondition, Predicate, Equals, AndCondition,
-    predicate_condition, predicate,
+    AndCondition, Equals, In, OrCondition, Predicate, PredicateCondition, predicate,
+    predicate_condition,
 };
 use anyhow::{Context, Result, bail};
 use serde::{Serialize, Serializer};
@@ -26,20 +27,26 @@ fn string_value(s: &str) -> MetadataValue {
     }
 }
 
-fn assign_metadata(vector_index: usize) -> std::collections::HashMap<String, MetadataValue> {
+fn assign_metadata(
+    vector_index: usize,
+    store_size: usize,
+) -> std::collections::HashMap<String, MetadataValue> {
     let mut metadata = std::collections::HashMap::new();
-    
-    if vector_index < 100 {
+    let one_percent = store_size / 100;
+    let ten_percent = store_size / 10;
+    let half = store_size / 2;
+
+    if vector_index < one_percent {
         // 1% selectivity: all three conditions match
         metadata.insert("category".to_string(), string_value("electronics"));
         metadata.insert("price_range".to_string(), string_value("high"));
         metadata.insert("in_stock".to_string(), string_value("true"));
-    } else if vector_index < 1000 {
+    } else if vector_index < ten_percent {
         // 10% selectivity: category + in_stock match
         metadata.insert("category".to_string(), string_value("electronics"));
         metadata.insert("price_range".to_string(), string_value("low"));
         metadata.insert("in_stock".to_string(), string_value("true"));
-    } else if vector_index < 5000 {
+    } else if vector_index < half {
         // 50% selectivity: only category matches
         metadata.insert("category".to_string(), string_value("electronics"));
         metadata.insert("price_range".to_string(), string_value("mid"));
@@ -52,7 +59,7 @@ fn assign_metadata(vector_index: usize) -> std::collections::HashMap<String, Met
         metadata.insert("price_range".to_string(), string_value("mid"));
         metadata.insert("in_stock".to_string(), string_value("true"));
     }
-    
+
     metadata
 }
 
@@ -73,6 +80,26 @@ fn and_predicate(left: PredicateCondition, right: PredicateCondition) -> Predica
             left: Some(Box::new(left)),
             right: Some(Box::new(right)),
         }))),
+    }
+}
+
+fn or_predicate(left: PredicateCondition, right: PredicateCondition) -> PredicateCondition {
+    PredicateCondition {
+        kind: Some(predicate_condition::Kind::Or(Box::new(OrCondition {
+            left: Some(Box::new(left)),
+            right: Some(Box::new(right)),
+        }))),
+    }
+}
+
+fn in_predicate(key: &str, values: &[&str]) -> PredicateCondition {
+    PredicateCondition {
+        kind: Some(predicate_condition::Kind::Value(Predicate {
+            kind: Some(predicate::Kind::In(In {
+                key: key.to_owned(),
+                values: values.iter().map(|value| string_value(value)).collect(),
+            })),
+        })),
     }
 }
 
@@ -97,6 +124,119 @@ fn predicate_1_percent() -> PredicateCondition {
     )
 }
 
+const BENCHMARK_5K_FIELD: &str = "benchmark_5k";
+const BENCHMARK_1K_FIELD: &str = "benchmark_1k";
+const BENCHMARK_100_FIELD: &str = "benchmark_100";
+const BENCHMARK_MATCH_VALUE: &str = "match";
+const BENCHMARK_GROUP_5K_FIELD: &str = "benchmark_group_5k";
+const BENCHMARK_GROUP_1K_FIELD: &str = "benchmark_group_1k";
+const BENCHMARK_GROUP_100_FIELD: &str = "benchmark_group_100";
+const BENCHMARK_GROUP_VALUES: [&str; 3] = ["a", "b", "c"];
+// The suffixes are SIFT10k reference counts; divisors preserve selectivity at other sizes.
+const INDEXED_SELECTIVITIES: [(&str, &str, &str, usize); 3] = [
+    ("5k", BENCHMARK_5K_FIELD, BENCHMARK_GROUP_5K_FIELD, 2),
+    ("1k", BENCHMARK_1K_FIELD, BENCHMARK_GROUP_1K_FIELD, 10),
+    ("100", BENCHMARK_100_FIELD, BENCHMARK_GROUP_100_FIELD, 100),
+];
+
+fn indexed_metadata(
+    vector_index: usize,
+    store_size: usize,
+) -> std::collections::HashMap<String, MetadataValue> {
+    let mut metadata = assign_metadata(vector_index, store_size);
+    for (_, equality_field, group_field, divisor) in INDEXED_SELECTIVITIES {
+        let match_count = store_size / divisor;
+        if vector_index < match_count {
+            metadata.insert(
+                equality_field.to_owned(),
+                string_value(BENCHMARK_MATCH_VALUE),
+            );
+            let group = vector_index * BENCHMARK_GROUP_VALUES.len() / match_count;
+            metadata.insert(
+                group_field.to_owned(),
+                string_value(BENCHMARK_GROUP_VALUES[group]),
+            );
+        }
+    }
+    metadata
+}
+
+fn indexed_equality_filters() -> [(&'static str, PredicateCondition); 4] {
+    [
+        (
+            "5k",
+            equals_predicate(BENCHMARK_5K_FIELD, BENCHMARK_MATCH_VALUE),
+        ),
+        (
+            "1k",
+            equals_predicate(BENCHMARK_1K_FIELD, BENCHMARK_MATCH_VALUE),
+        ),
+        (
+            "100",
+            equals_predicate(BENCHMARK_100_FIELD, BENCHMARK_MATCH_VALUE),
+        ),
+        ("miss", equals_predicate(BENCHMARK_100_FIELD, "absent")),
+    ]
+}
+
+fn indexed_planner_filters() -> Vec<(String, PredicateCondition)> {
+    let mut filters = Vec::new();
+    for (suffix, equality_field, group_field, _) in INDEXED_SELECTIVITIES {
+        let equality = || equals_predicate(equality_field, BENCHMARK_MATCH_VALUE);
+        let group = |value| equals_predicate(group_field, value);
+        let indexed_or = || or_predicate(group("a"), or_predicate(group("b"), group("c")));
+        let unindexed_scope = || {
+            let category = equals_predicate("category", "electronics");
+            match suffix {
+                "5k" => and_predicate(
+                    category,
+                    or_predicate(
+                        equals_predicate("in_stock", "true"),
+                        equals_predicate("in_stock", "false"),
+                    ),
+                ),
+                "1k" => and_predicate(category, equals_predicate("in_stock", "true")),
+                "100" => and_predicate(category, equals_predicate("price_range", "high")),
+                _ => unreachable!("indexed selectivity suffix is fixed"),
+            }
+        };
+        let unindexed_subset = || equals_predicate("price_range", "high");
+
+        filters.push((
+            format!("in_{suffix}"),
+            in_predicate(group_field, &BENCHMARK_GROUP_VALUES),
+        ));
+        filters.push((
+            format!("and_{suffix}"),
+            and_predicate(equality(), indexed_or()),
+        ));
+        filters.push((
+            format!("and_partial_{suffix}"),
+            and_predicate(
+                equality(),
+                or_predicate(unindexed_scope(), unindexed_subset()),
+            ),
+        ));
+        filters.push((format!("or_{suffix}"), indexed_or()));
+        filters.push((
+            format!("or_partial_{suffix}"),
+            or_predicate(
+                equality(),
+                and_predicate(unindexed_scope(), unindexed_subset()),
+            ),
+        ));
+    }
+    filters
+}
+
+fn indexed_filters() -> Vec<(String, PredicateCondition)> {
+    indexed_equality_filters()
+        .into_iter()
+        .map(|(suffix, condition)| (suffix.to_owned(), condition))
+        .chain(indexed_planner_filters())
+        .collect()
+}
+
 fn serialize_predicate_condition<S>(
     condition: &Option<PredicateCondition>,
     serializer: S,
@@ -115,7 +255,7 @@ where
 
 fn predicate_condition_to_json(condition: &PredicateCondition) -> serde_json::Value {
     use serde_json::json;
-    
+
     match &condition.kind {
         None => json!(null),
         Some(predicate_condition::Kind::Value(predicate)) => {
@@ -144,7 +284,7 @@ fn predicate_condition_to_json(condition: &PredicateCondition) -> serde_json::Va
 
 fn predicate_to_json(predicate: &Predicate) -> serde_json::Value {
     use serde_json::json;
-    
+
     match &predicate.kind {
         None => json!(null),
         Some(predicate::Kind::Equals(equals)) => {
@@ -184,7 +324,7 @@ fn predicate_to_json(predicate: &Predicate) -> serde_json::Value {
 
 fn metadata_value_to_json(value: Option<&MetadataValue>) -> serde_json::Value {
     use serde_json::json;
-    
+
     match value.and_then(|v| v.value.as_ref()) {
         None => json!(null),
         Some(metadata_value::Value::RawString(s)) => json!({ "rawString": s }),
@@ -194,6 +334,7 @@ fn metadata_value_to_json(value: Option<&MetadataValue>) -> serde_json::Value {
 }
 
 const LINEAR_STORE: &str = "sift_linear";
+const INDEXED_LINEAR_STORE: &str = "sift_linear_indexed";
 const HNSW_STORE: &str = "sift_hnsw";
 
 /// Vectors per `Set` request. The server caps messages at 10MB.
@@ -237,7 +378,10 @@ struct GetSimNPayload {
     search_input: SearchInput,
     closest_n: u64,
     algorithm: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "serialize_predicate_condition")]
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_predicate_condition"
+    )]
     condition: Option<PredicateCondition>,
 }
 
@@ -309,6 +453,13 @@ async fn main() -> Result<()> {
         dataset.base.len(),
         dataset.queries.len()
     );
+    if dataset.base.len() / 100 < config.closest_n as usize {
+        bail!(
+            "1% of STORE_SIZE={} yields fewer than CLOSEST_N={} matches",
+            dataset.base.len(),
+            config.closest_n
+        );
+    }
 
     println!("Connecting to ahnlich-db at {}", config.db_addr);
     let client = DbClient::new(config.db_addr.clone())
@@ -324,7 +475,21 @@ async fn main() -> Result<()> {
                 key: vector.clone(),
             }),
             value: Some(StoreValue {
-                value: assign_metadata(i),
+                value: assign_metadata(i, dataset.base.len()),
+            }),
+        })
+        .collect();
+
+    let indexed_entries: Vec<DbStoreEntry> = dataset
+        .base
+        .iter()
+        .enumerate()
+        .map(|(i, vector)| DbStoreEntry {
+            key: Some(StoreKey {
+                key: vector.clone(),
+            }),
+            value: Some(StoreValue {
+                value: indexed_metadata(i, dataset.base.len()),
             }),
         })
         .collect();
@@ -338,11 +503,38 @@ async fn main() -> Result<()> {
         })),
     };
 
-    populate(&client, LINEAR_STORE, dimension, vec![], &entries, &config).await?;
+    populate(
+        &client,
+        LINEAR_STORE,
+        dimension,
+        vec![],
+        vec![],
+        &entries,
+        &config,
+    )
+    .await?;
+    populate(
+        &client,
+        INDEXED_LINEAR_STORE,
+        dimension,
+        vec![
+            BENCHMARK_5K_FIELD.to_owned(),
+            BENCHMARK_1K_FIELD.to_owned(),
+            BENCHMARK_100_FIELD.to_owned(),
+            BENCHMARK_GROUP_5K_FIELD.to_owned(),
+            BENCHMARK_GROUP_1K_FIELD.to_owned(),
+            BENCHMARK_GROUP_100_FIELD.to_owned(),
+        ],
+        vec![],
+        &indexed_entries,
+        &config,
+    )
+    .await?;
     populate(
         &client,
         HNSW_STORE,
         dimension,
+        vec![],
         vec![hnsw_index],
         &entries,
         &config,
@@ -358,6 +550,21 @@ async fn main() -> Result<()> {
         config.closest_n,
     )
     .await?;
+    let indexed_filters = indexed_filters();
+    for (suffix, condition) in &indexed_filters {
+        if suffix == "miss" {
+            continue;
+        }
+        verify_answers_with_condition(
+            &client,
+            INDEXED_LINEAR_STORE,
+            config.metric.linear_algorithm,
+            probe,
+            config.closest_n,
+            condition.clone(),
+        )
+        .await?;
+    }
     verify_answers(&client, HNSW_STORE, "HNSW", probe, config.closest_n).await?;
 
     // Generate base payloads (no filter)
@@ -389,7 +596,9 @@ async fn main() -> Result<()> {
     ];
 
     for (suffix, predicate) in &filters {
-        let linear_path = config.payload_dir.join(format!("getsimn_linear_{}.json", suffix));
+        let linear_path = config
+            .payload_dir
+            .join(format!("getsimn_linear_{}.json", suffix));
         write_payload_with_condition(
             &linear_path,
             LINEAR_STORE,
@@ -399,7 +608,9 @@ async fn main() -> Result<()> {
             Some(predicate.clone()),
         )?;
 
-        let hnsw_path = config.payload_dir.join(format!("getsimn_hnsw_{}.json", suffix));
+        let hnsw_path = config
+            .payload_dir
+            .join(format!("getsimn_hnsw_{}.json", suffix));
         write_payload_with_condition(
             &hnsw_path,
             HNSW_STORE,
@@ -410,13 +621,27 @@ async fn main() -> Result<()> {
         )?;
     }
 
+    for (suffix, predicate) in indexed_filters {
+        let path = config
+            .payload_dir
+            .join(format!("getsimn_linear_indexed_{suffix}.json"));
+        write_payload_with_condition(
+            &path,
+            INDEXED_LINEAR_STORE,
+            config.metric.linear_algorithm,
+            &dataset.queries,
+            config.closest_n,
+            Some(predicate),
+        )?;
+    }
+
     let ping_path = config.payload_dir.join("ping.json");
     std::fs::write(&ping_path, b"{}")
         .with_context(|| format!("could not write {}", ping_path.display()))?;
     println!("Wrote Ping payload to {}", ping_path.display());
 
     println!(
-        "\nSetup complete. Both stores hold {} vectors.",
+        "\nSetup complete. All stores hold {} vectors.",
         entries.len()
     );
     Ok(())
@@ -427,15 +652,19 @@ async fn populate(
     client: &DbClient,
     store: &str,
     dimension: usize,
+    create_predicates: Vec<String>,
     non_linear_indices: Vec<NonLinearIndex>,
     entries: &[DbStoreEntry],
     config: &Config,
 ) -> Result<()> {
-    let indexed = !non_linear_indices.is_empty();
-    println!(
-        "\nPreparing store {store:?} ({})",
-        if indexed { "HNSW index" } else { "no index" }
-    );
+    let index_description = if !non_linear_indices.is_empty() {
+        "HNSW index"
+    } else if !create_predicates.is_empty() {
+        "predicate indexes"
+    } else {
+        "no index"
+    };
+    println!("\nPreparing store {store:?} ({})", index_description);
 
     client
         .drop_store(
@@ -454,7 +683,7 @@ async fn populate(
             CreateStore {
                 store: store.to_owned(),
                 dimension: dimension as u32,
-                create_predicates: vec![],
+                create_predicates,
                 non_linear_indices,
                 error_if_exists: true,
                 schema: None,
@@ -522,6 +751,41 @@ async fn verify_answers(
     Ok(())
 }
 
+async fn verify_answers_with_condition(
+    client: &DbClient,
+    store: &str,
+    algorithm: &str,
+    query: &[f32],
+    closest_n: u64,
+    condition: PredicateCondition,
+) -> Result<()> {
+    let response = client
+        .get_sim_n(
+            GetSimN {
+                store: store.to_owned(),
+                search_input: Some(StoreKey {
+                    key: query.to_vec(),
+                }),
+                closest_n,
+                algorithm: algorithm_number(algorithm),
+                condition: Some(condition),
+                schema: None,
+            },
+            None,
+        )
+        .await
+        .with_context(|| format!("{store}: filtered {algorithm} query failed"))?;
+
+    if response.entries.len() as u64 != closest_n {
+        bail!(
+            "{store}: filtered {algorithm} returned {} entries, expected {closest_n}",
+            response.entries.len()
+        );
+    }
+    println!("Verified {store} answers filtered {algorithm} queries");
+    Ok(())
+}
+
 fn algorithm_number(name: &str) -> i32 {
     use ahnlich_types::algorithm::algorithms::Algorithm;
     match name {
@@ -559,14 +823,17 @@ fn write_payload_with_condition(
             .with_context(|| format!("could not create {}", parent.display()))?;
     }
 
-    let json = serde_json::to_string_pretty(&payloads)
-        .context("serializing payloads")?;
-    std::fs::write(path, json)
-        .with_context(|| format!("writing {}", path.display()))?;
-    
-    println!("Wrote {} {} payloads to {}", 
-        queries.len(), 
-        if condition.is_some() { "filtered" } else { "unfiltered" },
+    let json = serde_json::to_string_pretty(&payloads).context("serializing payloads")?;
+    std::fs::write(path, json).with_context(|| format!("writing {}", path.display()))?;
+
+    println!(
+        "Wrote {} {} payloads to {}",
+        queries.len(),
+        if condition.is_some() {
+            "filtered"
+        } else {
+            "unfiltered"
+        },
         path.display()
     );
     Ok(())

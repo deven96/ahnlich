@@ -51,12 +51,14 @@ server.log
 
 ## What it measures
 
-Both stores hold the same vectors, each carrying `category`, `price_range` and
-`in_stock` metadata. Only the search path differs.
+All stores hold the same vectors. The ordinary linear and HNSW stores carry `category`,
+`price_range` and `in_stock` metadata. The indexed linear store also has dedicated,
+deterministic equality fields for predicate-index experiments.
 
 | row | store | index | query algorithm |
 |---|---|---|---|
 | `linear` | `sift_linear` | none | matches `DISTANCE_METRIC` |
+| `linear_indexed` | `sift_linear_indexed` | predicate | matches `DISTANCE_METRIC` |
 | `hnsw` | `sift_hnsw` | HNSW | `HNSW` |
 | `ping` | none | none | `DBService/Ping`, does no work |
 
@@ -68,6 +70,26 @@ predicate, suffixed by how many entries the predicate matches:
 | `_5k` | ~5,000 |
 | `_1k` | ~1,000 |
 | `_100` | ~100 |
+
+The indexed linear scenarios use single equality predicates and are named
+`linear_indexed_5k`, `linear_indexed_1k`, `linear_indexed_100`, and
+`linear_indexed_miss`. On SIFT10k, `_5k` is a high-selectivity fallback control, `_1k`
+is the 10% boundary, `_100` is the selective path, and `_miss` exercises an empty index
+bucket. These suffixes name the SIFT10k reference counts; the fixture scales their
+matches to 50%, 10%, and 1% of `STORE_SIZE` for larger datasets. The original
+`linear_*` scenarios retain their compound predicates.
+
+The indexed store also generates the following opt-in scenarios at each of those three
+selectivities. They use three distinct value buckets within a single indexed field;
+the remaining metadata fields in the partial expressions are deliberately unindexed.
+
+| scenario prefix | filter shape | planner behavior |
+|---|---|---|
+| `linear_indexed_in_` | `In(a, b, c)` | union of indexed value buckets |
+| `linear_indexed_and_` | indexed equality `And` nested indexed `Or` | intersect complete candidate sets |
+| `linear_indexed_and_partial_` | indexed equality `And` nested unindexed `Or` | use the indexed branch and recheck |
+| `linear_indexed_or_` | nested indexed `Or` | union complete candidate sets |
+| `linear_indexed_or_partial_` | indexed equality `Or` nested unindexed `And` | fall back to full scan |
 
 ## Reference numbers
 
