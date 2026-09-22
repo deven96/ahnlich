@@ -100,6 +100,12 @@ message DelPred {
   optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
+// Deletes all entries from a store while preserving the store and its indices.
+message ClearStore {
+  string store = 1; // The name of the store to clear.
+  optional string schema = 2; // Optional schema/namespace for the store. Defaults to "public".
+}
+
 // Drops a store and deletes all its data and associated indices.
 // If `error_if_not_exists` is true, it will return an error if the store does not exist.
 message DropStore {
@@ -114,6 +120,15 @@ message InfoServer {}
 // A request to list all the stores on the server, along with their size or length.
 message ListStores {
   optional string schema = 1; // Optional schema/namespace to filter stores. Defaults to "public" when unset.
+}
+
+// Lists entries in a store using cursor-based pagination.
+message ListStoreEntries {
+  string store = 1; // The name of the store.
+  optional string cursor = 2; // Opaque cursor returned by the previous request.
+  optional uint32 limit = 3; // Number of entries to return. Defaults to 100.
+  optional predicates.PredicateCondition condition = 4; // Optional metadata filter.
+  optional string schema = 5; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // A request to list all the clients currently connected to the server.

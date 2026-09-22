@@ -74,7 +74,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_client_rs"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "ahnlich_types",
  "ai",
@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_types"
-version = "0.4.3"
+version = "0.4.4"
 dependencies = [
  "ahash 0.8.12",
  "ascii85",
@@ -1296,12 +1296,14 @@ dependencies = [
  "once_cell",
  "openraft",
  "papaya",
+ "parking_lot",
  "pretty_assertions",
  "prost 0.13.5",
  "pulp",
  "rand 0.8.5",
  "rayon",
  "rcgen",
+ "seize",
  "serde",
  "serde_json",
  "task-manager",
@@ -2685,6 +2687,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
+ "serde",
 ]
 
 [[package]]
@@ -3273,9 +3276,8 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 
 [[package]]
 name = "papaya"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f92dd0b07c53a0a0c764db2ace8c541dc47320dad97c2200c2a637ab9dd2328f"
+version = "0.2.5"
+source = "git+https://github.com/jimezesinachi/papaya.git?rev=1d914b94d846da6185380b814d09758624fd9f7e#1d914b94d846da6185380b814d09758624fd9f7e"
 dependencies = [
  "equivalent",
  "seize",
@@ -5798,6 +5800,7 @@ dependencies = [
  "papaya",
  "pin-project",
  "rayon",
+ "seize",
  "serde",
  "serde_json",
  "sha2",

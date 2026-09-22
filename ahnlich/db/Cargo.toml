@@ -54,12 +54,14 @@ log.workspace = true
 fallible_collections.workspace = true
 pulp.workspace = true
 papaya.workspace = true
+seize.workspace = true
 ahnlich_types = { path = "../types", version = "*", default-features = false, features = [] }
 tonic = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
 openraft = { workspace = true, optional = true }
 ahnlich-replication = { path = "../replication", version = "*", optional = true }
 bitcode.workspace = true
+parking_lot = { workspace = true, features = ["serde"] }
 
 [dev-dependencies]
 futures.workspace = true
@@ -129,5 +131,17 @@ required-features = ["bench-experiments"]
 [[bench]]
 name = "predicate_linear_search_historical"
 path = "benches/experiments/predicate_linear_search_historical.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "papaya_collector_sharing"
+path = "benches/experiments/papaya_collector_sharing.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "papaya_collector_memory"
+path = "benches/memory/papaya_collector_memory.rs"
 harness = false
 required-features = ["bench-experiments"]

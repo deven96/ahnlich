@@ -18,11 +18,13 @@
 //! | Inside tasks / after panic hook installed | `try_new_*().expect("clear message")` — the hook catches the panic |
 //! | Hot-path runtime allocation | Use `try_new_*()` directly and handle the error |
 
-use std::panic::catch_unwind;
+use std::hash::Hash;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
+use seize::Collector;
 
 /// Creates a new pre-allocated [`ConcurrentHashMap`] inside [`catch_unwind`].
 ///
@@ -40,6 +42,24 @@ pub fn try_new_hashmap<K, V>() -> Result<ConcurrentHashMap<K, V>, String> {
         .map_err(|_| "Failed to initialize concurrent hashmap".to_string())
 }
 
+/// Creates a new pre-allocated [`ConcurrentHashMap`] using a shared collector.
+pub fn try_new_hashmap_with_shared_collector<K, V>(
+    collector: Arc<Collector>,
+    capacity: usize,
+) -> Result<ConcurrentHashMap<K, V>, String>
+where
+    K: Send + 'static,
+    V: Send + 'static,
+{
+    catch_unwind(AssertUnwindSafe(move || {
+        ConcurrentHashMap::builder()
+            .capacity(capacity.max(1))
+            .shared_collector(collector)
+            .build()
+    }))
+    .map_err(|_| "Failed to initialize shared concurrent hashmap".to_string())
+}
+
 /// Creates a new [`ConcurrentHashMap`] wrapped in [`Arc`] using [`try_new_hashmap`].
 ///
 /// Convenience wrapper for the common `Arc<ConcurrentHashMap<K, V>>` pattern.
@@ -53,6 +73,30 @@ pub fn try_new_arc_hashmap<K, V>() -> Result<Arc<ConcurrentHashMap<K, V>>, Strin
 pub fn try_new_hashset<T: std::hash::Hash + Eq>() -> Result<ConcurrentHashSet<T>, String> {
     catch_unwind(|| ConcurrentHashSet::with_capacity(1))
         .map_err(|_| "Failed to initialize concurrent hashset".to_string())
+}
+
+/// Creates a new pre-allocated [`ConcurrentHashSet`] using a shared collector.
+pub fn try_new_hashset_with_shared_collector<T>(
+    collector: Arc<Collector>,
+    capacity: usize,
+) -> Result<ConcurrentHashSet<T>, String>
+where
+    T: Send + Hash + Eq + 'static,
+{
+    catch_unwind(AssertUnwindSafe(move || {
+        ConcurrentHashSet::builder()
+            .capacity(capacity.max(1))
+            .shared_collector(collector)
+            .build()
+    }))
+    .map_err(|_| "Failed to initialize shared concurrent hashset".to_string())
+}
+
+/// Creates a new [`ConcurrentHashSet`] wrapped in [`Arc`] using [`try_new_hashset`].
+///
+/// Convenience wrapper for the common `Arc<ConcurrentHashSet<T>>` pattern.
+pub fn try_new_arc_hashset<T: std::hash::Hash + Eq>() -> Result<Arc<ConcurrentHashSet<T>>, String> {
+    try_new_hashset().map(Arc::new)
 }
 
 /// Creates a new [`ConcurrentHashSet`] with the given capacity inside [`catch_unwind`].

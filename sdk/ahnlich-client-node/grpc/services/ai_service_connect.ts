@@ -4,6 +4,7 @@
 // @ts-nocheck
 
 import {
+  ClearStore,
   ConvertStoreInputToEmbeddings,
   CreateNonLinearAlgorithmIndex,
   CreatePredIndex,
@@ -20,6 +21,7 @@ import {
   GetStore,
   InfoServer,
   ListClients,
+  ListStoreEntries,
   ListStores,
   Ping,
   PurgeStores,
@@ -34,6 +36,7 @@ import {
   Get,
   GetSimN as GetSimN$1,
   InfoServer as InfoServer$1,
+  ListStoreEntries as ListStoreEntries$1,
   Pong,
   Set as Set$1,
   StoreInputToEmbeddingsList,
@@ -117,6 +120,15 @@ export const AIService = {
       kind: MethodKind.Unary,
     },
     /**
+     * @generated from rpc services.ai_service.AIService.ListStoreEntries
+     */
+    listStoreEntries: {
+      name: "ListStoreEntries",
+      I: ListStoreEntries,
+      O: ListStoreEntries$1,
+      kind: MethodKind.Unary,
+    },
+    /**
      * * Update methods *
      *
      * @generated from rpc services.ai_service.AIService.Set
@@ -189,6 +201,15 @@ export const AIService = {
     dropSchema: {
       name: "DropSchema",
       I: DropSchema,
+      O: Del,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.ai_service.AIService.ClearStore
+     */
+    clearStore: {
+      name: "ClearStore",
+      I: ClearStore,
       O: Del,
       kind: MethodKind.Unary,
     },
