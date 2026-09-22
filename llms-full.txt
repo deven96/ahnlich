@@ -32493,6 +32493,291 @@ If you encounter an error not listed here:
 
 ---
 
+# FILE: stores/clear-store.mdx
+
+---
+title: Clear a store
+sidebar_label: Clear a store
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Clear a store
+
+Delete every entry from a store without deleting the store itself.
+
+> This operation works on both **Vector DB stores** and **AI stores**. Use the **Database engine / AI proxy** switch in the sample below.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the store to clear. |
+| `schema` | string · optional | Schema containing the store. Defaults to `public`. |
+
+## Behavior
+
+- Deletes every entry and returns the number removed.
+- Preserves the store, its creation information, dimension, predicate indexes, and non-linear index configuration.
+- Returns `deleted_count: 0` when the store is already empty.
+
+:::warning
+Clearing a store permanently deletes its entries. This operation cannot be undone.
+:::
+
+## ClearStore compared with DropStore
+
+| Operation | Entries | Store configuration |
+| --- | --- | --- |
+| `ClearStore` | Deleted | Preserved |
+| `DropStore` | Deleted | Deleted |
+
+## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+
+
+async def clear_store():
+    async with Channel(host="127.0.0.1", port=1369) as channel:
+        client = DbServiceStub(channel)
+        response = await client.clear_store(
+            db_query.ClearStore(store="movies", schema="public")
+        )
+        print(f"Deleted {response.deleted_count} entries")
+
+
+asyncio.run(clear_store())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "@deven96/ahnlich-client-node";
+import { ClearStore } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+
+const client = createDbClient("127.0.0.1:1369");
+const response = await client.clearStore(
+  new ClearStore({ store: "movies", schema: "public" }),
+);
+
+console.log(`Deleted ${response.deletedCount.toString()} entries`);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    dbsvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+    conn, err := grpc.NewClient(
+        "127.0.0.1:1369",
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer conn.Close()
+
+    client := dbsvc.NewDBServiceClient(conn)
+    schema := "public"
+    response, err := client.ClearStore(
+        context.Background(),
+        &dbquery.ClearStore{Store: "movies", Schema: &schema},
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Printf("Deleted %d entries\n", response.DeletedCount)
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::db::query::ClearStore;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = DbClient::new("http://127.0.0.1:1369".to_string()).await?;
+    let response = client
+        .clear_store(
+            ClearStore {
+                store: "movies".to_string(),
+                schema: Some("public".to_string()),
+            },
+            None,
+        )
+        .await?;
+
+    println!("Deleted {} entries", response.deleted_count);
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```text
+CLEARSTORE movies SCHEMA public
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+
+
+async def clear_store():
+    async with Channel(host="127.0.0.1", port=1370) as channel:
+        client = AiServiceStub(channel)
+        response = await client.clear_store(
+            ai_query.ClearStore(store="movies", schema="public")
+        )
+        print(f"Deleted {response.deleted_count} entries")
+
+
+asyncio.run(clear_store())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "@deven96/ahnlich-client-node";
+import { ClearStore } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+
+const client = createAiClient("127.0.0.1:1370");
+const response = await client.clearStore(
+  new ClearStore({ store: "movies", schema: "public" }),
+);
+
+console.log(`Deleted ${response.deletedCount.toString()} entries`);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+    aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+    conn, err := grpc.NewClient(
+        "127.0.0.1:1370",
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer conn.Close()
+
+    client := aisvc.NewAIServiceClient(conn)
+    schema := "public"
+    response, err := client.ClearStore(
+        context.Background(),
+        &aiquery.ClearStore{Store: "movies", Schema: &schema},
+    )
+    if err != nil {
+        panic(err)
+    }
+
+    fmt.Printf("Deleted %d entries\n", response.DeletedCount)
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_types::ai::query::ClearStore;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = AiClient::new("http://127.0.0.1:1370".to_string()).await?;
+    let response = client
+        .clear_store(
+            ClearStore {
+                store: "movies".to_string(),
+                schema: Some("public".to_string()),
+            },
+            None,
+        )
+        .await?;
+
+    println!("Deleted {} entries", response.deleted_count);
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```text
+CLEARSTORE movies SCHEMA public
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The response contains `deleted_count`, the number of entries removed.
+
+Use `ClearStore` when the store should remain available for new entries. Use [`DropStore`](/docs/stores/drop-store) when the store and its configuration are no longer needed.
+
+
+
+---
+
 # FILE: stores/create-non-linear-algx.mdx
 
 ---
@@ -38808,6 +39093,418 @@ A list of connected client information (e.g. client addresses).
 
 - [Ping the server](/docs/stores/ping)
 - [Server info](/docs/stores/info-server)
+
+
+
+---
+
+# FILE: stores/list-store-entries.mdx
+
+---
+title: List store entries
+sidebar_label: List store entries
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# List store entries
+
+Retrieve entries from a store in deterministic, cursor-paginated pages.
+
+> This operation works on both **Vector DB stores** and **AI stores**. Use the **Database engine / AI proxy** switch in the sample below.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the store to list. |
+| `cursor` | string · optional | Opaque cursor returned by the previous request. |
+| `limit` | integer · optional | Entries per page. Defaults to `100`; maximum is `1000`. |
+| `condition` | predicate · optional | Metadata predicate used to filter entries. |
+| `schema` | string · optional | Schema containing the store. Defaults to `public`. |
+
+## Behavior
+
+- Returns entries in deterministic order.
+- Returns `next_cursor` when another page is available.
+- Applies `condition` before pagination when a metadata filter is provided.
+- The DB response contains vector keys. The AI response contains the original input when the store preserves it.
+
+:::note
+Treat the cursor as opaque. Pass `next_cursor` back unchanged; do not parse or construct it.
+:::
+
+## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+
+
+async def list_entries():
+    async with Channel(host="127.0.0.1", port=1369) as channel:
+        client = DbServiceStub(channel)
+        cursor = None
+
+        while True:
+            response = await client.list_store_entries(
+                db_query.ListStoreEntries(
+                    store="movies",
+                    schema="public",
+                    cursor=cursor,
+                    limit=100,
+                )
+            )
+
+            for entry in response.entries:
+                print(entry.key, entry.value)
+
+            if response.next_cursor is None:
+                break
+            cursor = response.next_cursor
+
+
+asyncio.run(list_entries())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "@deven96/ahnlich-client-node";
+import { ListStoreEntries } from "@deven96/ahnlich-client-node/grpc/db/query_pb";
+
+const client = createDbClient("127.0.0.1:1369");
+let cursor: string | undefined;
+
+do {
+  const page = await client.listStoreEntries(
+    new ListStoreEntries({
+      store: "movies",
+      schema: "public",
+      cursor,
+      limit: 100,
+    }),
+  );
+
+  for (const entry of page.entries) {
+    console.log(entry.key?.key, entry.value?.value);
+  }
+
+  cursor = page.nextCursor;
+} while (cursor !== undefined);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    dbsvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+    conn, err := grpc.NewClient(
+        "127.0.0.1:1369",
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer conn.Close()
+
+    client := dbsvc.NewDBServiceClient(conn)
+    limit := uint32(100)
+    schema := "public"
+    var cursor *string
+
+    for {
+        page, err := client.ListStoreEntries(
+            context.Background(),
+            &dbquery.ListStoreEntries{
+                Store: "movies",
+                Schema: &schema,
+                Cursor: cursor,
+                Limit: &limit,
+            },
+        )
+        if err != nil {
+            panic(err)
+        }
+
+        for _, entry := range page.Entries {
+            fmt.Println(entry.Key, entry.Value)
+        }
+
+        if page.NextCursor == nil {
+            break
+        }
+        cursor = page.NextCursor
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::db::query::ListStoreEntries;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = DbClient::new("http://127.0.0.1:1369".to_string()).await?;
+    let mut cursor = None;
+
+    loop {
+        let page = client
+            .list_store_entries(
+                ListStoreEntries {
+                    store: "movies".to_string(),
+                    cursor,
+                    limit: Some(100),
+                    condition: None,
+                    schema: Some("public".to_string()),
+                },
+                None,
+            )
+            .await?;
+
+        for entry in page.entries {
+            println!("{entry:?}");
+        }
+
+        match page.next_cursor {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```text
+LISTSTOREENTRIES movies LIMIT 100 WHERE (genre = drama) SCHEMA public
+```
+
+Use the `next_cursor` returned by the previous page to fetch the next page:
+
+```text
+LISTSTOREENTRIES movies LIMIT 100 CURSOR 00000000000000ff WHERE (genre = drama) SCHEMA public
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+
+
+async def list_entries():
+    async with Channel(host="127.0.0.1", port=1370) as channel:
+        client = AiServiceStub(channel)
+        cursor = None
+
+        while True:
+            response = await client.list_store_entries(
+                ai_query.ListStoreEntries(
+                    store="movies",
+                    schema="public",
+                    cursor=cursor,
+                    limit=100,
+                )
+            )
+
+            for entry in response.entries:
+                print(entry.key, entry.value)
+
+            if response.next_cursor is None:
+                break
+            cursor = response.next_cursor
+
+
+asyncio.run(list_entries())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "@deven96/ahnlich-client-node";
+import { ListStoreEntries } from "@deven96/ahnlich-client-node/grpc/ai/query_pb";
+
+const client = createAiClient("127.0.0.1:1370");
+let cursor: string | undefined;
+
+do {
+  const page = await client.listStoreEntries(
+    new ListStoreEntries({
+      store: "movies",
+      schema: "public",
+      cursor,
+      limit: 100,
+    }),
+  );
+
+  for (const entry of page.entries) {
+    console.log(entry.key, entry.value?.value);
+  }
+
+  cursor = page.nextCursor;
+} while (cursor !== undefined);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+
+    aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+    aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+    conn, err := grpc.NewClient(
+        "127.0.0.1:1370",
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        panic(err)
+    }
+    defer conn.Close()
+
+    client := aisvc.NewAIServiceClient(conn)
+    limit := uint32(100)
+    schema := "public"
+    var cursor *string
+
+    for {
+        page, err := client.ListStoreEntries(
+            context.Background(),
+            &aiquery.ListStoreEntries{
+                Store: "movies",
+                Schema: &schema,
+                Cursor: cursor,
+                Limit: &limit,
+            },
+        )
+        if err != nil {
+            panic(err)
+        }
+
+        for _, entry := range page.Entries {
+            fmt.Println(entry.Key, entry.Value)
+        }
+
+        if page.NextCursor == nil {
+            break
+        }
+        cursor = page.NextCursor
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_types::ai::query::ListStoreEntries;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = AiClient::new("http://127.0.0.1:1370".to_string()).await?;
+    let mut cursor = None;
+
+    loop {
+        let page = client
+            .list_store_entries(
+                ListStoreEntries {
+                    store: "movies".to_string(),
+                    cursor,
+                    limit: Some(100),
+                    condition: None,
+                    schema: Some("public".to_string()),
+                },
+                None,
+            )
+            .await?;
+
+        for entry in page.entries {
+            println!("{entry:?}");
+        }
+
+        match page.next_cursor {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```text
+LISTSTOREENTRIES movies LIMIT 100 WHERE (genre = drama) SCHEMA public
+```
+
+Use the `next_cursor` returned by the previous page to fetch the next page:
+
+```text
+LISTSTOREENTRIES movies LIMIT 100 CURSOR 00000000000000ff WHERE (genre = drama) SCHEMA public
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The response contains the current page in `entries`. When `next_cursor` is absent, the final page has been reached.
+
+To filter entries, provide a [`PredicateCondition`](/docs/components/predicates/predicates) through `condition`.
 
 
 

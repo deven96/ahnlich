@@ -36,6 +36,7 @@ This is the documentation index for LLMs. Fetch the linked pages as needed.
 ## Stores
 
 - [Stores](https://ahnlich.dev/docs/stores/)
+- [Clear a store](https://ahnlich.dev/docs/stores/clear-store)
 - [Create non-linear index](https://ahnlich.dev/docs/stores/create-non-linear-algx)
 - [Create predicate index](https://ahnlich.dev/docs/stores/create-predicate-index)
 - [Create a store](https://ahnlich.dev/docs/stores/create-store)
@@ -50,6 +51,7 @@ This is the documentation index for LLMs. Fetch the linked pages as needed.
 - [Get a store](https://ahnlich.dev/docs/stores/get-store)
 - [Server info](https://ahnlich.dev/docs/stores/info-server)
 - [List connected clients](https://ahnlich.dev/docs/stores/list-connected-clients)
+- [List store entries](https://ahnlich.dev/docs/stores/list-store-entries)
 - [List stores](https://ahnlich.dev/docs/stores/list-stores)
 - [Ping the server](https://ahnlich.dev/docs/stores/ping)
 - [Insert data](https://ahnlich.dev/docs/stores/set)
