@@ -412,7 +412,7 @@ impl Fixture {
         ahnlich_types::similarity::Similarity,
     )> {
         let search = if candidate {
-            StoreHandler::get_sim_in_store_candidate
+            StoreHandler::get_sim_in_store_with_bounded_index_filtering
         } else {
             StoreHandler::get_sim_in_store
         };
@@ -439,7 +439,7 @@ impl Fixture {
         ahnlich_types::similarity::Similarity,
     )> {
         self.handler
-            .get_sim_in_store_indexed_matches(
+            .get_sim_in_store_with_indexed_matches(
                 &self.name,
                 &Schema::default(),
                 self.query.clone(),

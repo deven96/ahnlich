@@ -453,7 +453,7 @@ impl StoreHandler {
     /// Experimental reconstruction of the pre-#381 indexed linear-search path.
     #[cfg(feature = "bench-experiments")]
     #[tracing::instrument(skip(self))]
-    pub fn get_sim_in_store_indexed_matches(
+    pub fn get_sim_in_store_with_indexed_matches(
         &self,
         store_name: &StoreName,
         schema: &Schema,
@@ -527,11 +527,10 @@ impl StoreHandler {
             .collect())
     }
 
-    /// Experimental replacement for GETSIMN that uses selective equality indexes for
-    /// linear search while preserving the original behavior for every fallback path.
-    #[cfg(feature = "bench-experiments")]
+    /// Uses selective predicate indexes for linear search while preserving the original
+    /// behavior for every fallback path.
     #[tracing::instrument(skip(self))]
-    pub fn get_sim_in_store_candidate(
+    pub fn get_sim_in_store_with_bounded_index_filtering(
         &self,
         store_name: &StoreName,
         schema: &Schema,
@@ -579,7 +578,7 @@ impl StoreHandler {
 
             // Linear WITH predicates: Adaptive parallel/sequential decision
             (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
-                // Experimental 10% budget, capped to bound temporary ID storage.
+                // 10% budget, capped to bound temporary ID storage.
                 let limit = (store.id_to_value.len() / 10).min(10_000);
                 if let Some(ids) = store.predicate_indices.bounded_candidates(cond, limit) {
                     let pinned = store.id_to_value.pin_owned();

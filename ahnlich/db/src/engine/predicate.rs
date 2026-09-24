@@ -159,7 +159,6 @@ impl PredicateIndices {
 
     /// Returns a complete, bounded candidate superset for a condition.
     /// None means scan; Some(empty) means the condition cannot match any entry.
-    #[cfg(feature = "bench-experiments")]
     pub(super) fn bounded_candidates(
         &self,
         condition: &PredicateCondition,
@@ -183,7 +182,6 @@ impl PredicateIndices {
         }
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn predicate_candidates(&self, predicate: &Predicate, limit: usize) -> Option<Vec<StoreKeyId>> {
         match &predicate.kind {
             Some(PredicateKind::Equals(predicates::Equals {
@@ -200,7 +198,6 @@ impl PredicateIndices {
         }
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn equals_candidates(
         &self,
         key: &str,
@@ -227,7 +224,6 @@ impl PredicateIndices {
         Some(ids)
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn in_candidates(
         &self,
         key: &str,
@@ -264,7 +260,6 @@ impl PredicateIndices {
         Some(ids)
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn and_candidates(
         &self,
         left: &PredicateCondition,
@@ -281,7 +276,6 @@ impl PredicateIndices {
         }
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn or_candidates(
         &self,
         left: &PredicateCondition,
@@ -293,7 +287,6 @@ impl PredicateIndices {
         Self::union_candidates(left, right, limit)
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn intersect_candidates(left: Vec<StoreKeyId>, right: Vec<StoreKeyId>) -> Vec<StoreKeyId> {
         if left.is_empty() || right.is_empty() {
             return Vec::new();
@@ -310,7 +303,6 @@ impl PredicateIndices {
             .collect()
     }
 
-    #[cfg(feature = "bench-experiments")]
     fn union_candidates(
         left: Vec<StoreKeyId>,
         right: Vec<StoreKeyId>,
@@ -1167,7 +1159,6 @@ mod tests {
         shared_pred
     }
 
-    #[cfg(feature = "bench-experiments")]
     #[test]
     fn bounded_candidates_follow_recursive_completeness_rules() {
         let indices =

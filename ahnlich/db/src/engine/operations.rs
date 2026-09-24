@@ -428,20 +428,7 @@ pub fn get_sim_n(
     let algorithm = Algorithm::try_from(params.algorithm)
         .map_err(|_| ServerError::InvalidArgument("Invalid algorithm".to_owned()))?;
 
-    #[cfg(not(feature = "bench-experiments"))]
-    let results = store_handler.get_sim_in_store(
-        &StoreName {
-            value: params.store,
-        },
-        &schema,
-        search_input,
-        closest_n,
-        algorithm,
-        params.condition,
-    )?;
-
-    #[cfg(feature = "bench-experiments")]
-    let results = store_handler.get_sim_in_store_candidate(
+    let results = store_handler.get_sim_in_store_with_bounded_index_filtering(
         &StoreName {
             value: params.store,
         },
