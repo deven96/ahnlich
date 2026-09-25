@@ -450,6 +450,345 @@ impl StoreHandler {
         Ok(deleted)
     }
 
+    /// Experimental reconstruction of the pre-#381 indexed linear-search path.
+    #[cfg(feature = "bench-experiments")]
+    #[tracing::instrument(skip(self))]
+    pub fn get_sim_in_store_with_indexed_matches(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        search_input: StoreKey,
+        closest_n: NonZeroUsize,
+        algorithm: Algorithm,
+        condition: PredicateCondition,
+    ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
+        let store = self.get(store_name, schema)?;
+        let store_dimension = store.dimension.get();
+        let input_dimension = search_input.key.len();
+
+        if input_dimension != store_dimension {
+            return Err(ServerError::StoreDimensionMismatch {
+                store_dimension,
+                input_dimension,
+            });
+        }
+
+        let AlgorithmByType::Linear(linear_algo) = algorithm.into() else {
+            return Err(ServerError::InvalidArgument(
+                "indexed matches experiment requires a linear algorithm".to_string(),
+            ));
+        };
+        let filtered_with_ids = store.get_matches_with_ids(&condition)?;
+        if filtered_with_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let search_embedding = EmbeddingKey::new(search_input.key);
+        let use_parallel = self
+            .parallelism_config
+            .should_use_parallel_for_linear_search(
+                filtered_with_ids.len(),
+                store_dimension,
+                self.active_requests.load(Ordering::Relaxed),
+            );
+        let result = if use_parallel {
+            linear_algo.find_similar_n_parallel(
+                &search_embedding,
+                filtered_with_ids
+                    .par_iter()
+                    .map(|(id, (key, value))| (id, key, value.as_ref())),
+                None,
+                false,
+                closest_n,
+            )
+        } else {
+            linear_algo.find_similar_n_sequential(
+                &search_embedding,
+                filtered_with_ids
+                    .iter()
+                    .map(|(id, (key, value))| (id, key, value.as_ref())),
+                None,
+                false,
+                closest_n,
+            )
+        };
+
+        let mut entries_by_id: StdHashMap<StoreKeyId, StoreEntry> =
+            StdHashMap::with_capacity(filtered_with_ids.len());
+        entries_by_id.extend(filtered_with_ids);
+        Ok(result
+            .into_iter()
+            .filter_map(|(id, score)| {
+                entries_by_id
+                    .remove(&id)
+                    .map(|(key, value)| (key, value, Similarity { value: score }))
+            })
+            .collect())
+    }
+
+    /// Uses selective predicate indexes for linear search while preserving the original
+    /// behavior for every fallback path.
+    #[tracing::instrument(skip(self))]
+    pub fn get_sim_in_store_with_bounded_index_filtering(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        search_input: StoreKey,
+        closest_n: NonZeroUsize,
+        algorithm: Algorithm,
+        condition: Option<PredicateCondition>,
+    ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
+        let store = self.get(store_name, schema)?;
+        let store_dimension = store.dimension.get();
+        let input_dimension = search_input.key.len();
+
+        if input_dimension != store_dimension {
+            return Err(ServerError::StoreDimensionMismatch {
+                store_dimension,
+                input_dimension,
+            });
+        }
+
+        let search_embedding = EmbeddingKey::new(search_input.key);
+        let algorithm_by_type: AlgorithmByType = algorithm.into();
+
+        // Optimize for different algorithm + predicate combinations
+        let similar_result = match (algorithm_by_type, condition.as_ref()) {
+            // Non-linear WITH predicates: Fast path - only need accept_list HashSet
+            (AlgorithmByType::NonLinear(non_linear_algo), Some(cond)) => {
+                let matching_ids = store.predicate_indices.matches(cond, &store)?;
+                if matching_ids.is_empty() {
+                    return Ok(vec![]);
+                }
+
+                let accept_list = matching_ids.into_iter().map(|id| id.0).collect();
+                let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
+                let non_linear_index_with_algo = non_linear_indices
+                    .get(&non_linear_algo)
+                    .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
+
+                non_linear_index_with_algo.find_similar_n_with_ids(
+                    &search_embedding,
+                    Some(accept_list),
+                    closest_n,
+                )
+            }
+
+            // Linear WITH predicates: Adaptive parallel/sequential decision
+            (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
+                // 10% budget, capped to bound temporary ID storage.
+                let limit = (store.id_to_value.len() / 10).min(10_000);
+                if let Some(ids) = store.predicate_indices.bounded_candidates(cond, limit) {
+                    let pinned = store.id_to_value.pin_owned();
+                    let use_parallel = self
+                        .parallelism_config
+                        .should_use_parallel_for_linear_search(
+                            ids.len(),
+                            store_dimension,
+                            self.active_requests.load(Ordering::Relaxed),
+                        );
+
+                    let result = if use_parallel {
+                        linear_algo.find_similar_n_parallel(
+                            &search_embedding,
+                            ids.par_iter().filter_map(|id| {
+                                pinned.get(id).map(|(key, value)| (id, key, value.as_ref()))
+                            }),
+                            Some(cond),
+                            false,
+                            closest_n,
+                        )
+                    } else {
+                        linear_algo.find_similar_n_sequential(
+                            &search_embedding,
+                            ids.iter().filter_map(|id| {
+                                pinned.get(id).map(|(key, value)| (id, key, value.as_ref()))
+                            }),
+                            Some(cond),
+                            false,
+                            closest_n,
+                        )
+                    };
+
+                    return Ok(result
+                        .into_iter()
+                        .filter_map(|(id, score)| {
+                            pinned.get(&id).map(|(key, value)| {
+                                (key.clone(), Arc::clone(value), Similarity { value: score })
+                            })
+                        })
+                        .collect());
+                }
+
+                let active_requests = self.active_requests.load(Ordering::Relaxed);
+                let store_size = store.id_to_value.len();
+                let use_parallel = self
+                    .parallelism_config
+                    .should_use_parallel_for_linear_search(
+                        store_size,
+                        store_dimension,
+                        active_requests,
+                    );
+
+                let entries = if use_parallel {
+                    let pinned = store.id_to_value.pin_owned();
+                    let search_list: Vec<_> = pinned.iter().collect();
+
+                    let result = linear_algo.find_similar_n_parallel(
+                        &search_embedding,
+                        search_list.par_iter().map(|entry| {
+                            let (id, (key, value)) = *entry;
+                            (id, key, value.as_ref())
+                        }),
+                        Some(cond),
+                        false,
+                        closest_n,
+                    );
+
+                    result
+                        .into_iter()
+                        .flat_map(|(store_key_id, similarity)| {
+                            pinned.get(&store_key_id).map(|(key, value)| {
+                                (
+                                    key.clone(),
+                                    Arc::clone(value),
+                                    Similarity { value: similarity },
+                                )
+                            })
+                        })
+                        .collect()
+                } else {
+                    let pinned = store.id_to_value.pin();
+                    let filtered_iter = pinned
+                        .into_iter()
+                        .map(|(id, (key, value))| (id, key, value.as_ref()));
+                    let result = linear_algo.find_similar_n_sequential(
+                        &search_embedding,
+                        filtered_iter,
+                        Some(cond),
+                        false,
+                        closest_n,
+                    );
+
+                    result
+                        .into_iter()
+                        .flat_map(|(store_key_id, similarity)| {
+                            pinned.get(&store_key_id).map(|(key, value)| {
+                                (
+                                    key.clone(),
+                                    Arc::clone(value),
+                                    Similarity { value: similarity },
+                                )
+                            })
+                        })
+                        .collect()
+                };
+
+                return Ok(entries);
+            }
+
+            // Non-linear WITHOUT predicates: Fast path - no accept_list needed
+            (AlgorithmByType::NonLinear(non_linear_algo), None) => {
+                let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
+                let non_linear_index_with_algo = non_linear_indices
+                    .get(&non_linear_algo)
+                    .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
+
+                non_linear_index_with_algo.find_similar_n_with_ids(
+                    &search_embedding,
+                    None,
+                    closest_n,
+                )
+            }
+
+            // Linear WITHOUT predicates: Adaptive parallel/sequential decision
+            (AlgorithmByType::Linear(linear_algo), None) => {
+                let active_requests = self.active_requests.load(Ordering::Relaxed);
+                let store_size = store.id_to_value.len();
+                let use_parallel = self
+                    .parallelism_config
+                    .should_use_parallel_for_linear_search(
+                        store_size,
+                        store_dimension,
+                        active_requests,
+                    );
+
+                let entries = if use_parallel {
+                    let pinned = store.id_to_value.pin_owned();
+                    let search_list: Vec<_> = pinned.iter().collect();
+
+                    let result = linear_algo.find_similar_n_parallel(
+                        &search_embedding,
+                        search_list.par_iter().map(|entry| {
+                            let (id, (key, value)) = *entry;
+                            (id, key, value.as_ref())
+                        }),
+                        None,
+                        true,
+                        closest_n,
+                    );
+
+                    result
+                        .into_iter()
+                        .flat_map(|(store_key_id, similarity)| {
+                            pinned.get(&store_key_id).map(|(key, value)| {
+                                (
+                                    key.clone(),
+                                    Arc::clone(value),
+                                    Similarity { value: similarity },
+                                )
+                            })
+                        })
+                        .collect()
+                } else {
+                    let pinned = store.id_to_value.pin();
+                    let search_list = pinned
+                        .into_iter()
+                        .map(|(id, (key, value))| (id, key, value.as_ref()));
+                    let result = linear_algo.find_similar_n_sequential(
+                        &search_embedding,
+                        search_list,
+                        None,
+                        true,
+                        closest_n,
+                    );
+
+                    result
+                        .into_iter()
+                        .flat_map(|(store_key_id, similarity)| {
+                            pinned.get(&store_key_id).map(|(key, value)| {
+                                (
+                                    key.clone(),
+                                    Arc::clone(value),
+                                    Similarity { value: similarity },
+                                )
+                            })
+                        })
+                        .collect()
+                };
+
+                return Ok(entries);
+            }
+        };
+
+        // Map results to full entries (only NonLinear paths reach here)
+        let pinned = store.id_to_value.pin();
+        Ok(similar_result
+            .into_iter()
+            .flat_map(|(store_key_id, similarity)| {
+                pinned.get(&store_key_id).map(|(key, value)| {
+                    (
+                        key.clone(),
+                        Arc::clone(value),
+                        Similarity { value: similarity },
+                    )
+                })
+            })
+            .collect())
+    }
+
     /// Matches CLEARSTORE - removes every entry while preserving the store and its indices.
     #[tracing::instrument(skip(self))]
     pub(crate) fn clear_store(
@@ -1244,6 +1583,25 @@ impl Store {
         Ok(self.get(matches))
     }
 
+    /// Like get_matches, but retains IDs so linear scoring does not rehash embeddings.
+    #[cfg(feature = "bench-experiments")]
+    #[tracing::instrument(skip_all)]
+    fn get_matches_with_ids(
+        &self,
+        condition: &PredicateCondition,
+    ) -> Result<Vec<(StoreKeyId, StoreEntry)>, ServerError> {
+        let matches = self.predicate_indices.matches(condition, self)?;
+        let pinned = self.id_to_value.pin();
+        Ok(matches
+            .into_iter()
+            .filter_map(|id| {
+                pinned
+                    .get(&id)
+                    .map(|(key, value)| (id, (key.clone(), Arc::clone(value))))
+            })
+            .collect())
+    }
+
     /// Used whenever there is no found predicate and so we search directly within store
     #[tracing::instrument(skip(self))]
     pub(super) fn get_match_without_predicate(
@@ -1831,6 +2189,90 @@ mod tests {
         assert_eq!(matches("country", "Nigeria"), StdHashSet::from([second_id]));
         assert!(matches("color", "red").is_empty());
         assert_eq!(matches("color", "blue"), StdHashSet::from([second_id]));
+    }
+
+    #[test]
+    fn indexed_negative_predicates_include_entries_missing_the_field() {
+        let store = Store::create(
+            NonZeroUsize::new(2).unwrap(),
+            vec!["country".into()],
+            StdHashSet::new(),
+        );
+        let nigeria_key = StoreKey {
+            key: vec![0.1, 0.2],
+        };
+        let ghana_key = StoreKey {
+            key: vec![0.3, 0.4],
+        };
+        let missing_key = StoreKey {
+            key: vec![0.5, 0.6],
+        };
+        let ghana_id = StoreKeyId::from(&ghana_key);
+        let missing_id = StoreKeyId::from(&missing_key);
+        let metadata_value = |value: &str| MetadataValue {
+            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                value.to_string(),
+            )),
+        };
+
+        store
+            .add(
+                vec![
+                    (
+                        nigeria_key,
+                        StoreValue {
+                            value: StdHashMap::from([(
+                                "country".into(),
+                                metadata_value("Nigeria"),
+                            )]),
+                        },
+                    ),
+                    (
+                        ghana_key,
+                        StoreValue {
+                            value: StdHashMap::from([("country".into(), metadata_value("Ghana"))]),
+                        },
+                    ),
+                    (
+                        missing_key,
+                        StoreValue {
+                            value: StdHashMap::new(),
+                        },
+                    ),
+                ],
+                &test_parallelism_config(),
+                0,
+            )
+            .unwrap();
+
+        let matches = |predicate| {
+            store
+                .predicate_indices
+                .matches(
+                    &PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(predicate),
+                        })),
+                    },
+                    &store,
+                )
+                .unwrap()
+        };
+
+        assert_eq!(
+            matches(PredicateKind::NotEquals(predicates::NotEquals {
+                key: "country".into(),
+                value: Some(metadata_value("Nigeria")),
+            })),
+            StdHashSet::from([ghana_id, missing_id]),
+        );
+        assert_eq!(
+            matches(PredicateKind::NotIn(predicates::NotIn {
+                key: "country".into(),
+                values: vec![metadata_value("Nigeria"), metadata_value("Ghana")],
+            })),
+            StdHashSet::from([missing_id]),
+        );
     }
 
     fn create_store_handler_no_loom(

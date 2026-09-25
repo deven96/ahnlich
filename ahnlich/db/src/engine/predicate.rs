@@ -157,6 +157,171 @@ impl PredicateIndices {
         }
     }
 
+    /// Returns a complete, bounded candidate superset for a condition.
+    /// None means scan; Some(empty) means the condition cannot match any entry.
+    pub(super) fn bounded_candidates(
+        &self,
+        condition: &PredicateCondition,
+        limit: usize,
+    ) -> Option<Vec<StoreKeyId>> {
+        match &condition.kind {
+            Some(PredicateConditionKind::Value(predicate)) => {
+                self.predicate_candidates(predicate, limit)
+            }
+            Some(PredicateConditionKind::And(condition)) => {
+                let left = condition.left.as_ref()?;
+                let right = condition.right.as_ref()?;
+                self.and_candidates(left, right, limit)
+            }
+            Some(PredicateConditionKind::Or(condition)) => {
+                let left = condition.left.as_ref()?;
+                let right = condition.right.as_ref()?;
+                self.or_candidates(left, right, limit)
+            }
+            None => None,
+        }
+    }
+
+    fn predicate_candidates(&self, predicate: &Predicate, limit: usize) -> Option<Vec<StoreKeyId>> {
+        match &predicate.kind {
+            Some(PredicateKind::Equals(predicates::Equals {
+                key,
+                value: Some(value),
+            })) => self.equals_candidates(key, value, limit),
+            Some(PredicateKind::In(predicates::In { key, values })) => {
+                self.in_candidates(key, values, limit)
+            }
+            Some(PredicateKind::Equals(_))
+            | Some(PredicateKind::NotEquals(_))
+            | Some(PredicateKind::NotIn(_))
+            | None => None,
+        }
+    }
+
+    fn equals_candidates(
+        &self,
+        key: &str,
+        value: &MetadataValue,
+        limit: usize,
+    ) -> Option<Vec<StoreKeyId>> {
+        let indices = self.inner.pin();
+        let index = indices.get(key)?;
+        let values = index.inner.pin();
+        let Some(bucket) = values.get(value) else {
+            return Some(Vec::new());
+        };
+        let bucket = bucket.pin();
+        if bucket.len() > limit {
+            return None;
+        }
+        let mut ids = Vec::with_capacity(bucket.len().min(limit));
+        for id in bucket.iter() {
+            if ids.len() == limit {
+                return None;
+            }
+            ids.push(*id);
+        }
+        Some(ids)
+    }
+
+    fn in_candidates(
+        &self,
+        key: &str,
+        values: &[MetadataValue],
+        limit: usize,
+    ) -> Option<Vec<StoreKeyId>> {
+        let indices = self.inner.pin();
+        let index = indices.get(key)?;
+        let buckets = index.inner.pin();
+        let unique_values: StdHashSet<_> = values.iter().collect();
+        let candidate_upper_bound = unique_values.iter().try_fold(0usize, |total, value| {
+            let bucket_len = buckets.get(*value).map_or(0, |bucket| bucket.len());
+            let total = total.checked_add(bucket_len)?;
+            (total <= limit).then_some(total)
+        })?;
+
+        let mut seen = StdHashSet::with_capacity(candidate_upper_bound);
+        let mut ids = Vec::with_capacity(candidate_upper_bound);
+
+        for value in unique_values {
+            let Some(bucket) = buckets.get(value) else {
+                continue;
+            };
+            let bucket = bucket.pin();
+            for id in bucket.iter() {
+                if seen.insert(*id) {
+                    if ids.len() == limit {
+                        return None;
+                    }
+                    ids.push(*id);
+                }
+            }
+        }
+        Some(ids)
+    }
+
+    fn and_candidates(
+        &self,
+        left: &PredicateCondition,
+        right: &PredicateCondition,
+        limit: usize,
+    ) -> Option<Vec<StoreKeyId>> {
+        let left = self.bounded_candidates(left, limit);
+        let right = self.bounded_candidates(right, limit);
+
+        match (left, right) {
+            (Some(left), Some(right)) => Some(Self::intersect_candidates(left, right)),
+            (Some(candidates), None) | (None, Some(candidates)) => Some(candidates),
+            (None, None) => None,
+        }
+    }
+
+    fn or_candidates(
+        &self,
+        left: &PredicateCondition,
+        right: &PredicateCondition,
+        limit: usize,
+    ) -> Option<Vec<StoreKeyId>> {
+        let left = self.bounded_candidates(left, limit)?;
+        let right = self.bounded_candidates(right, limit)?;
+        Self::union_candidates(left, right, limit)
+    }
+
+    fn intersect_candidates(left: Vec<StoreKeyId>, right: Vec<StoreKeyId>) -> Vec<StoreKeyId> {
+        if left.is_empty() || right.is_empty() {
+            return Vec::new();
+        }
+        let (smaller, larger) = if left.len() <= right.len() {
+            (left, right)
+        } else {
+            (right, left)
+        };
+        let smaller: StdHashSet<_> = smaller.into_iter().collect();
+        larger
+            .into_iter()
+            .filter(|id| smaller.contains(id))
+            .collect()
+    }
+
+    fn union_candidates(
+        left: Vec<StoreKeyId>,
+        right: Vec<StoreKeyId>,
+        limit: usize,
+    ) -> Option<Vec<StoreKeyId>> {
+        let mut seen = StdHashSet::new();
+        let mut ids = Vec::new();
+
+        for id in left.into_iter().chain(right) {
+            if seen.insert(id) {
+                if ids.len() == limit {
+                    return None;
+                }
+                ids.push(id);
+            }
+        }
+        Some(ids)
+    }
+
     /// returns the current predicates within predicate index
     #[tracing::instrument(skip(self))]
     pub(super) fn current_predicates(&self) -> StdHashSet<String> {
@@ -421,6 +586,14 @@ impl PredicateIndices {
                 let predicate_values = self.inner.pin();
                 let key = main_predicate.get_key();
                 if let Some(predicate) = predicate_values.get(key) {
+                    // Missing metadata fields satisfy negative predicates. They are not present
+                    // in any value bucket, so the index alone cannot produce a complete result.
+                    if matches!(
+                        main_predicate.kind,
+                        Some(PredicateKind::NotEquals(_)) | Some(PredicateKind::NotIn(_))
+                    ) {
+                        return store.get_match_without_predicate(main_predicate);
+                    }
                     // retrieve the precise predicate if it exists and check against it
                     return Ok(predicate.matches(main_predicate));
                 }
@@ -987,6 +1160,101 @@ mod tests {
     }
 
     #[test]
+    fn bounded_candidates_follow_recursive_completeness_rules() {
+        let indices =
+            create_shared_predicate_indices(vec!["country".into(), "name".into(), "state".into()]);
+        let value = |value: &str| MetadataValue {
+            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                value.to_string(),
+            )),
+        };
+        let equals = |key: &str, expected: &str| PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: key.into(),
+                    value: Some(value(expected)),
+                })),
+            })),
+        };
+        let not_equals = |key: &str, expected: &str| PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: key.into(),
+                    value: Some(value(expected)),
+                })),
+            })),
+        };
+        let in_values = |key: &str, expected: Vec<MetadataValue>| PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::In(predicates::In {
+                    key: key.into(),
+                    values: expected,
+                })),
+            })),
+        };
+        let candidates = |condition: &PredicateCondition, limit| {
+            indices
+                .bounded_candidates(condition, limit)
+                .map(StdHashSet::from_iter)
+        };
+
+        assert_eq!(
+            candidates(&equals("country", "Nigeria"), 3),
+            Some(StdHashSet::from([StoreKeyId(0), StoreKeyId(2)])),
+        );
+        // Repeated `In` values must not inflate the preflight bucket-size estimate.
+        assert_eq!(
+            candidates(
+                &in_values(
+                    "country",
+                    vec![value("Nigeria"), value("USA"), value("Nigeria")],
+                ),
+                3,
+            ),
+            Some(StdHashSet::from([
+                StoreKeyId(0),
+                StoreKeyId(1),
+                StoreKeyId(2),
+            ])),
+        );
+        assert_eq!(
+            candidates(
+                &equals("country", "Nigeria").and(equals("name", "David")),
+                3,
+            ),
+            Some(StdHashSet::from([StoreKeyId(0)])),
+        );
+        assert_eq!(
+            candidates(
+                &equals("country", "Nigeria").and(not_equals("state", "Plateau")),
+                3,
+            ),
+            Some(StdHashSet::from([StoreKeyId(0), StoreKeyId(2)])),
+        );
+        assert_eq!(
+            candidates(&equals("country", "USA").or(equals("name", "Diretnan")), 3,),
+            Some(StdHashSet::from([StoreKeyId(1), StoreKeyId(2)])),
+        );
+        let partial_or = equals("country", "USA").or(not_equals("state", "Plateau"));
+        assert_eq!(candidates(&partial_or, 3), None);
+        assert_eq!(
+            candidates(
+                &equals("country", "Mexico").and(not_equals("state", "Plateau")),
+                3,
+            ),
+            Some(StdHashSet::new()),
+        );
+        assert_eq!(candidates(&equals("country", "Nigeria"), 1), None);
+        assert_eq!(
+            candidates(
+                &in_values("country", vec![value("Nigeria"), value("USA")]),
+                2,
+            ),
+            None,
+        );
+    }
+
+    #[test]
     fn test_add_index_to_predicate_after() {
         let shared_pred = create_shared_predicate_indices(vec!["country".into()]);
         let condition = &PredicateCondition {
@@ -1080,8 +1348,8 @@ mod tests {
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
-        // only person 1 is not from Nigeria
-        assert_eq!(result, StdHashSet::from_iter([StoreKeyId(1)]));
+        // Negative predicates scan the primary store, which this index-only test leaves empty.
+        assert!(result.is_empty());
         let condition = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
                 kind: Some(PredicateKind::Equals(predicates::Equals {

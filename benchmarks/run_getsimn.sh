@@ -139,6 +139,7 @@ SERVER_ARGS=(
 
 {
     echo "commit: $(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    echo "server ref: ${SERVER_REF:-unspecified}"
     if [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]; then
         echo "tree: dirty"
     fi
@@ -149,6 +150,7 @@ SERVER_ARGS=(
     echo "server: ahnlich-db ${SERVER_ARGS[*]}"
     echo "requests: $TOTAL_REQUESTS x $REPEATS repeats, warmup $WARMUP_REQUESTS"
     echo "concurrency: $CONCURRENCY_LEVELS, connections: $CONNECTIONS"
+    echo "scenarios: ${SCENARIOS:-default}"
     echo "metric: $DISTANCE_METRIC, closest_n: $CLOSEST_N, ef_construction: ${EF_CONSTRUCTION:-100}"
     echo "dataset: $SIFT_DATASET"
     echo "store_size: ${STORE_SIZE:-full dataset}"
@@ -209,6 +211,10 @@ scenario_label() {
         linear_5k) echo "linear_5k" ;;
         linear_1k) echo "linear_1k" ;;
         linear_100) echo "linear_100" ;;
+        linear_indexed_5k) echo "linear_indexed_5k" ;;
+        linear_indexed_1k) echo "linear_indexed_1k" ;;
+        linear_indexed_100) echo "linear_indexed_100" ;;
+        linear_indexed_miss) echo "linear_indexed_miss" ;;
         hnsw) echo "hnsw" ;;
         hnsw_5k) echo "hnsw_5k" ;;
         hnsw_1k) echo "hnsw_1k" ;;
@@ -267,7 +273,7 @@ run_ghz() {
 log "Benchmarking ($TOTAL_REQUESTS requests per run, $WARMUP_REQUESTS warmup, $REPEATS repeats)"
 
 # Scenarios to benchmark
-SCENARIOS="${SCENARIOS:-ping linear linear_5k linear_1k linear_100 hnsw hnsw_5k hnsw_1k hnsw_100}"
+SCENARIOS="${SCENARIOS:-ping linear linear_5k linear_1k linear_100 linear_indexed_5k linear_indexed_1k linear_indexed_100 linear_indexed_miss hnsw hnsw_5k hnsw_1k hnsw_100}"
 
 # Repeats are the outer loop so background noise spreads across all configurations.
 for repeat in $(seq 1 "$REPEATS"); do

@@ -169,27 +169,16 @@ jobs:
       if: steps.benchmarks.outputs.found == 'true'
       shell: bash
       run: |
-        report="ahnlich/experiment_bench_results.md"
-        {
-          echo "## Opt-in Benchmark Results"
-        } > "$report"
-
-        if [[ -s "$RUNNER_TEMP/benchmark-targets.tsv" ]]; then
-          {
-            echo
-            echo "Criterion results from the benchmark targets changed by this PR."
-          } >> "$report"
-        fi
-
         while IFS=$'\t' read -r crate target exists_on_main; do
+          report="$RUNNER_TEMP/benchmark-${crate}-${target}.md"
           main_baseline="main-${GITHUB_RUN_ID}-${crate}-${target}"
           pr_baseline="pr-${GITHUB_RUN_ID}-${crate}-${target}"
 
           {
+            echo "<!-- benchmark-experiments:${crate}/${target} -->"
+            echo "## Opt-in Benchmark Results: ${crate}/${target}"
             echo
-            echo "### ${crate}/${target}"
-            echo
-          } >> "$report"
+          } > "$report"
 
           if [[ "$exists_on_main" == true ]]; then
             benchmark_output=$(critcmp \
@@ -215,22 +204,67 @@ jobs:
             echo "$benchmark_output"
             echo '```'
           } >> "$report"
+          cat "$report"
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
         done < "$RUNNER_TEMP/benchmark-targets.tsv"
 
         if [[ -s "$RUNNER_TEMP/memory-bench-results.md" ]]; then
-          {
-            echo
-            cat "$RUNNER_TEMP/memory-bench-results.md"
-          } >> "$report"
+          cat "$RUNNER_TEMP/memory-bench-results.md"
+          cat "$RUNNER_TEMP/memory-bench-results.md" >> "$GITHUB_STEP_SUMMARY"
         fi
 
-        cat "$report"
-        cat "$report" >> "$GITHUB_STEP_SUMMARY"
-
-    - name: Comment PR with opt-in benchmark results
+    - name: Comment PR with per-target benchmark results
       if: steps.benchmarks.outputs.found == 'true'
       continue-on-error: true
-      uses: thollander/actions-comment-pull-request@v2
-      with:
-        filePath: ahnlich/experiment_bench_results.md
-        comment_tag: benchmark-experiments
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        while IFS=$'\t' read -r crate target exists_on_main; do
+          report="$RUNNER_TEMP/benchmark-${crate}-${target}.md"
+          payload="$RUNNER_TEMP/benchmark-${crate}-${target}.json"
+          marker="<!-- benchmark-experiments:${crate}/${target} -->"
+          comment_id="$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
+            | jq -rs --arg marker "$marker" \
+              '[.[][] | select(.user.type == "Bot" and ((.body // "") | startswith($marker))) | .id] | last // empty')"
+          jq -n --rawfile body "$report" '{body: $body}' > "$payload"
+
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH \
+              "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" \
+              --input "$payload" --silent
+          else
+            gh api -X POST \
+              "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --input "$payload" --silent
+          fi
+        done < "$RUNNER_TEMP/benchmark-targets.tsv"
+
+        if [[ -s "$RUNNER_TEMP/memory-bench-results.md" ]]; then
+          report="$RUNNER_TEMP/benchmark-memory.md"
+          payload="$RUNNER_TEMP/benchmark-memory.json"
+          marker="<!-- benchmark-experiments:memory -->"
+          {
+            echo "$marker"
+            echo "## Opt-in Memory Benchmark Results"
+            echo
+            cat "$RUNNER_TEMP/memory-bench-results.md"
+          } > "$report"
+          comment_id="$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" \
+            | jq -rs --arg marker "$marker" \
+              '[.[][] | select(.user.type == "Bot" and ((.body // "") | startswith($marker))) | .id] | last // empty')"
+          jq -n --rawfile body "$report" '{body: $body}' > "$payload"
+
+          if [[ -n "$comment_id" ]]; then
+            gh api -X PATCH \
+              "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" \
+              --input "$payload" --silent
+          else
+            gh api -X POST \
+              "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+              --input "$payload" --silent
+          fi
+        fi
