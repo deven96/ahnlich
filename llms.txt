@@ -356,6 +356,7 @@ This is the documentation index for LLMs. Fetch the linked pages as needed.
 
 - [Guides](https://ahnlich.dev/docs/guides)
 - [Go Audio Search](https://ahnlich.dev/docs/guides/go)
+- [Text-to-SQL with Ahnlich MCP](https://ahnlich.dev/docs/guides/mcp-icl)
 - [Python Book Search](https://ahnlich.dev/docs/guides/python)
 - [Rust Image Search](https://ahnlich.dev/docs/guides/rust)
 
