@@ -21,6 +21,12 @@ Server crashes unexpectedly
 - Hitting the `--allocator-size` limit
 - Large batch operations
 - Image processing without streaming enabled
+- Batching inputs of very different sizes together. A single large
+  input batched alongside several small ones forces the small ones to be
+  padded up to (and computed at) the large input's length. See
+  [Batched Request Behavior](/docs/components/ahnlich-ai/advanced/model-constraints#batched-request-behavior)
+  for why, and the batching snippet under
+  [Token Limit Exceeded](#token-limit-exceeded) for a fix.
 
 **Solutions:**
 
@@ -496,6 +502,7 @@ Max Token Exceeded. Model Expects [256], input type was [512]
 - bge-*: 512 tokens
 - clip-vit-b32-text: 77 tokens
 - clap-text: 512 tokens
+- jina-embeddings-v2-base-code: 8192 tokens
 
 **Solutions:**
 
@@ -529,6 +536,41 @@ CreateStore(
     index_model=AiModel.BGE_BASE_EN_V15,
 )
 ```
+
+4. **Watch batch composition after splitting:**
+
+Splitting a large input into several chunks solves the per-input token
+limit, but if those chunks are then batched together with very different
+sizes in the same `Set` call, you can trade one problem for a worse one,
+see [Batched Request Behavior](/docs/components/ahnlich-ai/advanced/model-constraints#batched-request-behavior).
+
+```python
+# Group similarly-sized chunks together rather than batching
+# in original document order
+chunks.sort(key=lambda c: c.token_count)
+
+batches = []
+current = []
+for chunk in chunks:
+    if chunk.token_count > SOLO_THRESHOLD:
+        if current:
+            batches.append(current)
+            current = []
+        batches.append([chunk])  # large chunks go out alone
+        continue
+    if len(current) >= MAX_BATCH_LEN:
+        batches.append(current)
+        current = []
+    current.append(chunk)
+if current:
+    batches.append(current)
+
+for batch in batches:
+    client.set(Set(store="docs", inputs=batch))
+```
+A reasonable starting point for `large_chunk_threshold` is somewhere around
+15-20% of the model's max token limit, below that, batching together is safe;
+above it, let the chunk go out alone.
 
 ---
 
