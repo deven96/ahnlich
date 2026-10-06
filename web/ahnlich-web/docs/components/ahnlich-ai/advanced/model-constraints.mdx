@@ -36,6 +36,45 @@ Here's what to watch for per family.
 | Preprocessing | Required | `NoPreprocessing` not supported |
 | Query constraint | Single face | Query images must contain exactly 1 face |
 
+## Text & Code Models
+
+Every text-based model, including the code model, counts tokens using its own
+tokenizer, not characters or words, and each has a fixed maximum input length.
+Input over that length is rejected outright with a `TokenExceededError`
+(`OutOfRange`). Nothing is silently truncated.
+
+| Model | `string name` | Max input |
+| ----- | ----- | ----- |
+| ALL-MiniLM-L6-v2 | `all-minilm-l6-v2` | 256 tokens |
+| ALL-MiniLM-L12-v2 | `all-minilm-l12-v2` | 256 tokens |
+| BGE-Base-EN-v1.5 | `bge-base-en-v1.5` | 512 tokens |
+| BGE-Large-EN-v1.5 | `bge-large-en-v1.5` | 512 tokens |
+| CLIP ViT-B/32 (text) | `clip-vit-b32-text` | 77 tokens |
+| CLAP (text) | `clap-text` | 512 tokens |
+| Jina Code v2 | `jina-embeddings-v2-base-code` | 8192 tokens |
+
+### Batched Request Behavior
+When several inputs are sent in one `Set` call, they're
+processed together as a batch, and every input in that batch is padded up to
+match the length of the longest one in it. A batch combining one near-limit
+input with several short ones costs close to what it would cost if *every*
+input in the batch were near-limit *(not the sum of each input's individual
+cost)*. This is standard behavior for transformer-based embedding models,
+**not an Ahnlich-specific limitation,** but it has a real cost implication
+worth planning around.
+
+For workloads that chunk long text before indexing (source files, documents),
+this matters once chunking is working and you start grouping chunks into
+batches:
+
+- Keep chunks of similar size in the same batch; avoid mixing a near-limit
+  chunk in with much smaller ones.
+- Give chunks close to the model's max token limit their own batch rather
+  than batching them with anything else.
+
+See [Token Limit Exceeded](/docs/troubleshooting/common-issues#token-limit-exceeded)
+for a worked example of chunking and batching long text.
+
 ## Cross-modal pairs
 
 Certain text and media encoders share a dimension so you can search across
