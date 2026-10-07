@@ -20944,6 +20944,45 @@ Here's what to watch for per family.
 | Preprocessing | Required | `NoPreprocessing` not supported |
 | Query constraint | Single face | Query images must contain exactly 1 face |
 
+## Text & Code Models
+
+Every text-based model, including the code model, counts tokens using its own
+tokenizer, not characters or words, and each has a fixed maximum input length.
+Input over that length is rejected outright with a `TokenExceededError`
+(`OutOfRange`). Nothing is silently truncated.
+
+| Model | `string name` | Max input |
+| ----- | ----- | ----- |
+| ALL-MiniLM-L6-v2 | `all-minilm-l6-v2` | 256 tokens |
+| ALL-MiniLM-L12-v2 | `all-minilm-l12-v2` | 256 tokens |
+| BGE-Base-EN-v1.5 | `bge-base-en-v1.5` | 512 tokens |
+| BGE-Large-EN-v1.5 | `bge-large-en-v1.5` | 512 tokens |
+| CLIP ViT-B/32 (text) | `clip-vit-b32-text` | 77 tokens |
+| CLAP (text) | `clap-text` | 512 tokens |
+| Jina Code v2 | `jina-embeddings-v2-base-code` | 8192 tokens |
+
+### Batched Request Behavior
+When several inputs are sent in one `Set` call, they're
+processed together as a batch, and every input in that batch is padded up to
+match the length of the longest one in it. A batch combining one near-limit
+input with several short ones costs close to what it would cost if *every*
+input in the batch were near-limit *(not the sum of each input's individual
+cost)*. This is standard behavior for transformer-based embedding models,
+**not an Ahnlich-specific limitation,** but it has a real cost implication
+worth planning around.
+
+For workloads that chunk long text before indexing (source files, documents),
+this matters once chunking is working and you start grouping chunks into
+batches:
+
+- Keep chunks of similar size in the same batch; avoid mixing a near-limit
+  chunk in with much smaller ones.
+- Give chunks close to the model's max token limit their own batch rather
+  than batching them with anything else.
+
+See [Token Limit Exceeded](/docs/troubleshooting/common-issues#token-limit-exceeded)
+for a worked example of chunking and batching long text.
+
 ## Cross-modal pairs
 
 Certain text and media encoders share a dimension so you can search across
@@ -41823,6 +41862,12 @@ Server crashes unexpectedly
 - Hitting the `--allocator-size` limit
 - Large batch operations
 - Image processing without streaming enabled
+- Batching inputs of very different sizes together. A single large
+  input batched alongside several small ones forces the small ones to be
+  padded up to (and computed at) the large input's length. See
+  [Batched Request Behavior](/docs/components/ahnlich-ai/advanced/model-constraints#batched-request-behavior)
+  for why, and the batching snippet under
+  [Token Limit Exceeded](#token-limit-exceeded) for a fix.
 
 **Solutions:**
 
@@ -42298,6 +42343,7 @@ Max Token Exceeded. Model Expects [256], input type was [512]
 - bge-*: 512 tokens
 - clip-vit-b32-text: 77 tokens
 - clap-text: 512 tokens
+- jina-embeddings-v2-base-code: 8192 tokens
 
 **Solutions:**
 
@@ -42331,6 +42377,41 @@ CreateStore(
     index_model=AiModel.BGE_BASE_EN_V15,
 )
 ```
+
+4. **Watch batch composition after splitting:**
+
+Splitting a large input into several chunks solves the per-input token
+limit, but if those chunks are then batched together with very different
+sizes in the same `Set` call, you can trade one problem for a worse one,
+see [Batched Request Behavior](/docs/components/ahnlich-ai/advanced/model-constraints#batched-request-behavior).
+
+```python
+# Group similarly-sized chunks together rather than batching
+# in original document order
+chunks.sort(key=lambda c: c.token_count)
+
+batches = []
+current = []
+for chunk in chunks:
+    if chunk.token_count > SOLO_THRESHOLD:
+        if current:
+            batches.append(current)
+            current = []
+        batches.append([chunk])  # large chunks go out alone
+        continue
+    if len(current) >= MAX_BATCH_LEN:
+        batches.append(current)
+        current = []
+    current.append(chunk)
+if current:
+    batches.append(current)
+
+for batch in batches:
+    client.set(Set(store="docs", inputs=batch))
+```
+A reasonable starting point for `large_chunk_threshold` is somewhere around
+15-20% of the model's max token limit, below that, batching together is safe;
+above it, let the chunk go out alone.
 
 ---
 

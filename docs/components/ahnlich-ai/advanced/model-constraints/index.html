@@ -19,7 +19,7 @@
 
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&amp;display=swap"><link rel="stylesheet" href="/assets/css/styles.500b70b9.css">
-<script src="/assets/js/runtime~main.b4829b8f.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.6f128dcb.js" defer="defer"></script>
 <script src="/assets/js/main.7a74b268.js" defer="defer"></script>
 </head>
 <body>
@@ -40,9 +40,35 @@ Here&#x27;s what to watch for per family.</p>
 </ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="face-models-buffalo_l-sfaceyunet">Face Models (Buffalo_L, SFace+YuNet)<a href="#face-models-buffalo_l-sfaceyunet" class="hash-link" aria-label="Direct link to Face Models (Buffalo_L, SFace+YuNet)" title="Direct link to Face Models (Buffalo_L, SFace+YuNet)" translate="no">​</a></h2>
 <table><thead><tr><th>Constraint</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Input size</td><td>640x640 px</td><td>Images are resized internally</td></tr><tr><td>Face alignment</td><td>112x112 px</td><td>Standard ArcFace alignment</td></tr><tr><td>Embedding mode</td><td>OneToMany</td><td>Returns one embedding per detected face</td></tr><tr><td>Preprocessing</td><td>Required</td><td><code>NoPreprocessing</code> not supported</td></tr><tr><td>Query constraint</td><td>Single face</td><td>Query images must contain exactly 1 face</td></tr></tbody></table>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="text--code-models">Text &amp; Code Models<a href="#text--code-models" class="hash-link" aria-label="Direct link to Text &amp; Code Models" title="Direct link to Text &amp; Code Models" translate="no">​</a></h2>
+<p>Every text-based model, including the code model, counts tokens using its own
+tokenizer, not characters or words, and each has a fixed maximum input length.
+Input over that length is rejected outright with a <code>TokenExceededError</code>
+(<code>OutOfRange</code>). Nothing is silently truncated.</p>
+<table><thead><tr><th>Model</th><th><code>string name</code></th><th>Max input</th></tr></thead><tbody><tr><td>ALL-MiniLM-L6-v2</td><td><code>all-minilm-l6-v2</code></td><td>256 tokens</td></tr><tr><td>ALL-MiniLM-L12-v2</td><td><code>all-minilm-l12-v2</code></td><td>256 tokens</td></tr><tr><td>BGE-Base-EN-v1.5</td><td><code>bge-base-en-v1.5</code></td><td>512 tokens</td></tr><tr><td>BGE-Large-EN-v1.5</td><td><code>bge-large-en-v1.5</code></td><td>512 tokens</td></tr><tr><td>CLIP ViT-B/32 (text)</td><td><code>clip-vit-b32-text</code></td><td>77 tokens</td></tr><tr><td>CLAP (text)</td><td><code>clap-text</code></td><td>512 tokens</td></tr><tr><td>Jina Code v2</td><td><code>jina-embeddings-v2-base-code</code></td><td>8192 tokens</td></tr></tbody></table>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="batched-request-behavior">Batched Request Behavior<a href="#batched-request-behavior" class="hash-link" aria-label="Direct link to Batched Request Behavior" title="Direct link to Batched Request Behavior" translate="no">​</a></h3>
+<p>When several inputs are sent in one <code>Set</code> call, they&#x27;re
+processed together as a batch, and every input in that batch is padded up to
+match the length of the longest one in it. A batch combining one near-limit
+input with several short ones costs close to what it would cost if <em>every</em>
+input in the batch were near-limit <em>(not the sum of each input&#x27;s individual
+cost)</em>. This is standard behavior for transformer-based embedding models,
+<strong>not an Ahnlich-specific limitation,</strong> but it has a real cost implication
+worth planning around.</p>
+<p>For workloads that chunk long text before indexing (source files, documents),
+this matters once chunking is working and you start grouping chunks into
+batches:</p>
+<ul>
+<li class="">Keep chunks of similar size in the same batch; avoid mixing a near-limit
+chunk in with much smaller ones.</li>
+<li class="">Give chunks close to the model&#x27;s max token limit their own batch rather
+than batching them with anything else.</li>
+</ul>
+<p>See <a class="" href="/docs/troubleshooting/common-issues#token-limit-exceeded">Token Limit Exceeded</a>
+for a worked example of chunking and batching long text.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-modal-pairs">Cross-modal pairs<a href="#cross-modal-pairs" class="hash-link" aria-label="Direct link to Cross-modal pairs" title="Direct link to Cross-modal pairs" translate="no">​</a></h2>
 <p>Certain text and media encoders share a dimension so you can search across
 modalities — see <a class="" href="/docs/components/ahnlich-ai/advanced/models#cross-modal-pairs">Cross-modal pairs</a>
-on the Models page.</p></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col noPrint_WFHX"><a href="https://github.com/deven96/ahnlich/tree/main/web/ahnlich-web/docs/components/ahnlich-ai/advanced/model-constraints.mdx" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/docs/components/ahnlich-ai/advanced/models"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">Models &amp; input types</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/docs/components/ahnlich-ai/advanced/code-search"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">Code search</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#audio-models-clap" class="table-of-contents__link toc-highlight">Audio Models (CLAP)</a></li><li><a href="#face-models-buffalo_l-sfaceyunet" class="table-of-contents__link toc-highlight">Face Models (Buffalo_L, SFace+YuNet)</a></li><li><a href="#cross-modal-pairs" class="table-of-contents__link toc-highlight">Cross-modal pairs</a></li></ul></div></div></div></div></main></div></div></div></div>
+on the Models page.</p></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col noPrint_WFHX"><a href="https://github.com/deven96/ahnlich/tree/main/web/ahnlich-web/docs/components/ahnlich-ai/advanced/model-constraints.mdx" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/docs/components/ahnlich-ai/advanced/models"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">Models &amp; input types</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/docs/components/ahnlich-ai/advanced/code-search"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">Code search</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#audio-models-clap" class="table-of-contents__link toc-highlight">Audio Models (CLAP)</a></li><li><a href="#face-models-buffalo_l-sfaceyunet" class="table-of-contents__link toc-highlight">Face Models (Buffalo_L, SFace+YuNet)</a></li><li><a href="#text--code-models" class="table-of-contents__link toc-highlight">Text &amp; Code Models</a><ul><li><a href="#batched-request-behavior" class="table-of-contents__link toc-highlight">Batched Request Behavior</a></li></ul></li><li><a href="#cross-modal-pairs" class="table-of-contents__link toc-highlight">Cross-modal pairs</a></li></ul></div></div></div></div></main></div></div></div></div>
 </body>
 </html>
