@@ -88,6 +88,10 @@ pub struct GetSimN {
     /// Optional schema/namespace for the store. Defaults to "public".
     #[prost(string, optional, tag = "9")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
+    /// HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0;
+    /// raised to at least closest_n. Ignored by other algorithms.
+    #[prost(uint32, optional, tag = "10")]
+    pub ef_search: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePredIndex {

@@ -360,6 +360,9 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetSimN>,
     ) -> Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
+        if params.ef_search == Some(0) {
+            return Err(tonic::Status::invalid_argument("ef_search must be > 0"));
+        }
         let schema = params
             .schema
             .as_ref()
@@ -398,7 +401,7 @@ impl AiService for AIProxyServer {
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let get_sim_n_params = DbGetSimN {
-            ef_search: None,
+            ef_search: params.ef_search,
             store: params.store,
             search_input: Some(search_input),
             closest_n: params.closest_n,
@@ -1229,5 +1232,44 @@ impl AIProxyServer {
 
     pub fn local_addr(&self) -> IoResult<SocketAddr> {
         self.listener.local_addr()
+    }
+}
+
+#[cfg(test)]
+mod ef_search_tests {
+    use super::*;
+    use prost::Message;
+
+    #[tokio::test]
+    async fn ai_get_sim_n_search_breadth_validation() {
+        let mut config = AIProxyConfig::default()
+            .os_select_port()
+            .set_supported_models(Vec::new());
+        config.without_db = true;
+        let server = AIProxyServer::new(config).await.unwrap();
+
+        for ef_search in [None, Some(0), Some(1), Some(100), Some(118), Some(180)] {
+            let params = GetSimN {
+                closest_n: 100,
+                ef_search,
+                ..Default::default()
+            };
+            let decoded = GetSimN::decode(params.encode_to_vec().as_slice()).unwrap();
+            assert_eq!(decoded.ef_search, ef_search);
+            let error = server
+                .get_sim_n(tonic::Request::new(decoded))
+                .await
+                .unwrap_err();
+            assert_eq!(error.code(), tonic::Code::InvalidArgument);
+            if ef_search == Some(0) {
+                assert_eq!(error.message(), "ef_search must be > 0");
+            } else {
+                // Accepted values proceed to normal input validation without inference.
+                assert_eq!(
+                    error.message(),
+                    AIProxyError::InputNotSpecified("Search".into()).to_string()
+                );
+            }
+        }
     }
 }

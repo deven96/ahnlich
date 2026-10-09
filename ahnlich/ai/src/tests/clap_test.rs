@@ -172,6 +172,7 @@ async fn test_clap_cross_modal_audio_indexed_text_queried() {
     ] {
         let entries = client
             .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+                ef_search: None,
                 store: store.clone(),
                 search_input: Some(StoreInput {
                     value: Some(Value::RawString(query_text.into())),
@@ -251,6 +252,7 @@ async fn test_clap_audio_to_audio_retrieval() {
     {
         let entries = client
             .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+                ef_search: None,
                 store: store.clone(),
                 search_input: Some(StoreInput {
                     value: Some(Value::Audio(query_bytes)),
@@ -328,6 +330,7 @@ async fn test_clap_text_to_text_retrieval() {
     ] {
         let entries = client
             .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+                ef_search: None,
                 store: store.clone(),
                 search_input: Some(StoreInput {
                     value: Some(Value::RawString(query_text.into())),
@@ -661,6 +664,7 @@ async fn test_clap_short_audio_returns_one_to_many() {
     // Retrieve the entry and verify chunk metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString("cat meowing".to_string())),
@@ -844,6 +848,7 @@ async fn test_clap_audio_large_accepted_and_chunked() {
     // Retrieve entries and check chunk metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString("audio".to_string())),
@@ -943,6 +948,7 @@ async fn test_clap_audio_chunk_metadata_sequential() {
     // Get an entry and verify chunk metadata exists and has correct format
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString("audio".to_string())),
@@ -1061,6 +1067,7 @@ async fn test_clap_audio_batch_mixed_durations() {
     // Retrieve and verify metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString("sound".to_string())),
@@ -1153,6 +1160,7 @@ async fn test_clap_audio_overlap_calculation() {
 
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString("test".to_string())),
@@ -1297,6 +1305,7 @@ async fn test_clap_query_rejects_audio_longer_than_10_seconds() {
     let long_query_audio = make_silent_wav(15.0);
     let result = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Audio(long_query_audio)),

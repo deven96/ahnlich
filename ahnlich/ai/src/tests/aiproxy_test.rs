@@ -634,6 +634,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
 
     // Test GetSimN
     let get_sim_n_message = ahnlich_types::ai::query::GetSimN {
+        ef_search: None,
         store: store_name.clone(),
         search_input: Some(StoreInput {
             value: Some(Value::RawString("Yeezy".into())),
@@ -2438,6 +2439,7 @@ async fn test_ai_schema_store_commands_use_custom_schema() {
         },
         ai_pipeline::AiQuery {
             query: Some(Query::GetSimN(ai_query_types::GetSimN {
+                ef_search: None,
                 store: store_name.clone(),
                 search_input: Some(jordan_input.clone()),
                 condition: Some(condition_nike.clone()),

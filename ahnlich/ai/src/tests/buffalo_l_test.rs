@@ -474,6 +474,7 @@ async fn test_buffalo_l_get_sim_n() {
     // Query with the same single face - the top result should be itself with high similarity
     let get_sim_n_query = ai_pipeline::AiQuery {
         query: Some(Query::GetSimN(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(single_face_image)),
@@ -648,6 +649,7 @@ async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
     // Now query with a multi-face image — must return InvalidArgument
     let err = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(multi_face_image)),
@@ -772,6 +774,7 @@ async fn test_buffalo_l_face_index_metadata() {
 
         // Now query to get all stored entries
         let get_query = ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(query_image_bytes)),
@@ -1163,6 +1166,7 @@ async fn test_buffalo_l_bounding_box_metadata() {
     // Query to retrieve the stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(query_image_bytes)),
@@ -1335,6 +1339,7 @@ async fn test_buffalo_l_gender_age_metadata() {
     // Query to retrieve the stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(image_bytes)),
@@ -1490,6 +1495,7 @@ async fn test_buffalo_l_gender_age_multi_face() {
     // Query to retrieve all stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(query_bytes)),
@@ -1687,6 +1693,7 @@ async fn test_buffalo_l_visualize_attributes() {
     // Retrieve all stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(query_bytes)),
@@ -1914,6 +1921,7 @@ async fn test_buffalo_l_without_genderage() {
     // Query to retrieve the stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(query_bytes)),
@@ -2046,6 +2054,7 @@ async fn test_buffalo_l_genderage_opt_in() {
     // Query to retrieve the stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(image_bytes)),
@@ -2194,6 +2203,7 @@ async fn test_buffalo_l_embeddings_discriminate_faces() {
 
     let query = ai_pipeline::AiQuery {
         query: Some(Query::GetSimN(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(one_face)),
@@ -2296,6 +2306,7 @@ async fn test_buffalo_l_rejects_a_face_not_in_the_store() {
 
     let query = ai_pipeline::AiQuery {
         query: Some(Query::GetSimN(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(absent)),
