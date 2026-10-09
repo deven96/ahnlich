@@ -352,6 +352,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     }
                 }
                 AiQuery::GetSimN(GetSimN {
+                    ef_search: None,
                     store,
                     search_input: Some(search_input),
                     closest_n,

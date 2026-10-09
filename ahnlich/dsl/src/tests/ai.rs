@@ -403,6 +403,7 @@ fn test_get_sim_n_parse() {
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetSimN(GetSimN {
+            ef_search: None,
             store: "random".to_string(),
             search_input: Some(StoreInput {
                 value: Some(StoreValue::RawString("hi my name is carter".to_string()))
@@ -420,6 +421,7 @@ fn test_get_sim_n_parse() {
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetSimN(GetSimN {
+            ef_search: None,
             store: "other".to_string(),
             search_input: Some(StoreInput {
                 value: Some(StoreValue::RawString(
@@ -790,6 +792,7 @@ fn test_get_sim_n_parse_migraphx_execution_provider() {
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetSimN(GetSimN {
+            ef_search: None,
             store: "store1".to_string(),
             search_input: Some(StoreInput {
                 value: Some(StoreValue::RawString("find me".to_string()))

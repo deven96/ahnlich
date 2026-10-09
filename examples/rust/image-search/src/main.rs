@@ -134,6 +134,7 @@ async fn query_mode() {
         let input = input.trim();
 
         let get_sim_n = GetSimN {
+            ef_search: None,
             store: storename.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString(input.to_string())),
@@ -198,6 +199,7 @@ mod tests {
         // Create a GetSimN query as done in query_mode()
         let storename = "image-search".to_string();
         let get_sim_n = GetSimN {
+            ef_search: None,
             store: storename,
             search_input: Some(StoreInput {
                 value: Some(Value::RawString("test query".to_string())),
