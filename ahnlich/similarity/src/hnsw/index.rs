@@ -224,6 +224,17 @@ impl<D: DistanceFn> HNSW<D> {
         n: NonZeroUsize,
         accept_list: Option<std::collections::HashSet<u64>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        self.n_nearest_with_ef(reference_point, n, accept_list, None)
+    }
+
+    /// Search with optional HNSW breadth; omitted values retain max(n, 50).
+    pub fn n_nearest_with_ef(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
             return Ok(vec![]);
         }
@@ -242,8 +253,12 @@ impl<D: DistanceFn> HNSW<D> {
         // `k` is what the caller asked for. It is NOT derived from the size of the filter:
         // the filter is applied during traversal (see search_layer), so no over-search is
         // needed to compensate for post-filtering.
-        let result_ids =
-            self.knn_search_reuse_distances(&query, n.get(), None, accept_list.as_ref())?;
+        let result_ids = self.knn_search_reuse_distances(
+            &query,
+            n.get(),
+            ef_search.map(NonZeroUsize::get),
+            accept_list.as_ref(),
+        )?;
 
         let nodes_guard = self.nodes.pin();
         let mut results: Vec<(EmbeddingKey, f32)> = Vec::with_capacity(n.get());
@@ -1182,6 +1197,53 @@ mod tests {
     use super::*;
     use crate::EmbeddingKey;
     use papaya::HashMap;
+
+    #[test]
+    fn test_n_nearest_with_ef_search_breadth() {
+        // Reaching the nearest node requires crossing a more distant node.
+        // Breadth 1 prunes that bridge; breadth 3 explores it.
+        let hnsw = HNSW::default();
+        for (id, value, neighbours) in [
+            (1, 5.0, vec![NodeId(2)]),
+            (2, 6.0, vec![NodeId(1), NodeId(3)]),
+            (3, 0.0, vec![NodeId(2)]),
+        ] {
+            let node = Node {
+                id: NodeId(id),
+                value: EmbeddingKey::new(vec![value]),
+                neighbours: HashMap::new(),
+                back_links: HashSet::new(),
+            };
+            node.neighbours
+                .pin()
+                .insert(LayerIndex(0), HashSet::from_iter(neighbours));
+            hnsw.nodes.pin().insert(NodeId(id), node);
+        }
+        hnsw.enter_point
+            .store(std::sync::Arc::new(smallvec::smallvec![NodeId(1)]));
+        let n = NonZeroUsize::new(1).unwrap();
+        let narrow = hnsw
+            .n_nearest_with_ef(&[0.0], n, None, NonZeroUsize::new(1))
+            .unwrap();
+        let wide = hnsw
+            .n_nearest_with_ef(&[0.0], n, None, NonZeroUsize::new(3))
+            .unwrap();
+        assert_eq!(narrow[0].0.as_slice(), &[5.0]);
+        assert_eq!(wide[0].0.as_slice(), &[0.0]);
+        assert_eq!(hnsw.n_nearest(&[0.0], n, None).unwrap(), wide);
+        // A requested breadth below k is raised to k.
+        assert_eq!(
+            hnsw.n_nearest_with_ef(
+                &[0.0],
+                NonZeroUsize::new(3).unwrap(),
+                None,
+                NonZeroUsize::new(1)
+            )
+            .unwrap()
+            .len(),
+            3,
+        );
+    }
 
     #[test]
     fn test_simple_hnsw_state() {

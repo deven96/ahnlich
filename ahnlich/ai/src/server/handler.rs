@@ -398,6 +398,7 @@ impl AiService for AIProxyServer {
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let get_sim_n_params = DbGetSimN {
+            ef_search: None,
             store: params.store,
             search_input: Some(search_input),
             closest_n: params.closest_n,

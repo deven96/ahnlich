@@ -1441,6 +1441,7 @@ async fn test_remove_non_linear_indices() {
         // Get similar items using KDTree
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::KdTree.into(),
@@ -1476,6 +1477,7 @@ async fn test_remove_non_linear_indices() {
         // Should error as KDTree no longer exists
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::KdTree as i32,
@@ -1696,6 +1698,7 @@ async fn test_get_sim_n_non_linear() {
         // Get 2 closest matches without condition
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::KdTree as i32,
@@ -1710,6 +1713,7 @@ async fn test_get_sim_n_non_linear() {
         // due to precondition satisfying just one
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::KdTree as i32,
@@ -1841,6 +1845,7 @@ async fn test_get_sim_n() {
         // Should error as store does not exist
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::CosineSimilarity as i32,
@@ -1911,6 +1916,7 @@ async fn test_get_sim_n() {
         // Error due to non-linear algorithm not existing
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::KdTree as i32,
@@ -1924,6 +1930,7 @@ async fn test_get_sim_n() {
         // Error due to dimension mismatch
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::EuclideanDistance as i32,
@@ -1937,6 +1944,7 @@ async fn test_get_sim_n() {
         // Get with condition (should return 1 match)
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::CosineSimilarity as i32,
@@ -1959,6 +1967,7 @@ async fn test_get_sim_n() {
         // Get closest 2 with DotProduct
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::DotProductSimilarity as i32,
@@ -1972,6 +1981,7 @@ async fn test_get_sim_n() {
         // Get closest 2 with EuclideanDistance
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::EuclideanDistance as i32,
@@ -1985,6 +1995,7 @@ async fn test_get_sim_n() {
         // Get closest 1 where medal is not gold
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "Main".to_string(),
                 closest_n: 1,
                 algorithm: Algorithm::CosineSimilarity as i32,
@@ -3364,6 +3375,7 @@ async fn test_server_persistence_with_hnsw_index() {
         // Get similar items using HNSW
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "HnswStore".to_string(),
                 closest_n: 1,
                 algorithm: Algorithm::Hnsw.into(),
@@ -3471,6 +3483,7 @@ async fn test_server_persistence_with_hnsw_index() {
         // GetSimN should still work after deserialization
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "HnswStore".to_string(),
                 closest_n: 1,
                 algorithm: Algorithm::Hnsw.into(),
@@ -3634,6 +3647,7 @@ async fn test_create_store_with_hnsw_configuration() {
         // Search using HNSW - nearest to [1.0, 0.0, 0.0, 0.0]
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: "HnswConfigStore".to_string(),
                 closest_n: 2,
                 algorithm: Algorithm::Hnsw.into(),
@@ -3998,6 +4012,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
         .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
             queries: vec![db_pipeline::DbQuery {
                 query: Some(Query::GetSimN(db_query_types::GetSimN {
+                    ef_search: None,
                     store: "RecallTest".to_string(),
                     closest_n: k as u64,
                     algorithm: Algorithm::Hnsw.into(),
@@ -4095,6 +4110,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
         .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
             queries: vec![db_pipeline::DbQuery {
                 query: Some(Query::GetSimN(db_query_types::GetSimN {
+                    ef_search: None,
                     store: "RecallTest".to_string(),
                     closest_n: k as u64,
                     algorithm: Algorithm::Hnsw.into(),
@@ -5186,6 +5202,7 @@ async fn test_schema_store_commands_use_custom_schema() {
         },
         db_pipeline::DbQuery {
             query: Some(Query::GetSimN(db_query_types::GetSimN {
+                ef_search: None,
                 store: store_name.clone(),
                 search_input: Some(jordan_key.clone()),
                 closest_n: 1,

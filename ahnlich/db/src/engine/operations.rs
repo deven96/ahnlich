@@ -428,7 +428,14 @@ pub fn get_sim_n(
     let algorithm = Algorithm::try_from(params.algorithm)
         .map_err(|_| ServerError::InvalidArgument("Invalid algorithm".to_owned()))?;
 
-    let results = store_handler.get_sim_in_store_with_bounded_index_filtering(
+    let ef_search = params
+        .ef_search
+        .map(|ef| {
+            NonZeroUsize::new(ef as usize)
+                .ok_or_else(|| ServerError::InvalidArgument("ef_search must be > 0".to_owned()))
+        })
+        .transpose()?;
+    let results = store_handler.get_sim_in_store_with_ef(
         &StoreName {
             value: params.store,
         },
@@ -437,6 +444,7 @@ pub fn get_sim_n(
         closest_n,
         algorithm,
         params.condition,
+        ef_search,
     )?;
 
     let entries = results
@@ -464,4 +472,91 @@ pub fn get_store(
         },
         &schema,
     )
+}
+
+#[cfg(test)]
+mod ef_search_tests {
+    use super::*;
+    use ahnlich_types::algorithm::nonlinear::{HnswConfig, NonLinearIndex};
+    use prost::Message;
+    use std::sync::atomic::AtomicBool;
+
+    #[test]
+    fn test_get_sim_n_ef_search() {
+        let handler = StoreHandler::new(
+            Arc::new(AtomicBool::new(false)),
+            ParallelismConfig::from_cli(1, None, 10_000),
+        );
+        create_store(
+            &handler,
+            query::CreateStore {
+                store: "ef-search".into(),
+                dimension: 1,
+                non_linear_indices: vec![NonLinearIndex {
+                    index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
+                }],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        handler
+            .set_in_store(
+                &StoreName {
+                    value: "ef-search".into(),
+                },
+                &Schema::default(),
+                (0..5)
+                    .map(|i| {
+                        (
+                            StoreKey {
+                                key: vec![i as f32],
+                            },
+                            StoreValue::default(),
+                        )
+                    })
+                    .collect(),
+            )
+            .unwrap();
+        let request = query::GetSimN {
+            store: "ef-search".into(),
+            search_input: Some(StoreKey { key: vec![0.1] }),
+            closest_n: 3,
+            algorithm: Algorithm::Hnsw as i32,
+            ..Default::default()
+        };
+        let baseline = get_sim_n(&handler, request.clone()).unwrap();
+        for ef in [1, 100, 118, 180] {
+            let configured = query::GetSimN {
+                ef_search: Some(ef),
+                ..request.clone()
+            };
+            let decoded = query::GetSimN::decode(configured.encode_to_vec().as_slice()).unwrap();
+            assert_eq!(decoded.ef_search, Some(ef));
+            assert_eq!(get_sim_n(&handler, decoded).unwrap(), baseline);
+        }
+        let omitted = query::GetSimN::decode(request.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(omitted.ef_search, None);
+        let invalid = query::GetSimN {
+            ef_search: Some(0),
+            ..request.clone()
+        };
+        assert!(
+            matches!(get_sim_n(&handler, invalid), Err(ServerError::InvalidArgument(message)) if message == "ef_search must be > 0")
+        );
+        let linear = query::GetSimN {
+            algorithm: Algorithm::EuclideanDistance as i32,
+            ..request
+        };
+        assert_eq!(
+            get_sim_n(
+                &handler,
+                query::GetSimN {
+                    ef_search: Some(180),
+                    ..linear.clone()
+                }
+            )
+            .unwrap(),
+            get_sim_n(&handler, linear).unwrap(),
+        );
+    }
 }

@@ -48,6 +48,8 @@ message GetSimN {
   algorithm.algorithms.Algorithm algorithm = 4; // The algorithm to use for similarity computation.
   predicates.PredicateCondition condition = 5; // The predicate condition to apply.
   optional string schema = 6; // Optional schema/namespace for the store. Defaults to "public".
+  // HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0; raised to at least closest_n. Ignored by other algorithms.
+  optional uint32 ef_search = 7;
 }
 
 // Creates an index in the store based on the provided predicates.

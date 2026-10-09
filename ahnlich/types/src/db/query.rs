@@ -75,6 +75,9 @@ pub struct GetSimN {
     /// Optional schema/namespace for the store. Defaults to "public".
     #[prost(string, optional, tag = "6")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
+    /// HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0; raised to at least closest_n. Ignored by other algorithms.
+    #[prost(uint32, optional, tag = "7")]
+    pub ef_search: ::core::option::Option<u32>,
 }
 /// Creates an index in the store based on the provided predicates.
 /// This operation is idempotent: it will only add new predicates, not remove existing ones.

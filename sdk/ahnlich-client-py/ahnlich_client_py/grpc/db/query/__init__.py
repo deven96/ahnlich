@@ -65,6 +65,10 @@ class GetSimN(betterproto.Message):
     algorithm: "__algorithm_algorithms__.Algorithm" = betterproto.enum_field(4)
     condition: "__predicates__.PredicateCondition" = betterproto.message_field(5)
     schema: Optional[str] = betterproto.string_field(6, optional=True)
+    ef_search: Optional[int] = betterproto.uint32_field(7, optional=True)
+    """
+    HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0; raised to at least closest_n. Ignored by other algorithms.
+    """
 
 
 @dataclass(eq=False, repr=False)

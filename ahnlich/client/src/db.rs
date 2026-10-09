@@ -683,6 +683,7 @@ mod test {
         assert!(db_client.set(set_key_params, None).await.is_ok());
         // error due to dimension mismatch
         let get_sim_n_params = GetSimN {
+            ef_search: None,
             store: "Main".to_string(),
             search_input: Some(StoreKey {
                 key: vec![1.1, 2.0],
@@ -708,6 +709,7 @@ mod test {
         };
 
         let get_sim_n_params = GetSimN {
+            ef_search: None,
             store: "Main".to_string(),
             search_input: Some(StoreKey {
                 key: vec![5.0, 2.1, 2.2],
@@ -1106,6 +1108,7 @@ mod test {
         // error due to dimension mismatch
 
         let get_sim_n_params = GetSimN {
+            ef_search: None,
             store: "Main".to_string(),
             search_input: Some(StoreKey {
                 key: vec![1.1, 2.0],
@@ -1131,6 +1134,7 @@ mod test {
         };
 
         let get_sim_n_params = GetSimN {
+            ef_search: None,
             store: "Main".to_string(),
             search_input: Some(StoreKey {
                 key: vec![5.0, 2.1, 2.2],

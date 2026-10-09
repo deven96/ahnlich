@@ -539,6 +539,28 @@ impl StoreHandler {
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
+        self.get_sim_in_store_with_ef(
+            store_name,
+            schema,
+            search_input,
+            closest_n,
+            algorithm,
+            condition,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn get_sim_in_store_with_ef(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        search_input: StoreKey,
+        closest_n: NonZeroUsize,
+        algorithm: Algorithm,
+        condition: Option<PredicateCondition>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
         let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         let store = self.get(store_name, schema)?;
         let store_dimension = store.dimension.get();
@@ -573,6 +595,7 @@ impl StoreHandler {
                     &search_embedding,
                     Some(accept_list),
                     closest_n,
+                    ef_search,
                 )
             }
 
@@ -700,6 +723,7 @@ impl StoreHandler {
                     &search_embedding,
                     None,
                     closest_n,
+                    ef_search,
                 )
             }
 
@@ -851,6 +875,7 @@ impl StoreHandler {
                     &search_embedding,
                     Some(accept_list),
                     closest_n,
+                    None,
                 )
             }
 
@@ -934,6 +959,7 @@ impl StoreHandler {
                     &search_embedding,
                     None,
                     closest_n,
+                    None,
                 )
             }
 

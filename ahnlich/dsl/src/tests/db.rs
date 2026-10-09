@@ -382,6 +382,7 @@ fn test_get_sim_n_parse() {
     assert_eq!(
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetSimN(GetSimN {
+            ef_search: None,
             store: "random".to_string(),
             search_input: Some(StoreKey {
                 key: vec![34.1, 72.2]
@@ -396,6 +397,7 @@ fn test_get_sim_n_parse() {
     assert_eq!(
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetSimN(GetSimN {
+            ef_search: None,
             store: "other".to_string(),
             search_input: Some(StoreKey {
                 key: vec![3.7, 9.6]
