@@ -9037,6 +9037,12 @@ var require_query_pb = __commonJS({
        * @generated from field: optional string schema = 6;
        */
       schema;
+      /**
+       * HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0; raised to at least closest_n. Ignored by other algorithms.
+       *
+       * @generated from field: optional uint32 ef_search = 7;
+       */
+      efSearch;
       constructor(data) {
         super();
         protobuf_1.proto3.util.initPartial(data, this);
@@ -9061,7 +9067,8 @@ var require_query_pb = __commonJS({
         },
         { no: 4, name: "algorithm", kind: "enum", T: protobuf_1.proto3.getEnumType(algorithm_pb_js_1.Algorithm) },
         { no: 5, name: "condition", kind: "message", T: predicate_pb_js_1.PredicateCondition },
-        { no: 6, name: "schema", kind: "scalar", T: 9, opt: true }
+        { no: 6, name: "schema", kind: "scalar", T: 9, opt: true },
+        { no: 7, name: "ef_search", kind: "scalar", T: 13, opt: true }
       ]);
       static fromBinary(bytes, options) {
         return new _GetSimN().fromBinary(bytes, options);
