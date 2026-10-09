@@ -278,6 +278,13 @@ export class GetSimN extends Message<GetSimN> {
    */
   schema?: string;
 
+  /**
+   * HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0; raised to at least closest_n. Ignored by other algorithms.
+   *
+   * @generated from field: optional uint32 ef_search = 7;
+   */
+  efSearch?: number;
+
   constructor(data?: PartialMessage<GetSimN>) {
     super();
     proto3.util.initPartial(data, this);
@@ -292,6 +299,7 @@ export class GetSimN extends Message<GetSimN> {
     { no: 4, name: "algorithm", kind: "enum", T: proto3.getEnumType(Algorithm) },
     { no: 5, name: "condition", kind: "message", T: PredicateCondition },
     { no: 6, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 7, name: "ef_search", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetSimN {

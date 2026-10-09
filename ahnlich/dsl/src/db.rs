@@ -250,6 +250,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     }
                 }
                 DBQuery::GetSimN(GetSimN {
+                    ef_search: None,
                     store,
                     search_input: Some(search_input),
                     closest_n,

@@ -126,6 +126,7 @@ impl NonLinearAlgorithmWithIndex {
         search_vector: &EmbeddingKey,
         accept_list: Option<std::collections::HashSet<u64>>,
         n: NonZeroUsize,
+        ef_search: Option<NonZeroUsize>,
     ) -> Vec<(StoreKeyId, f32)> {
         let raw_result = match &self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
@@ -137,12 +138,7 @@ impl NonLinearAlgorithmWithIndex {
                 )
             }
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::n_nearest(
-                    hnsw,
-                    search_vector.as_slice(),
-                    n,
-                    accept_list,
-                )
+                hnsw.n_nearest_with_ef(search_vector.as_slice(), n, accept_list, ef_search)
             }
         }
         .expect("Index does not have the same size as reference_point");
