@@ -19,7 +19,7 @@
 
 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&amp;display=swap"><link rel="stylesheet" href="/assets/css/styles.500b70b9.css">
-<script src="/assets/js/runtime~main.0c8016ca.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.e6b0093a.js" defer="defer"></script>
 <script src="/assets/js/main.7a74b268.js" defer="defer"></script>
 </head>
 <body>
@@ -32,7 +32,7 @@
 <p>Every operation works on both <strong>Vector DB stores</strong> (you supply raw vectors) and <strong>AI stores</strong> (you supply text, images, or audio and <a class="" href="/docs/components/ahnlich-ai">Ahnlich AI</a> generates the embeddings for you). Use the <strong>Vector DB / AI</strong> switch in the sample below.</p>
 </blockquote>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="parameters">Parameters<a href="#parameters" class="hash-link" aria-label="Direct link to Parameters" title="Direct link to Parameters" translate="no">​</a></h2>
-<table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code>store</code></td><td>string</td><td>Name of the store to search.</td></tr><tr><td><code>search_input</code></td><td>vector</td><td>The query vector (<code>StoreKey</code>). Must match the store&#x27;s dimension.</td></tr><tr><td><code>closest_n</code></td><td>int (&gt; 0)</td><td>How many results to return.</td></tr><tr><td><code>algorithm</code></td><td>enum</td><td>Similarity metric: <code>CosineSimilarity</code>, <code>EuclideanDistance</code>, or <code>DotProductSimilarity</code>.</td></tr><tr><td><code>condition</code></td><td>predicate · optional</td><td>Restrict which vectors are considered. <code>None</code> searches all. See <a class="" href="/docs/components/predicates">Predicates</a>.</td></tr><tr><td><code>schema</code></td><td>string · optional</td><td>Schema to target. Defaults to <code>public</code>.</td></tr></tbody></table>
+<table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody><tr><td><code>store</code></td><td>string</td><td>Name of the store to search.</td></tr><tr><td><code>search_input</code></td><td>vector</td><td>The query vector (<code>StoreKey</code>). Must match the store&#x27;s dimension.</td></tr><tr><td><code>closest_n</code></td><td>int (&gt; 0)</td><td>How many results to return.</td></tr><tr><td><code>ef_search</code></td><td>uint32 (&gt; 0) · optional</td><td>HNSW search breadth, supported by both DB and AI APIs. Defaults to <code>max(closest_n, 50)</code> when omitted; values below <code>closest_n</code> are raised to it. Ignored by other algorithms.</td></tr><tr><td><code>algorithm</code></td><td>enum</td><td>Similarity metric: <code>CosineSimilarity</code>, <code>EuclideanDistance</code>, or <code>DotProductSimilarity</code>.</td></tr><tr><td><code>condition</code></td><td>predicate · optional</td><td>Restrict which vectors are considered. <code>None</code> searches all. See <a class="" href="/docs/components/predicates">Predicates</a>.</td></tr><tr><td><code>schema</code></td><td>string · optional</td><td>Schema to target. Defaults to <code>public</code>.</td></tr></tbody></table>
 <blockquote>
 <p>All requests accept an optional <code>schema</code> field. When omitted, the server uses the <code>public</code> schema.</p>
 </blockquote>
