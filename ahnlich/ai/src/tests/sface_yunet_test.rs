@@ -354,6 +354,7 @@ async fn test_sface_yunet_get_sim_n() {
             },
             ai_pipeline::AiQuery {
                 query: Some(Query::GetSimN(ai_query_types::GetSimN {
+                    ef_search: None,
                     store: store_name.clone(),
                     search_input: Some(StoreInput {
                         value: Some(Value::Image(single_face_bytes)),
@@ -459,6 +460,7 @@ async fn test_sface_yunet_multi_face_query_errors() {
 
     // Now query with multi-face image — must error
     let get_query = ai_query_types::GetSimN {
+        ef_search: None,
         store: store_name.clone(),
         search_input: Some(StoreInput {
             value: Some(Value::Image(multi_face_bytes)),
@@ -811,6 +813,7 @@ async fn test_sface_yunet_bounding_box_metadata() {
     // Query to retrieve the stored faces with metadata
     let get_response = client
         .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::Image(query_image_bytes)),

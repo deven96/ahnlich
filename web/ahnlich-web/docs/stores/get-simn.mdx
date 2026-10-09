@@ -19,6 +19,7 @@ Return the `closest_n` entries most similar to a query vector, ranked by a simil
 | `store` | string | Name of the store to search. |
 | `search_input` | vector | The query vector (`StoreKey`). Must match the store's dimension. |
 | `closest_n` | int (> 0) | How many results to return. |
+| `ef_search` | uint32 (> 0) · optional | HNSW search breadth, supported by both DB and AI APIs. Defaults to `max(closest_n, 50)` when omitted; values below `closest_n` are raised to it. Ignored by other algorithms. |
 | `algorithm` | enum | Similarity metric: `CosineSimilarity`, `EuclideanDistance`, or `DotProductSimilarity`. |
 | `condition` | predicate · optional | Restrict which vectors are considered. `None` searches all. See [Predicates](/docs/components/predicates). |
 | `schema` | string · optional | Schema to target. Defaults to `public`. |

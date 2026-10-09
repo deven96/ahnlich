@@ -52,6 +52,9 @@ message GetSimN {
   optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional execution provider for specific optimizations
   map<string, string> model_params = 8; // Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
   optional string schema = 9; // Optional schema/namespace for the store. Defaults to "public".
+  // HNSW search breadth. Omitted: max(closest_n, 50). Must be > 0;
+  // raised to at least closest_n. Ignored by other algorithms.
+  optional uint32 ef_search = 10;
 }
 
 message CreatePredIndex {

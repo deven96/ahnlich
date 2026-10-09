@@ -248,6 +248,7 @@ app.listen(3000);"#;
     // Search with Python factorial
     let get_sim_n_query = ai_pipeline::AiQuery {
         query: Some(Query::GetSimN(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString(python_factorial.to_string())),
@@ -407,6 +408,7 @@ async fn test_jina_code_natural_language_query() {
     let nl_query = "How do I access the index while iterating";
     let get_sim_n_query = ai_pipeline::AiQuery {
         query: Some(Query::GetSimN(ai_query_types::GetSimN {
+            ef_search: None,
             store: store_name.clone(),
             search_input: Some(StoreInput {
                 value: Some(Value::RawString(nl_query.to_string())),
