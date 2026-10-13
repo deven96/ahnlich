@@ -109,9 +109,12 @@ dependencies = [
  "pulp",
  "rand 0.8.5",
  "rstest",
+ "seize",
  "serde",
  "serde_json",
  "smallvec",
+ "tikv-jemalloc-ctl",
+ "tikv-jemallocator",
  "tracing",
 ]
 

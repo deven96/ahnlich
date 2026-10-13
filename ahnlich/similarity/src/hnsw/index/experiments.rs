@@ -48,3 +48,25 @@ impl<D: DistanceFn> HNSW<D> {
         Ok(self.materialize_ids_with_scores(reference_point, ids))
     }
 }
+
+impl<D: DistanceFn> HNSW<D> {
+    /// Stored nodes and live logical collectors (retired collections are excluded).
+    /// Used by the collector-sharing benchmark's correctness checks and report.
+    pub fn collector_sharing_bench_counts(&self) -> (usize, usize) {
+        let nodes = self.nodes.pin();
+        let collections = 2
+            + self.graph.pin().len()
+            + nodes
+                .values()
+                .map(|node| 2 + node.neighbours.pin().len())
+                .sum::<usize>();
+        (
+            nodes.len(),
+            if self.collector.is_some() {
+                1
+            } else {
+                collections
+            },
+        )
+    }
+}
