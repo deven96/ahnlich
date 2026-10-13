@@ -5,20 +5,19 @@ versus 0.42 GiB with linear search. This candidate tests whether independent
 Papaya reclamation collectors contribute to that footprint. It makes no claim
 about memory savings until measured.
 
-The default DB build uses the existing HNSW constructors and independent
-collectors. `bench-hnsw-collector-sharing` selects `HNSW::new_candidate` in the
-DB factory. Similarity benchmarks can enable `bench-experiments` and call
-`new_with_config` (control) and `new_with_config_candidate` in the same binary.
+The default DB build uses `HNSW::new_with_shared_collector` and a shared collector per
+index. The original constructors remain available for the control. Similarity
+benchmarks can enable `bench-experiments` and call
+`new_with_config` (control) and `new_with_config_and_shared_collector` in the same binary.
 
 The candidate shares one collector per HNSW index across its node map, layer
 map, graph-layer sets, per-node neighbor maps, per-layer neighbor sets, and
 backlink sets. Pruning replacements use that collector too. Capacities and HNSW
 parameters are preserved. Query-only temporary nodes retain the existing path.
 
-Persistence contains no collector state or experiment marker. Candidate DB
-builds restore all nested collections with one fresh index-local collector;
-default builds restore independent collectors. The persisted data format is
-unchanged.
+Persistence contains no collector state or experiment marker. DB builds
+restore all nested collections with one fresh index-local collector. The
+persisted data format is unchanged.
 
 Shared reclamation lets a guard delay cleanup across the whole index. There is
 also a nested ownership cycle: retired node/maps can own references to their
@@ -28,7 +27,8 @@ after clearing its private maps and ending their guards. This uses
 exclusive access during drop. Node snapshots clone onto independent collectors.
 Tests cover drop after serial inserts from multiple worker threads.
 
-For the next diagnostic, build control and candidate in separate target folders,
+For the next diagnostic, build the control from the pre-migration revision
+`1c848f3a` and the candidate from this checkout in separate target folders,
 then give each binary to the existing VectorDBBench `diagnose_ahnlich_memory`
 tool. Keep Small Cohere, loading concurrency 1, batch size 100, and
 `m=15`, `m_zero=30`, `ef_construction=500`, `ef_search=180` identical. Compare
@@ -69,5 +69,5 @@ Both targets are discovered by `benchmark-experiments.yml` when newly added or
 modified under `benches/experiments` and `benches/memory`. Add the
 `benchmark-experiments` PR label to run them. New Criterion targets compare
 `candidate` and `control` within the PR binary; memory targets publish their
-isolated A/B Markdown reports. Use `bench-experiments` for these paired targets,
-not the feature that routes the entire DB binary to the candidate.
+isolated A/B Markdown reports. Use `bench-experiments` to compare both control
+and candidate in the same binary.

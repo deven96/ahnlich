@@ -9,8 +9,8 @@ fn fixture() -> Vec<EmbeddingKey> {
         .collect()
 }
 
-fn candidate(metric: LinearAlgorithm) -> HNSW<LinearAlgorithm> {
-    HNSW::new_candidate(metric, 100, 4, 8, false, false)
+fn with_shared_collector(metric: LinearAlgorithm) -> HNSW<LinearAlgorithm> {
+    HNSW::new_with_shared_collector(metric, 100, 4, 8, false, false)
 }
 
 fn assert_shared(index: &HNSW<LinearAlgorithm>) {
@@ -50,8 +50,8 @@ fn assert_shared(index: &HNSW<LinearAlgorithm>) {
 #[test]
 fn collector_sharing_survives_insertion_pruning_and_deletion() {
     let data = fixture();
-    let index = candidate(LinearAlgorithm::EuclideanDistance);
-    let separate = candidate(LinearAlgorithm::EuclideanDistance);
+    let index = with_shared_collector(LinearAlgorithm::EuclideanDistance);
+    let separate = with_shared_collector(LinearAlgorithm::EuclideanDistance);
     assert!(!Arc::ptr_eq(
         index.collector.as_ref().unwrap(),
         separate.collector.as_ref().unwrap()
@@ -78,7 +78,7 @@ fn collector_sharing_survives_insertion_pruning_and_deletion() {
 }
 
 #[test]
-fn collector_candidate_preserves_search_results() {
+fn shared_collector_preserves_search_results() {
     let data = fixture();
     for metric in [
         LinearAlgorithm::EuclideanDistance,
@@ -86,17 +86,17 @@ fn collector_candidate_preserves_search_results() {
         LinearAlgorithm::DotProductSimilarity,
     ] {
         let control = HNSW::new(metric, 100, 4, 8, false, false);
-        let candidate = candidate(metric);
+        let with_shared_collector = with_shared_collector(metric);
         assert!(control.collector.is_none());
         control.insert(&data).unwrap();
-        candidate.insert(&data).unwrap();
+        with_shared_collector.insert(&data).unwrap();
         for query in &data[..8] {
             let n = NonZeroUsize::new(10).unwrap();
             assert_eq!(
                 control
                     .n_nearest_with_ef(query.as_slice(), n, None, NonZeroUsize::new(128))
                     .unwrap(),
-                candidate
+                with_shared_collector
                     .n_nearest_with_ef(query.as_slice(), n, None, NonZeroUsize::new(128))
                     .unwrap()
             );
@@ -105,8 +105,8 @@ fn collector_candidate_preserves_search_results() {
 }
 
 #[test]
-fn dropping_candidate_releases_collector() {
-    let index = candidate(LinearAlgorithm::EuclideanDistance);
+fn dropping_index_with_shared_collector_releases_collector() {
+    let index = with_shared_collector(LinearAlgorithm::EuclideanDistance);
     let weak = Arc::downgrade(index.collector.as_ref().unwrap());
     index.insert(&fixture()).unwrap();
     drop(index);
@@ -116,10 +116,10 @@ fn dropping_candidate_releases_collector() {
     );
 }
 
-#[cfg(all(feature = "serde", feature = "bench-hnsw-collector-sharing"))]
+#[cfg(feature = "serde")]
 #[test]
 fn restored_index_gets_one_fresh_collector() {
-    let index = candidate(LinearAlgorithm::EuclideanDistance);
+    let index = with_shared_collector(LinearAlgorithm::EuclideanDistance);
     let data = fixture();
     index.insert(&data).unwrap();
     let bytes = serde_json::to_vec(&index).unwrap();
@@ -141,7 +141,7 @@ fn restored_index_gets_one_fresh_collector() {
 
 #[test]
 fn dropping_index_after_worker_threads_releases_collector() {
-    let index = candidate(LinearAlgorithm::EuclideanDistance);
+    let index = with_shared_collector(LinearAlgorithm::EuclideanDistance);
     let data = fixture();
     // Keep writes serial, but exercise collectors from distinct worker threads.
     std::thread::scope(|scope| {
@@ -160,7 +160,7 @@ fn dropping_index_after_worker_threads_releases_collector() {
 
 #[test]
 fn node_snapshot_remains_independent_after_index_drop() {
-    let index = candidate(LinearAlgorithm::EuclideanDistance);
+    let index = with_shared_collector(LinearAlgorithm::EuclideanDistance);
     let data = fixture();
     index.insert(&data).unwrap();
     let snapshot = index.get_node(&get_node_id(&data[0].0)).unwrap();
@@ -176,8 +176,8 @@ fn node_snapshot_remains_independent_after_index_drop() {
 }
 
 #[test]
-fn candidate_supports_concurrent_reads_after_loading() {
-    let index = candidate(LinearAlgorithm::EuclideanDistance);
+fn shared_collector_supports_concurrent_reads_after_loading() {
+    let index = with_shared_collector(LinearAlgorithm::EuclideanDistance);
     let data = fixture();
     index.insert(&data).unwrap();
     let n = NonZeroUsize::new(10).unwrap();
@@ -193,12 +193,20 @@ fn candidate_supports_concurrent_reads_after_loading() {
     assert_shared(&index);
 }
 
+#[cfg(feature = "bench-experiments")]
 #[test]
 fn collector_benchmark_delete_all_nodes_preserves_empty_index() {
     let data = fixture();
     for index in [
         HNSW::new(LinearAlgorithm::CosineSimilarity, 500, 15, 30, false, false),
-        HNSW::new_candidate(LinearAlgorithm::CosineSimilarity, 500, 15, 30, false, false),
+        HNSW::new_with_shared_collector(
+            LinearAlgorithm::CosineSimilarity,
+            500,
+            15,
+            30,
+            false,
+            false,
+        ),
     ] {
         assert_eq!(index.collector_sharing_bench_counts().0, 0);
         index.insert(&data).unwrap();

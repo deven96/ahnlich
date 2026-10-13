@@ -25,7 +25,7 @@ use std::{
 #[cfg(feature = "bench-experiments")]
 mod experiments;
 
-#[cfg(all(test, feature = "bench-experiments"))]
+#[cfg(test)]
 mod collector_sharing_tests;
 
 /// Below this many accepted vectors, a filtered search scans the accepted set directly
@@ -41,7 +41,10 @@ fn new_hashmap<K: std::hash::Hash + Eq, V>() -> papaya::HashMap<K, V> {
         .expect("papaya HashMap initialization failed (allocation or assertion)")
 }
 
-fn new_hashmap_with_collector<K: std::hash::Hash + Eq + Send + 'static, V: Send + 'static>(
+fn new_hashmap_with_shared_collector<
+    K: std::hash::Hash + Eq + Send + 'static,
+    V: Send + 'static,
+>(
     collector: Option<&Arc<Collector>>,
 ) -> papaya::HashMap<K, V> {
     match collector {
@@ -56,7 +59,7 @@ fn new_hashmap_with_collector<K: std::hash::Hash + Eq + Send + 'static, V: Send 
     }
 }
 
-fn new_hashset_with_collector<K: std::hash::Hash + Eq + Send + 'static>(
+fn new_hashset_with_shared_collector<K: std::hash::Hash + Eq + Send + 'static>(
     collector: Option<&Arc<Collector>>,
 ) -> HashSet<K> {
     match collector {
@@ -67,7 +70,7 @@ fn new_hashset_with_collector<K: std::hash::Hash + Eq + Send + 'static>(
     }
 }
 
-fn hashset_from_iter_with_collector<K: std::hash::Hash + Eq + Send + 'static>(
+fn hashset_from_iter_with_shared_collector<K: std::hash::Hash + Eq + Send + 'static>(
     values: impl IntoIterator<Item = K>,
     collector: Option<&Arc<Collector>>,
 ) -> HashSet<K> {
@@ -223,8 +226,7 @@ impl<D: DistanceFn> HNSW<D> {
         }
     }
 
-    #[cfg(feature = "bench-experiments")]
-    pub fn new_candidate(
+    pub fn new_with_shared_collector(
         distance_algorithm: D,
         ef_construction: usize,
         maximum_connections: usize,
@@ -232,7 +234,7 @@ impl<D: DistanceFn> HNSW<D> {
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Self {
-        Self::new_with_config_candidate(
+        Self::new_with_config_and_shared_collector(
             HNSWConfig {
                 ef_construction,
                 maximum_connections,
@@ -244,8 +246,7 @@ impl<D: DistanceFn> HNSW<D> {
         )
     }
 
-    #[cfg(feature = "bench-experiments")]
-    pub fn new_with_config_candidate(config: HNSWConfig, distance_algorithm: D) -> Self {
+    pub fn new_with_config_and_shared_collector(config: HNSWConfig, distance_algorithm: D) -> Self {
         assert!(config.maximum_connections > 1, "M must be > 1");
         let collector = Arc::new(Collector::new());
         Self {
@@ -254,8 +255,8 @@ impl<D: DistanceFn> HNSW<D> {
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
-            graph: new_hashmap_with_collector(Some(&collector)),
-            nodes: new_hashmap_with_collector(Some(&collector)),
+            graph: new_hashmap_with_shared_collector(Some(&collector)),
+            nodes: new_hashmap_with_shared_collector(Some(&collector)),
             collector: Some(collector),
             enter_point: ArcSwap::new(SmallVec::new().into()),
             distance_algorithm,
@@ -294,7 +295,7 @@ impl<D: DistanceFn> HNSW<D> {
         for key in new {
             let node = match self.collector.as_ref() {
                 None => Node::new(key.clone()),
-                Some(collector) => Node::new_with_collector(key.clone(), collector),
+                Some(collector) => Node::new_with_shared_collector(key.clone(), collector),
             };
             self.insert_node(node)?;
         }
@@ -438,7 +439,7 @@ impl<D: DistanceFn> HNSW<D> {
             Some(collector)
                 if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
             {
-                node_from_temp_with_collector(TempNode::from(&value), Some(collector))
+                node_from_temp_with_shared_collector(TempNode::from(&value), Some(collector))
             }
             _ => value,
         };
@@ -517,14 +518,14 @@ impl<D: DistanceFn> HNSW<D> {
                 let n_guard = neighbour_node.neighbours.pin();
                 n_guard
                     .get_or_insert_with(layer_index, || {
-                        new_hashset_with_collector(self.collector.as_ref())
+                        new_hashset_with_shared_collector(self.collector.as_ref())
                     })
                     .pin()
                     .insert(value.id);
 
                 value_neighbours_guard
                     .get_or_insert_with(layer_index, || {
-                        new_hashset_with_collector(self.collector.as_ref())
+                        new_hashset_with_shared_collector(self.collector.as_ref())
                     })
                     .pin()
                     .insert(*neighbour_id);
@@ -537,7 +538,7 @@ impl<D: DistanceFn> HNSW<D> {
             graph
                 .get_or_insert(
                     layer_index,
-                    hashset_from_iter_with_collector([value.id], self.collector.as_ref()),
+                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref()),
                 )
                 .pin()
                 .insert(value.id);
@@ -581,7 +582,7 @@ impl<D: DistanceFn> HNSW<D> {
 
                     neighbour_node.neighbours.pin().insert(
                         layer_index,
-                        hashset_from_iter_with_collector(
+                        hashset_from_iter_with_shared_collector(
                             new_neighbour_connections,
                             self.collector.as_ref(),
                         ),
@@ -1183,21 +1184,24 @@ impl From<&Node> for TempNode {
 
 impl From<TempNode> for Node {
     fn from(temp: TempNode) -> Self {
-        node_from_temp_with_collector(temp, None)
+        node_from_temp_with_shared_collector(temp, None)
     }
 }
 
-fn node_from_temp_with_collector(temp: TempNode, collector: Option<&Arc<Collector>>) -> Node {
-    let neighbours = new_hashmap_with_collector(collector);
+fn node_from_temp_with_shared_collector(
+    temp: TempNode,
+    collector: Option<&Arc<Collector>>,
+) -> Node {
+    let neighbours = new_hashmap_with_shared_collector(collector);
     {
         let guard = neighbours.pin();
         for (layer, node_ids) in temp.neighbours {
-            let set = hashset_from_iter_with_collector(node_ids, collector);
+            let set = hashset_from_iter_with_shared_collector(node_ids, collector);
             guard.insert(layer, set);
         }
     }
 
-    let back_links = hashset_from_iter_with_collector(temp.back_links, collector);
+    let back_links = hashset_from_iter_with_shared_collector(temp.back_links, collector);
 
     Node {
         id: temp.id,
@@ -1258,24 +1262,23 @@ impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
 
 impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
     fn from(temp: TempHNSW<D>) -> Self {
-        let collector =
-            cfg!(feature = "bench-hnsw-collector-sharing").then(|| Arc::new(Collector::new()));
-        let graph = new_hashmap_with_collector(collector.as_ref());
+        let collector = Some(Arc::new(Collector::new()));
+        let graph = new_hashmap_with_shared_collector(collector.as_ref());
         {
             let guard = graph.pin();
             for (layer, ids) in temp.graph {
-                let set = hashset_from_iter_with_collector(ids, collector.as_ref());
+                let set = hashset_from_iter_with_shared_collector(ids, collector.as_ref());
                 guard.insert(layer, set);
             }
         }
 
-        let nodes = new_hashmap_with_collector(collector.as_ref());
+        let nodes = new_hashmap_with_shared_collector(collector.as_ref());
         {
             let guard = nodes.pin();
             for (id, temp_node) in temp.nodes {
                 guard.insert(
                     id,
-                    node_from_temp_with_collector(temp_node, collector.as_ref()),
+                    node_from_temp_with_shared_collector(temp_node, collector.as_ref()),
                 );
             }
         }

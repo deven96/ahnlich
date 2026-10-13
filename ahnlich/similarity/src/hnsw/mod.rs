@@ -139,11 +139,15 @@ impl Node {
         }
     }
 
-    pub(crate) fn new_with_collector(value: EmbeddingKey, collector: &Arc<Collector>) -> Self {
+    pub(crate) fn new_with_shared_collector(
+        value: EmbeddingKey,
+        collector: &Arc<Collector>,
+    ) -> Self {
         Self {
             id: get_node_id(&value.0),
             value,
             neighbours: HashMap::builder()
+                .capacity(1)
                 .shared_collector(Arc::clone(collector))
                 .build(),
             back_links: HashSet::builder()

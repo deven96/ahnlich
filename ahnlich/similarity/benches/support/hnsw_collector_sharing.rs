@@ -93,7 +93,7 @@ pub fn index(variant: Variant, scenario: Scenario) -> HNSW<LinearAlgorithm> {
     match variant {
         Variant::Control => HNSW::new_with_config(config, LinearAlgorithm::CosineSimilarity),
         Variant::Candidate => {
-            HNSW::new_with_config_candidate(config, LinearAlgorithm::CosineSimilarity)
+            HNSW::new_with_config_and_shared_collector(config, LinearAlgorithm::CosineSimilarity)
         }
     }
 }
