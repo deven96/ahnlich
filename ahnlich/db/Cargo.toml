@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 default = ["server"]
 bench-experiments = []
+bench-hnsw-collector-sharing = ["ahnlich_similarity/bench-hnsw-collector-sharing"]
 server = [
     "dep:tonic",
     "dep:prost",

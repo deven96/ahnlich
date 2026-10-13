@@ -18,6 +18,7 @@ maintenance = { status = "actively-developed" }
 arc-swap.workspace = true
 crossbeam = "0.8.4"
 papaya.workspace = true
+seize.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 tracing.workspace = true
 rand.workspace = true
@@ -31,6 +32,7 @@ ahnlich_types = { version = "0.4.1", path = "../types", default-features = false
 default = ["serde"]
 serde = ["dep:serde"]
 bench-experiments = []
+bench-hnsw-collector-sharing = ["bench-experiments"]
 
 
 [dev-dependencies]
@@ -39,6 +41,8 @@ pretty_assertions.workspace = true
 serde_json.workspace = true
 rstest = "0.26.1"
 criterion = "0.4"
+tikv-jemallocator.workspace = true
+tikv-jemalloc-ctl.workspace = true
 
 
 
@@ -49,5 +53,17 @@ harness = false
 [[bench]]
 name = "hnsw_distance_reuse"
 path = "benches/experiments/hnsw_distance_reuse.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_collector_sharing"
+path = "benches/experiments/hnsw_collector_sharing.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_collector_memory"
+path = "benches/memory/hnsw_collector_memory.rs"
 harness = false
 required-features = ["bench-experiments"]

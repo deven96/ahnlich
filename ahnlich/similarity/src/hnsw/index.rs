@@ -10,16 +10,23 @@ use crate::EmbeddingKey;
 use crate::heap::BoundedMaxHeap;
 
 use arc_swap::ArcSwap;
-use papaya::HashSet;
+use papaya::{Guard, HashSet};
+use seize::Collector;
 use smallvec::{SmallVec, smallvec};
 use std::{
     cmp::min,
     num::NonZeroUsize,
-    sync::atomic::{AtomicU8, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicU8, Ordering},
+    },
 };
 
 #[cfg(feature = "bench-experiments")]
 mod experiments;
+
+#[cfg(all(test, feature = "bench-experiments"))]
+mod collector_sharing_tests;
 
 /// Below this many accepted vectors, a filtered search scans the accepted set directly
 /// instead of traversing the graph. At this size an exact SIMD scan costs less than a
@@ -32,6 +39,63 @@ const BRUTE_FORCE_ACCEPT_LIST_THRESHOLD: usize = 4096;
 fn new_hashmap<K: std::hash::Hash + Eq, V>() -> papaya::HashMap<K, V> {
     std::panic::catch_unwind(|| papaya::HashMap::with_capacity(1))
         .expect("papaya HashMap initialization failed (allocation or assertion)")
+}
+
+fn new_hashmap_with_collector<K: std::hash::Hash + Eq + Send + 'static, V: Send + 'static>(
+    collector: Option<&Arc<Collector>>,
+) -> papaya::HashMap<K, V> {
+    match collector {
+        None => new_hashmap(),
+        Some(collector) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            papaya::HashMap::builder()
+                .capacity(1)
+                .shared_collector(Arc::clone(collector))
+                .build()
+        }))
+        .expect("papaya HashMap initialization failed (allocation or assertion)"),
+    }
+}
+
+fn new_hashset_with_collector<K: std::hash::Hash + Eq + Send + 'static>(
+    collector: Option<&Arc<Collector>>,
+) -> HashSet<K> {
+    match collector {
+        None => HashSet::new(),
+        Some(collector) => HashSet::builder()
+            .shared_collector(Arc::clone(collector))
+            .build(),
+    }
+}
+
+fn hashset_from_iter_with_collector<K: std::hash::Hash + Eq + Send + 'static>(
+    values: impl IntoIterator<Item = K>,
+    collector: Option<&Arc<Collector>>,
+) -> HashSet<K> {
+    let Some(collector) = collector else {
+        return HashSet::from_iter(values);
+    };
+    let mut values = values.into_iter();
+    let first = values.next();
+    // Match Papaya's from_iter capacity hint, including an empty iterator.
+    let capacity = if first.is_some() {
+        values.size_hint().0.saturating_add(1)
+    } else {
+        0
+    };
+    let set = HashSet::builder()
+        .capacity(capacity)
+        .shared_collector(Arc::clone(collector))
+        .build();
+    {
+        let guard = set.pin();
+        if let Some(first) = first {
+            guard.insert(first);
+        }
+        for value in values {
+            guard.insert(value);
+        }
+    }
+    set
 }
 
 /// HNSW represents a Hierarchical Navigable Small World graph.
@@ -69,6 +133,8 @@ fn new_hashmap<K: std::hash::Hash + Eq, V>() -> papaya::HashMap<K, V> {
 /// ```
 #[derive(Debug)]
 pub struct HNSW<D: DistanceFn> {
+    // Runtime-only state. None preserves the independent-collector control path.
+    collector: Option<Arc<Collector>>,
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: usize,
 
@@ -147,8 +213,50 @@ impl<D: DistanceFn> HNSW<D> {
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
+            collector: None,
             graph: new_hashmap(),
             nodes: new_hashmap(),
+            enter_point: ArcSwap::new(SmallVec::new().into()),
+            distance_algorithm,
+            keep_pruned_connections: config.keep_pruned_connections,
+            extend_candidates: config.extend_candidates,
+        }
+    }
+
+    #[cfg(feature = "bench-experiments")]
+    pub fn new_candidate(
+        distance_algorithm: D,
+        ef_construction: usize,
+        maximum_connections: usize,
+        maximum_connections_zero: usize,
+        extend_candidates: bool,
+        keep_pruned_connections: bool,
+    ) -> Self {
+        Self::new_with_config_candidate(
+            HNSWConfig {
+                ef_construction,
+                maximum_connections,
+                maximum_connections_zero,
+                extend_candidates,
+                keep_pruned_connections,
+            },
+            distance_algorithm,
+        )
+    }
+
+    #[cfg(feature = "bench-experiments")]
+    pub fn new_with_config_candidate(config: HNSWConfig, distance_algorithm: D) -> Self {
+        assert!(config.maximum_connections > 1, "M must be > 1");
+        let collector = Arc::new(Collector::new());
+        Self {
+            ef_construction: config.ef_construction,
+            top_most_layer: AtomicU8::new(0),
+            maximum_connections: config.maximum_connections,
+            maximum_connections_zero: config.maximum_connections_zero,
+            inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
+            graph: new_hashmap_with_collector(Some(&collector)),
+            nodes: new_hashmap_with_collector(Some(&collector)),
+            collector: Some(collector),
             enter_point: ArcSwap::new(SmallVec::new().into()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
@@ -184,7 +292,10 @@ impl<D: DistanceFn> HNSW<D> {
             return Ok(());
         }
         for key in new {
-            let node = Node::new(key.clone());
+            let node = match self.collector.as_ref() {
+                None => Node::new(key.clone()),
+                Some(collector) => Node::new_with_collector(key.clone(), collector),
+            };
             self.insert_node(node)?;
         }
         Ok(())
@@ -321,6 +432,16 @@ impl<D: DistanceFn> HNSW<D> {
     /// any work but also we shouldn't fail necessarily
     ///
     pub fn insert_node(&self, value: Node) -> Result<(), Error> {
+        // Public callers may supply a Node created outside this index. Rebind its
+        // collections without changing its ID, vector, or existing connections.
+        let value = match self.collector.as_ref() {
+            Some(collector)
+                if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
+            {
+                node_from_temp_with_collector(TempNode::from(&value), Some(collector))
+            }
+            _ => value,
+        };
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
         let top_layer = self.top_most_layer.load(Ordering::Acquire);
@@ -395,12 +516,16 @@ impl<D: DistanceFn> HNSW<D> {
 
                 let n_guard = neighbour_node.neighbours.pin();
                 n_guard
-                    .get_or_insert_with(layer_index, HashSet::new)
+                    .get_or_insert_with(layer_index, || {
+                        new_hashset_with_collector(self.collector.as_ref())
+                    })
                     .pin()
                     .insert(value.id);
 
                 value_neighbours_guard
-                    .get_or_insert_with(layer_index, HashSet::new)
+                    .get_or_insert_with(layer_index, || {
+                        new_hashset_with_collector(self.collector.as_ref())
+                    })
                     .pin()
                     .insert(*neighbour_id);
 
@@ -410,7 +535,10 @@ impl<D: DistanceFn> HNSW<D> {
             }
 
             graph
-                .get_or_insert(layer_index, HashSet::from([value.id]))
+                .get_or_insert(
+                    layer_index,
+                    hashset_from_iter_with_collector([value.id], self.collector.as_ref()),
+                )
                 .pin()
                 .insert(value.id);
 
@@ -451,10 +579,13 @@ impl<D: DistanceFn> HNSW<D> {
                         .get(neighbour)
                         .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
 
-                    neighbour_node
-                        .neighbours
-                        .pin()
-                        .insert(layer_index, HashSet::from_iter(new_neighbour_connections));
+                    neighbour_node.neighbours.pin().insert(
+                        layer_index,
+                        hashset_from_iter_with_collector(
+                            new_neighbour_connections,
+                            self.collector.as_ref(),
+                        ),
+                    );
                 }
             }
 
@@ -978,6 +1109,23 @@ impl<D: DistanceFn> HNSW<D> {
     }
 }
 
+impl<D: DistanceFn> Drop for HNSW<D> {
+    fn drop(&mut self) {
+        if let Some(collector) = self.collector.as_ref() {
+            // Retired nodes and layer sets contain Arc references to this same
+            // collector. Drain them before field destruction to break that cycle.
+            self.nodes.pin().clear();
+            self.graph.pin().clear();
+            // SAFETY: the collector is private to this index. Drop has exclusive
+            // access to the index, so no guards borrowing its collections can be
+            // active. Both clear() guards have ended. Public Node snapshots clone
+            // their collections onto independent collectors; none exposes ours.
+            // reclaim_all also drains objects retired recursively by node drops.
+            unsafe { collector.reclaim_all() };
+        }
+    }
+}
+
 impl Default for HNSW<LinearAlgorithm> {
     fn default() -> Self {
         let config = HNSWConfig::default();
@@ -991,6 +1139,7 @@ impl Default for HNSW<LinearAlgorithm> {
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m, // ln(1/M)
+            collector: None,
             graph: new_hashmap(),
             nodes: new_hashmap(),
             enter_point: ArcSwap::new(SmallVec::new().into()),
@@ -1034,23 +1183,27 @@ impl From<&Node> for TempNode {
 
 impl From<TempNode> for Node {
     fn from(temp: TempNode) -> Self {
-        let neighbours = new_hashmap();
-        {
-            let guard = neighbours.pin();
-            for (layer, node_ids) in temp.neighbours {
-                let set = HashSet::from_iter(node_ids);
-                guard.insert(layer, set);
-            }
-        }
+        node_from_temp_with_collector(temp, None)
+    }
+}
 
-        let back_links = HashSet::from_iter(temp.back_links);
-
-        Node {
-            id: temp.id,
-            value: EmbeddingKey::new(temp.value),
-            neighbours,
-            back_links,
+fn node_from_temp_with_collector(temp: TempNode, collector: Option<&Arc<Collector>>) -> Node {
+    let neighbours = new_hashmap_with_collector(collector);
+    {
+        let guard = neighbours.pin();
+        for (layer, node_ids) in temp.neighbours {
+            let set = hashset_from_iter_with_collector(node_ids, collector);
+            guard.insert(layer, set);
         }
+    }
+
+    let back_links = hashset_from_iter_with_collector(temp.back_links, collector);
+
+    Node {
+        id: temp.id,
+        value: EmbeddingKey::new(temp.value),
+        neighbours,
+        back_links,
     }
 }
 
@@ -1105,26 +1258,32 @@ impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
 
 impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
     fn from(temp: TempHNSW<D>) -> Self {
-        let graph = new_hashmap();
+        let collector =
+            cfg!(feature = "bench-hnsw-collector-sharing").then(|| Arc::new(Collector::new()));
+        let graph = new_hashmap_with_collector(collector.as_ref());
         {
             let guard = graph.pin();
             for (layer, ids) in temp.graph {
-                let set = HashSet::from_iter(ids);
+                let set = hashset_from_iter_with_collector(ids, collector.as_ref());
                 guard.insert(layer, set);
             }
         }
 
-        let nodes = new_hashmap();
+        let nodes = new_hashmap_with_collector(collector.as_ref());
         {
             let guard = nodes.pin();
             for (id, temp_node) in temp.nodes {
-                guard.insert(id, Node::from(temp_node));
+                guard.insert(
+                    id,
+                    node_from_temp_with_collector(temp_node, collector.as_ref()),
+                );
             }
         }
 
         let enter_point: SmallVec<[NodeId; 1]> = temp.enter_point.into_iter().collect();
 
         HNSW {
+            collector,
             ef_construction: temp.ef_construction,
             top_most_layer: AtomicU8::new(temp.top_most_layer),
             maximum_connections: temp.maximum_connections,

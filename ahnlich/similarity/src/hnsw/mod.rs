@@ -8,6 +8,8 @@ pub mod utils;
 /// gets the values it needs to
 use crate::{Closeness, DistanceFn, EmbeddingKey};
 use papaya::{HashMap, HashSet};
+use seize::Collector;
+use std::sync::Arc;
 use std::{collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
 
 /// A pass-through hasher for NodeId.
@@ -134,6 +136,20 @@ impl Node {
             value,
             neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
+        }
+    }
+
+    pub(crate) fn new_with_collector(value: EmbeddingKey, collector: &Arc<Collector>) -> Self {
+        Self {
+            id: get_node_id(&value.0),
+            value,
+            neighbours: HashMap::builder()
+                .shared_collector(Arc::clone(collector))
+                .build(),
+            back_links: HashSet::builder()
+                .capacity(1)
+                .shared_collector(Arc::clone(collector))
+                .build(),
         }
     }
 
