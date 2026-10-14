@@ -215,3 +215,87 @@ fn collector_benchmark_delete_all_nodes_preserves_empty_index() {
         assert_eq!(index.collector_sharing_bench_counts().0, 0);
     }
 }
+
+#[cfg(feature = "bench-experiments")]
+#[test]
+fn counter_shards_preserve_graph_results_and_collector_lifecycle() {
+    let data = fixture();
+    for metric in [
+        LinearAlgorithm::EuclideanDistance,
+        LinearAlgorithm::CosineSimilarity,
+        LinearAlgorithm::DotProductSimilarity,
+    ] {
+        for shards in [1, 2] {
+            let config = HNSWConfig {
+                ef_construction: 100,
+                maximum_connections: 4,
+                maximum_connections_zero: 8,
+                extend_candidates: false,
+                keep_pruned_connections: false,
+            };
+            let control = HNSW::new_with_config_and_shared_collector(config, metric);
+            let candidate = HNSW::new_with_config_and_shared_collector_and_counter_shards(
+                config,
+                metric,
+                NonZeroUsize::new(shards).unwrap(),
+            );
+            assert!(control.node_counter_shards.is_none());
+            assert_eq!(candidate.node_counter_shards.unwrap().get(), shards);
+            control.insert(&data).unwrap();
+            candidate.insert(&data).unwrap();
+            // Public nodes with independent collections must be rebound too.
+            let extra = EmbeddingKey::new(vec![3.0; 8]);
+            control.insert_node(Node::new(extra.clone())).unwrap();
+            candidate.insert_node(Node::new(extra.clone())).unwrap();
+            assert_shared(&candidate);
+            for query in data.iter().take(8) {
+                assert_eq!(
+                    control
+                        .n_nearest(query.as_slice(), NonZeroUsize::new(10).unwrap(), None)
+                        .unwrap(),
+                    candidate
+                        .n_nearest(query.as_slice(), NonZeroUsize::new(10).unwrap(), None)
+                        .unwrap(),
+                );
+            }
+            let mut deleted = data.clone();
+            deleted.push(extra);
+            assert_eq!(candidate.delete(&deleted).unwrap(), deleted.len());
+            assert!(candidate.nodes.pin().is_empty());
+            let weak = Arc::downgrade(candidate.collector.as_ref().unwrap());
+            drop(candidate);
+            assert!(weak.upgrade().is_none());
+        }
+    }
+}
+
+#[cfg(all(feature = "serde", feature = "bench-hnsw-counter-shards"))]
+#[test]
+fn counter_shards_restore_policy_without_changing_snapshot_format() {
+    let index = HNSW::new_with_shared_collector_and_counter_shards(
+        LinearAlgorithm::EuclideanDistance,
+        100,
+        4,
+        8,
+        false,
+        false,
+    );
+    let data = fixture();
+    index.insert(&data).unwrap();
+    let bytes = serde_json::to_vec(&index).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(json.get("node_counter_shards").is_none());
+    let restored: HNSW<LinearAlgorithm> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(restored.node_counter_shards.unwrap().get(), 2);
+    assert_shared(&restored);
+    assert_eq!(
+        index
+            .n_nearest(data[0].as_slice(), NonZeroUsize::new(10).unwrap(), None)
+            .unwrap(),
+        restored
+            .n_nearest(data[0].as_slice(), NonZeroUsize::new(10).unwrap(), None)
+            .unwrap(),
+    );
+    restored.insert(&[EmbeddingKey::new(vec![3.0; 8])]).unwrap();
+    assert_shared(&restored);
+}

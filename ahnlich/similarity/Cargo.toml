@@ -32,6 +32,7 @@ ahnlich_types = { version = "0.4.1", path = "../types", default-features = false
 default = ["serde"]
 serde = ["dep:serde"]
 bench-experiments = []
+bench-hnsw-counter-shards = ["bench-experiments"]
 
 
 [dev-dependencies]
@@ -64,5 +65,11 @@ required-features = ["bench-experiments"]
 [[bench]]
 name = "hnsw_collector_memory"
 path = "benches/memory/hnsw_collector_memory.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_counter_shards_memory"
+path = "benches/memory/hnsw_counter_shards_memory.rs"
 harness = false
 required-features = ["bench-experiments"]

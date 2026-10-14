@@ -101,6 +101,72 @@ fn hashset_from_iter_with_shared_collector<K: std::hash::Hash + Eq + Send + 'sta
     set
 }
 
+// These helpers are only for per-node collections. Index-wide collections retain
+// the existing shared-collector helpers and Papaya's default counter sharding.
+fn node_hashmap<K: std::hash::Hash + Eq + Send + 'static, V: Send + 'static>(
+    collector: Option<&Arc<Collector>>,
+    shards: Option<NonZeroUsize>,
+) -> papaya::HashMap<K, V> {
+    match (collector, shards) {
+        (Some(collector), Some(shards)) => {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                papaya::HashMap::builder()
+                    .capacity(1)
+                    .shared_collector(Arc::clone(collector))
+                    .counter_shards(shards)
+                    .build()
+            }))
+            .expect("papaya HashMap initialization failed (allocation or assertion)")
+        }
+        _ => new_hashmap_with_shared_collector(collector),
+    }
+}
+
+fn node_hashset<K: std::hash::Hash + Eq + Send + 'static>(
+    collector: Option<&Arc<Collector>>,
+    shards: Option<NonZeroUsize>,
+) -> HashSet<K> {
+    match (collector, shards) {
+        (Some(collector), Some(shards)) => HashSet::builder()
+            .shared_collector(Arc::clone(collector))
+            .counter_shards(shards)
+            .build(),
+        _ => new_hashset_with_shared_collector(collector),
+    }
+}
+
+fn node_hashset_from_iter<K: std::hash::Hash + Eq + Send + 'static>(
+    values: impl IntoIterator<Item = K>,
+    collector: Option<&Arc<Collector>>,
+    shards: Option<NonZeroUsize>,
+) -> HashSet<K> {
+    let (Some(collector), Some(shards)) = (collector, shards) else {
+        return hashset_from_iter_with_shared_collector(values, collector);
+    };
+    let mut values = values.into_iter();
+    let first = values.next();
+    let capacity = if first.is_some() {
+        values.size_hint().0.saturating_add(1)
+    } else {
+        0
+    };
+    let set = HashSet::builder()
+        .capacity(capacity)
+        .shared_collector(Arc::clone(collector))
+        .counter_shards(shards)
+        .build();
+    {
+        let guard = set.pin();
+        if let Some(first) = first {
+            guard.insert(first);
+        }
+        for value in values {
+            guard.insert(value);
+        }
+    }
+    set
+}
+
 /// HNSW represents a Hierarchical Navigable Small World graph.
 ///
 /// The graph is organized into multiple layers. Each layer contains a set of node IDs,
@@ -138,6 +204,8 @@ fn hashset_from_iter_with_shared_collector<K: std::hash::Hash + Eq + Send + 'sta
 pub struct HNSW<D: DistanceFn> {
     // Runtime-only state. None preserves the independent-collector control path.
     collector: Option<Arc<Collector>>,
+    // Runtime-only allocation policy, not part of the persisted graph configuration.
+    node_counter_shards: Option<NonZeroUsize>,
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: usize,
 
@@ -217,6 +285,7 @@ impl<D: DistanceFn> HNSW<D> {
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
             collector: None,
+            node_counter_shards: None,
             graph: new_hashmap(),
             nodes: new_hashmap(),
             enter_point: ArcSwap::new(SmallVec::new().into()),
@@ -258,11 +327,51 @@ impl<D: DistanceFn> HNSW<D> {
             graph: new_hashmap_with_shared_collector(Some(&collector)),
             nodes: new_hashmap_with_shared_collector(Some(&collector)),
             collector: Some(collector),
+            node_counter_shards: None,
             enter_point: ArcSwap::new(SmallVec::new().into()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
             extend_candidates: config.extend_candidates,
         }
+    }
+
+    /// Experimental DB path: shared collector with two counter shards per node collection.
+    #[cfg(feature = "bench-experiments")]
+    pub fn new_with_shared_collector_and_counter_shards(
+        distance_algorithm: D,
+        ef_construction: usize,
+        maximum_connections: usize,
+        maximum_connections_zero: usize,
+        extend_candidates: bool,
+        keep_pruned_connections: bool,
+    ) -> Self {
+        Self::new_with_config_and_shared_collector_and_counter_shards(
+            HNSWConfig {
+                ef_construction,
+                maximum_connections,
+                maximum_connections_zero,
+                extend_candidates,
+                keep_pruned_connections,
+            },
+            distance_algorithm,
+            NonZeroUsize::new(2).unwrap(),
+        )
+    }
+
+    /// Paired experiments can select one or two shards without changing index-wide maps.
+    #[cfg(feature = "bench-experiments")]
+    pub fn new_with_config_and_shared_collector_and_counter_shards(
+        config: HNSWConfig,
+        distance_algorithm: D,
+        shards: NonZeroUsize,
+    ) -> Self {
+        assert!(
+            shards.get().is_power_of_two(),
+            "counter shards must be a power of two"
+        );
+        let mut index = Self::new_with_config_and_shared_collector(config, distance_algorithm);
+        index.node_counter_shards = Some(shards);
+        index
     }
 
     /// Get the current configuration of this HNSW index
@@ -293,9 +402,16 @@ impl<D: DistanceFn> HNSW<D> {
             return Ok(());
         }
         for key in new {
-            let node = match self.collector.as_ref() {
-                None => Node::new(key.clone()),
-                Some(collector) => Node::new_with_shared_collector(key.clone(), collector),
+            let node = match (self.collector.as_ref(), self.node_counter_shards) {
+                (None, _) => Node::new(key.clone()),
+                (Some(collector), None) => Node::new_with_shared_collector(key.clone(), collector),
+                (Some(collector), Some(shards)) => {
+                    Node::new_with_shared_collector_and_counter_shards(
+                        key.clone(),
+                        collector,
+                        shards,
+                    )
+                }
             };
             self.insert_node(node)?;
         }
@@ -439,7 +555,11 @@ impl<D: DistanceFn> HNSW<D> {
             Some(collector)
                 if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
             {
-                node_from_temp_with_shared_collector(TempNode::from(&value), Some(collector))
+                node_from_temp_with_counter_shards(
+                    TempNode::from(&value),
+                    Some(collector),
+                    self.node_counter_shards,
+                )
             }
             _ => value,
         };
@@ -518,14 +638,14 @@ impl<D: DistanceFn> HNSW<D> {
                 let n_guard = neighbour_node.neighbours.pin();
                 n_guard
                     .get_or_insert_with(layer_index, || {
-                        new_hashset_with_shared_collector(self.collector.as_ref())
+                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
                     })
                     .pin()
                     .insert(value.id);
 
                 value_neighbours_guard
                     .get_or_insert_with(layer_index, || {
-                        new_hashset_with_shared_collector(self.collector.as_ref())
+                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
                     })
                     .pin()
                     .insert(*neighbour_id);
@@ -582,9 +702,10 @@ impl<D: DistanceFn> HNSW<D> {
 
                     neighbour_node.neighbours.pin().insert(
                         layer_index,
-                        hashset_from_iter_with_shared_collector(
+                        node_hashset_from_iter(
                             new_neighbour_connections,
                             self.collector.as_ref(),
+                            self.node_counter_shards,
                         ),
                     );
                 }
@@ -1141,6 +1262,7 @@ impl Default for HNSW<LinearAlgorithm> {
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m, // ln(1/M)
             collector: None,
+            node_counter_shards: None,
             graph: new_hashmap(),
             nodes: new_hashmap(),
             enter_point: ArcSwap::new(SmallVec::new().into()),
@@ -1211,6 +1333,29 @@ fn node_from_temp_with_shared_collector(
     }
 }
 
+fn node_from_temp_with_counter_shards(
+    temp: TempNode,
+    collector: Option<&Arc<Collector>>,
+    shards: Option<NonZeroUsize>,
+) -> Node {
+    if shards.is_none() {
+        return node_from_temp_with_shared_collector(temp, collector);
+    }
+    let neighbours = node_hashmap(collector, shards);
+    {
+        let guard = neighbours.pin();
+        for (layer, ids) in temp.neighbours {
+            guard.insert(layer, node_hashset_from_iter(ids, collector, shards));
+        }
+    }
+    Node {
+        id: temp.id,
+        value: EmbeddingKey::new(temp.value),
+        neighbours,
+        back_links: node_hashset_from_iter(temp.back_links, collector, shards),
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 struct TempHNSW<D> {
@@ -1263,6 +1408,8 @@ impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
 impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
     fn from(temp: TempHNSW<D>) -> Self {
         let collector = Some(Arc::new(Collector::new()));
+        let node_counter_shards =
+            cfg!(feature = "bench-hnsw-counter-shards").then(|| NonZeroUsize::new(2).unwrap());
         let graph = new_hashmap_with_shared_collector(collector.as_ref());
         {
             let guard = graph.pin();
@@ -1278,7 +1425,11 @@ impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
             for (id, temp_node) in temp.nodes {
                 guard.insert(
                     id,
-                    node_from_temp_with_shared_collector(temp_node, collector.as_ref()),
+                    node_from_temp_with_counter_shards(
+                        temp_node,
+                        collector.as_ref(),
+                        node_counter_shards,
+                    ),
                 );
             }
         }
@@ -1287,6 +1438,7 @@ impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
 
         HNSW {
             collector,
+            node_counter_shards,
             ef_construction: temp.ef_construction,
             top_most_layer: AtomicU8::new(temp.top_most_layer),
             maximum_connections: temp.maximum_connections,
