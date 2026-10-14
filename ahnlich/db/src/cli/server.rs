@@ -1,3 +1,4 @@
+use crate::server::hnsw_counter_shards::HnswCounterShardLevel;
 use ahnlich_replication::config::RaftStorageEngine;
 use clap::{Args, Parser, Subcommand};
 use utils::cli::CommandLineConfig;
@@ -33,6 +34,16 @@ pub struct ServerConfig {
     pub cluster_snapshot_logs: u64,
     #[arg(long, default_value_t = 300_000)]
     pub cluster_snapshot_interval: u64,
+    /// Counter allocation level for per-node HNSW collections. Fixed at startup;
+    /// higher levels trade more memory for less potential writer contention.
+    /// Counts are capped at Papaya's CPU-based default; index-wide maps are unchanged.
+    #[arg(
+        long,
+        env = "AHNLICH_HNSW_COUNTER_SHARD_LEVEL",
+        value_enum,
+        default_value = "minimal"
+    )]
+    pub hnsw_counter_shard_level: HnswCounterShardLevel,
     #[clap(flatten)]
     pub common: CommandLineConfig,
 }
@@ -48,6 +59,7 @@ impl Default for ServerConfig {
             cluster_data_dir: None,
             cluster_snapshot_logs: 1000,
             cluster_snapshot_interval: 300_000,
+            hnsw_counter_shard_level: HnswCounterShardLevel::default(),
             common: CommandLineConfig::default(),
         }
     }

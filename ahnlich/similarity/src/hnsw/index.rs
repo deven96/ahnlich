@@ -18,7 +18,7 @@ use std::{
     num::NonZeroUsize,
     sync::{
         Arc,
-        atomic::{AtomicU8, Ordering},
+        atomic::{AtomicU8, AtomicUsize, Ordering},
     },
 };
 
@@ -32,6 +32,24 @@ mod collector_sharing_tests;
 /// instead of traversing the graph. At this size an exact SIMD scan costs less than a
 /// graph walk that cannot fill `ef` and therefore keeps widening.
 const BRUTE_FORCE_ACCEPT_LIST_THRESHOLD: usize = 4096;
+
+// Process-wide startup policy. Each index captures it at construction/restore;
+// existing collections are never resized or reconfigured by changing the default.
+static DEFAULT_NODE_COUNTER_SHARDS: AtomicUsize = AtomicUsize::new(1);
+
+/// Set the startup allocation policy before constructing or restoring DB stores.
+/// CLI levels are resolved and CPU-capped by the DB server on this host.
+pub fn configure_node_counter_shards(shards: NonZeroUsize) {
+    assert!(
+        shards.get().is_power_of_two(),
+        "counter shards must be a power of two"
+    );
+    DEFAULT_NODE_COUNTER_SHARDS.store(shards.get(), Ordering::Relaxed);
+}
+
+fn default_node_counter_shards() -> NonZeroUsize {
+    NonZeroUsize::new(DEFAULT_NODE_COUNTER_SHARDS.load(Ordering::Relaxed)).unwrap()
+}
 
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
 /// inside `catch_unwind` to surface initialization panics at construction time
@@ -335,8 +353,7 @@ impl<D: DistanceFn> HNSW<D> {
         }
     }
 
-    /// Experimental DB path: shared collector with two counter shards per node collection.
-    #[cfg(feature = "bench-experiments")]
+    /// Shared collector with the startup counter policy (one shard unless configured).
     pub fn new_with_shared_collector_and_counter_shards(
         distance_algorithm: D,
         ef_construction: usize,
@@ -354,12 +371,11 @@ impl<D: DistanceFn> HNSW<D> {
                 keep_pruned_connections,
             },
             distance_algorithm,
-            NonZeroUsize::new(2).unwrap(),
+            default_node_counter_shards(),
         )
     }
 
-    /// Paired experiments can select one or two shards without changing index-wide maps.
-    #[cfg(feature = "bench-experiments")]
+    /// Select counter shards for per-node collections without changing index-wide maps.
     pub fn new_with_config_and_shared_collector_and_counter_shards(
         config: HNSWConfig,
         distance_algorithm: D,
@@ -1408,8 +1424,7 @@ impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
 impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
     fn from(temp: TempHNSW<D>) -> Self {
         let collector = Some(Arc::new(Collector::new()));
-        let node_counter_shards =
-            cfg!(feature = "bench-hnsw-counter-shards").then(|| NonZeroUsize::new(2).unwrap());
+        let node_counter_shards = Some(default_node_counter_shards());
         let graph = new_hashmap_with_shared_collector(collector.as_ref());
         {
             let guard = graph.pin();

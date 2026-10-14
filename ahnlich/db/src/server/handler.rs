@@ -1089,6 +1089,13 @@ impl Server {
             client_handler.clone(),
         )
         .await?;
+        let shards = config.hnsw_counter_shard_level.resolve();
+        ahnlich_similarity::hnsw::index::configure_node_counter_shards(shards);
+        log::info!(
+            "HNSW counter shard level {:?}: {} per-node shards",
+            config.hnsw_counter_shard_level,
+            shards
+        );
         let runtime = if config.is_clustered() {
             let cluster_client_handler = Arc::new(ClientHandler::new(1024));
             let cluster_addr = config

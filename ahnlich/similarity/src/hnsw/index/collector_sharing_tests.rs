@@ -216,7 +216,6 @@ fn collector_benchmark_delete_all_nodes_preserves_empty_index() {
     }
 }
 
-#[cfg(feature = "bench-experiments")]
 #[test]
 fn counter_shards_preserve_graph_results_and_collector_lifecycle() {
     let data = fixture();
@@ -269,7 +268,7 @@ fn counter_shards_preserve_graph_results_and_collector_lifecycle() {
     }
 }
 
-#[cfg(all(feature = "serde", feature = "bench-hnsw-counter-shards"))]
+#[cfg(feature = "serde")]
 #[test]
 fn counter_shards_restore_policy_without_changing_snapshot_format() {
     let index = HNSW::new_with_shared_collector_and_counter_shards(
@@ -286,7 +285,7 @@ fn counter_shards_restore_policy_without_changing_snapshot_format() {
     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert!(json.get("node_counter_shards").is_none());
     let restored: HNSW<LinearAlgorithm> = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(restored.node_counter_shards.unwrap().get(), 2);
+    assert_eq!(restored.node_counter_shards.unwrap().get(), 1);
     assert_shared(&restored);
     assert_eq!(
         index
@@ -298,4 +297,51 @@ fn counter_shards_restore_policy_without_changing_snapshot_format() {
     );
     restored.insert(&[EmbeddingKey::new(vec![3.0; 8])]).unwrap();
     assert_shared(&restored);
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn configured_counter_shards_apply_to_creation_and_restore() {
+    // Isolate startup-global configuration from other tests in this process.
+    const CHILD: &str = "AHNLICH_TEST_COUNTER_SHARD_POLICY";
+    if std::env::var_os(CHILD).is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "hnsw::index::collector_sharing_tests::configured_counter_shards_apply_to_creation_and_restore"])
+            .env(CHILD, "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+    configure_node_counter_shards(NonZeroUsize::new(4).unwrap());
+    let index = HNSW::new_with_shared_collector_and_counter_shards(
+        LinearAlgorithm::EuclideanDistance,
+        100,
+        4,
+        8,
+        false,
+        false,
+    );
+    assert_eq!(index.node_counter_shards.unwrap().get(), 4);
+    let data = fixture();
+    index.insert(&data).unwrap();
+    let bytes = serde_json::to_vec(&index).unwrap();
+    let restored: HNSW<LinearAlgorithm> = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(restored.node_counter_shards.unwrap().get(), 4);
+    assert_shared(&restored);
+    restored.insert(&[EmbeddingKey::new(vec![3.0; 8])]).unwrap();
+    assert_shared(&restored);
+    assert_eq!(
+        index
+            .n_nearest(data[0].as_slice(), NonZeroUsize::new(10).unwrap(), None)
+            .unwrap(),
+        restored
+            .n_nearest(data[0].as_slice(), NonZeroUsize::new(10).unwrap(), None)
+            .unwrap(),
+    );
 }

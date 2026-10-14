@@ -32,7 +32,6 @@ ahnlich_types = { version = "0.4.1", path = "../types", default-features = false
 default = ["serde"]
 serde = ["dep:serde"]
 bench-experiments = []
-bench-hnsw-counter-shards = ["bench-experiments"]
 
 
 [dev-dependencies]
