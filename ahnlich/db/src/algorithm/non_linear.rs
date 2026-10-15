@@ -37,14 +37,16 @@ impl NonLinearAlgorithmWithIndex {
             ),
             NonLinearAlgorithmIndexConf::Hnsw(conf) => {
                 let hnsw_conf: DbHnswConfig = conf.into();
-                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new_with_shared_collector(
-                    hnsw_conf.distance_algorithm,
-                    hnsw_conf.ef_construction,
-                    hnsw_conf.maximum_connections,
-                    hnsw_conf.maximum_connections_zero,
-                    hnsw_conf.extend_candidates,
-                    hnsw_conf.keep_pruned_connections,
-                )))
+                NonLinearAlgorithmWithIndex::Hnsw(Box::new(
+                    HNSW::new_with_shared_collector_and_counter_shards(
+                        hnsw_conf.distance_algorithm,
+                        hnsw_conf.ef_construction,
+                        hnsw_conf.maximum_connections,
+                        hnsw_conf.maximum_connections_zero,
+                        hnsw_conf.extend_candidates,
+                        hnsw_conf.keep_pruned_connections,
+                    ),
+                ))
             }
         }
     }

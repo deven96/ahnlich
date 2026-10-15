@@ -47,7 +47,7 @@ log = "0.4"
 fallible_collections = "0.4.9"
 dirs = "5.0.1"
 strum = { version = "0.26", features = ["derive"] }
-papaya = { git = "https://github.com/jimezesinachi/papaya.git", rev = "1d914b94d846da6185380b814d09758624fd9f7e", features = ["serde"] }
+papaya = { git = "https://github.com/jimezesinachi/papaya.git", rev = "d56fca1806eb5502b525cb91b2ba6df16676a465", features = ["serde"] }
 seize = "0.5.1"
 arc-swap = "1.9"
 parking_lot = "0.12"

@@ -157,6 +157,27 @@ impl Node {
         }
     }
 
+    pub(crate) fn new_with_shared_collector_and_counter_shards(
+        value: EmbeddingKey,
+        collector: &Arc<Collector>,
+        shards: NonZeroUsize,
+    ) -> Self {
+        Self {
+            id: get_node_id(&value.0),
+            value,
+            neighbours: HashMap::builder()
+                .capacity(1)
+                .shared_collector(Arc::clone(collector))
+                .counter_shards(shards)
+                .build(),
+            back_links: HashSet::builder()
+                .capacity(1)
+                .shared_collector(Arc::clone(collector))
+                .counter_shards(shards)
+                .build(),
+        }
+    }
+
     /// get identifier
     pub fn id(&self) -> &NodeId {
         &self.id

@@ -3280,7 +3280,7 @@ checksum = "e2355d85b9a3786f481747ced0e0ff2ba35213a1f9bd406ed906554d7af805a1"
 [[package]]
 name = "papaya"
 version = "0.2.5"
-source = "git+https://github.com/jimezesinachi/papaya.git?rev=1d914b94d846da6185380b814d09758624fd9f7e#1d914b94d846da6185380b814d09758624fd9f7e"
+source = "git+https://github.com/jimezesinachi/papaya.git?rev=d56fca1806eb5502b525cb91b2ba6df16676a465#d56fca1806eb5502b525cb91b2ba6df16676a465"
 dependencies = [
  "equivalent",
  "seize",

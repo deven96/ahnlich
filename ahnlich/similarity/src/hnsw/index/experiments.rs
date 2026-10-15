@@ -70,3 +70,15 @@ impl<D: DistanceFn> HNSW<D> {
         )
     }
 }
+
+impl<D: DistanceFn> HNSW<D> {
+    /// Stored nodes and live per-node collections, excluding index-wide maps/sets.
+    pub fn counter_shards_bench_counts(&self) -> (usize, usize) {
+        let nodes = self.nodes.pin();
+        let collections = nodes
+            .values()
+            .map(|node| 2 + node.neighbours.pin().len())
+            .sum();
+        (nodes.len(), collections)
+    }
+}
