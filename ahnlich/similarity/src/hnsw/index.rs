@@ -429,7 +429,7 @@ impl<D: DistanceFn> HNSW<D> {
                     )
                 }
             };
-            self.insert_node_reuse_distances_candidate(node)?;
+            self.insert_node_with_reused_distances(node)?;
         }
         Ok(())
     }
@@ -753,9 +753,9 @@ impl<D: DistanceFn> HNSW<D> {
         Ok(())
     }
 
-    /// Candidate insertion path that preserves query-to-node distances between layer search,
-    /// neighbour selection, and entry-point selection.
-    fn insert_node_reuse_distances_candidate(&self, value: Node) -> Result<(), Error> {
+    /// Insert a node while reusing query-to-node distances between layer search, neighbour
+    /// selection, and entry-point selection.
+    fn insert_node_with_reused_distances(&self, value: Node) -> Result<(), Error> {
         let value = match self.collector.as_ref() {
             Some(collector)
                 if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
