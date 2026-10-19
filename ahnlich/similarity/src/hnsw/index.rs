@@ -429,7 +429,7 @@ impl<D: DistanceFn> HNSW<D> {
                     )
                 }
             };
-            self.insert_node(node)?;
+            self.insert_node_reuse_distances_candidate(node)?;
         }
         Ok(())
     }
@@ -672,10 +672,9 @@ impl<D: DistanceFn> HNSW<D> {
             }
 
             graph
-                .get_or_insert(
-                    layer_index,
-                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref()),
-                )
+                .get_or_insert_with(layer_index, || {
+                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref())
+                })
                 .pin()
                 .insert(value.id);
 
@@ -750,6 +749,175 @@ impl<D: DistanceFn> HNSW<D> {
                     .store(new_elements_lvl, Ordering::Release);
                 self.enter_point.swap(smallvec![value_id].into());
             }
+        }
+        Ok(())
+    }
+
+    /// Candidate insertion path that preserves query-to-node distances between layer search,
+    /// neighbour selection, and entry-point selection.
+    fn insert_node_reuse_distances_candidate(&self, value: Node) -> Result<(), Error> {
+        let value = match self.collector.as_ref() {
+            Some(collector)
+                if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
+            {
+                node_from_temp_with_counter_shards(
+                    TempNode::from(&value),
+                    Some(collector),
+                    self.node_counter_shards,
+                )
+            }
+            _ => value,
+        };
+        let nodes = self.nodes.pin();
+        let graph = self.graph.pin();
+        let top_layer = self.top_most_layer.load(Ordering::Acquire);
+
+        if nodes.contains_key(&value.id) {
+            return Ok(());
+        }
+        let initial_ef = 1;
+
+        let mut enter_point = self.enter_point.load().as_ref().clone();
+        let new_elements_lvl = value.level(self.maximum_connections);
+
+        for level_current in (new_elements_lvl + 1..=top_layer).rev() {
+            let nearest_neighbours = self.search_layer_reuse_distances(
+                &value,
+                &enter_point,
+                initial_ef,
+                &LayerIndex(level_current as u16),
+                None,
+            )?;
+
+            let nearest = nearest_neighbours
+                .into_iter()
+                .max()
+                .ok_or_else(|| Error::NotFoundError("nearest element not found".to_string()))?;
+            enter_point = smallvec![nearest.id];
+        }
+
+        for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
+            let layer_index = LayerIndex(level_current as u16);
+            let nearest_neighbours = self.search_layer_reuse_distances(
+                &value,
+                &enter_point,
+                self.ef_construction,
+                &layer_index,
+                None,
+            )?;
+
+            let neighbours = self.select_neighbours_heuristic_reuse_distances_candidate(
+                &value,
+                &nearest_neighbours,
+                self.maximum_connections,
+                &layer_index,
+                false,
+                false,
+            )?;
+
+            let value_neighbours_guard = value.neighbours.pin();
+            let value_backlinks_guard = value.back_links.pin();
+            for neighbour_id in neighbours.iter() {
+                let neighbour_node = nodes
+                    .get(neighbour_id)
+                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+
+                let n_guard = neighbour_node.neighbours.pin();
+                n_guard
+                    .get_or_insert_with(layer_index, || {
+                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
+                    })
+                    .pin()
+                    .insert(value.id);
+
+                value_neighbours_guard
+                    .get_or_insert_with(layer_index, || {
+                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
+                    })
+                    .pin()
+                    .insert(*neighbour_id);
+
+                value_backlinks_guard.insert(*neighbour_id);
+                neighbour_node.back_links.pin().insert(value.id);
+            }
+
+            graph
+                .get_or_insert_with(layer_index, || {
+                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref())
+                })
+                .pin()
+                .insert(value.id);
+
+            for neighbour in neighbours.iter() {
+                let maximum_connections = if level_current == 0 {
+                    self.maximum_connections_zero
+                } else {
+                    self.maximum_connections
+                };
+
+                let neighbour_node = nodes
+                    .get(neighbour)
+                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+
+                let nn_guard = neighbour_node.neighbours.pin();
+                let e_conn = nn_guard
+                    .get(&layer_index)
+                    .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
+
+                if e_conn.pin().len() > maximum_connections {
+                    let scored_connections: Vec<OrderedNode> = e_conn
+                        .pin()
+                        .iter()
+                        .filter_map(|id| nodes.get(id))
+                        .map(|node| {
+                            OrderedNode::new(
+                                node.id,
+                                self.distance_algorithm.closeness(
+                                    node.value.as_slice(),
+                                    neighbour_node.value.as_slice(),
+                                ),
+                            )
+                        })
+                        .collect();
+                    let new_neighbour_connections = self
+                        .select_neighbours_heuristic_reuse_distances_candidate(
+                            neighbour_node,
+                            &scored_connections,
+                            maximum_connections,
+                            &layer_index,
+                            false,
+                            false,
+                        )?;
+
+                    let neighbour_node = nodes
+                        .get(neighbour)
+                        .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+
+                    neighbour_node.neighbours.pin().insert(
+                        layer_index,
+                        node_hashset_from_iter(
+                            new_neighbour_connections,
+                            self.collector.as_ref(),
+                            self.node_counter_shards,
+                        ),
+                    );
+                }
+            }
+
+            enter_point = match nearest_neighbours.into_iter().max() {
+                None => enter_point,
+                Some(nearest) => smallvec![nearest.id],
+            };
+        }
+
+        let value_id = value.id;
+        nodes.insert(value.id, value);
+
+        let current_top = self.top_most_layer.load(Ordering::Acquire);
+        if new_elements_lvl > current_top || nodes.len() == 1 {
+            self.top_most_layer
+                .store(new_elements_lvl, Ordering::Release);
+            self.enter_point.swap(smallvec![value_id].into());
         }
         Ok(())
     }
@@ -972,6 +1140,97 @@ impl<D: DistanceFn> HNSW<D> {
         }
 
         Ok(response.iter().map(|node| node.id).collect::<Vec<NodeId>>())
+    }
+
+    /// Candidate neighbour-selection path that consumes query distances already calculated by
+    /// `search_layer_reuse_distances`.
+    fn select_neighbours_heuristic_reuse_distances_candidate(
+        &self,
+        query: &Node,
+        candidates: &[OrderedNode],
+        m: usize,
+        layer: &LayerIndex,
+        extend_candidates: bool,
+        keep_pruned_connections: bool,
+    ) -> Result<Vec<NodeId>, Error> {
+        let nodes = self.nodes.pin();
+
+        let mut response =
+            NearestFirst::from_scored(std::iter::empty(), query, self.distance_algorithm);
+        let mut working_queue =
+            NearestFirst::from_scored(candidates.iter().copied(), query, self.distance_algorithm);
+
+        if extend_candidates {
+            for candidate in candidates {
+                let candidate_node = nodes
+                    .get(&candidate.id)
+                    .ok_or_else(|| Error::NotFoundError(" Node Ref not Found".to_string()))?;
+
+                let cn_guard = candidate_node.neighbours.pin();
+                let neighbours_at = cn_guard
+                    .get(layer)
+                    .ok_or_else(|| Error::NotFoundError(format!("{:?} not Found", layer)))?;
+
+                for neighbour_id in neighbours_at.pin().iter() {
+                    if !working_queue.contains(neighbour_id)
+                        && let Some(neighbour_node) = nodes.get(neighbour_id)
+                    {
+                        let scored = OrderedNode::new(
+                            neighbour_node.id,
+                            self.distance_algorithm
+                                .closeness(neighbour_node.value.as_slice(), query.value.as_slice()),
+                        );
+                        working_queue.push_scored(scored);
+                    }
+                }
+            }
+        }
+
+        let mut discarded_candidates =
+            NearestFirst::from_scored(std::iter::empty(), query, self.distance_algorithm);
+
+        while !working_queue.is_empty() && response.len() < m {
+            let candidate = working_queue.pop().ok_or(Error::QueueEmpty)?;
+
+            if response.is_empty() {
+                response.push_scored(candidate);
+                continue;
+            }
+
+            let candidate_node = nodes
+                .get(&candidate.id)
+                .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
+            let mut is_diverse = true;
+            for selected in response.iter() {
+                let selected_node = nodes
+                    .get(&selected.id)
+                    .ok_or_else(|| Error::NotFoundError("Selected node not found".to_string()))?;
+
+                let closeness_to_selected = self.distance_algorithm.closeness(
+                    candidate_node.value.as_slice(),
+                    selected_node.value.as_slice(),
+                );
+                if closeness_to_selected > candidate.closeness {
+                    is_diverse = false;
+                    break;
+                }
+            }
+
+            if is_diverse {
+                response.push_scored(candidate);
+            } else {
+                discarded_candidates.push_scored(candidate);
+            }
+        }
+
+        if keep_pruned_connections {
+            while !discarded_candidates.is_empty() && response.len() < m {
+                let nearest = discarded_candidates.pop().ok_or(Error::QueueEmpty)?;
+                response.push_scored(nearest);
+            }
+        }
+
+        Ok(response.iter().map(|node| node.id).collect())
     }
 
     /// K-Nearest neighbour Search

@@ -235,7 +235,7 @@ impl From<HnswConfig> for DbHnswConfig {
 
             keep_pruned_connections: value
                 .keep_pruned_connections
-                .unwrap_or(defaults.extend_candidates),
+                .unwrap_or(defaults.keep_pruned_connections),
         }
     }
 }

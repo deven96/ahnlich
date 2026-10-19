@@ -15,7 +15,18 @@ set -euo pipefail
 
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-1369}"
-CONCURRENCY_LEVELS="${CONCURRENCY_LEVELS:-1 10 50 100}"
+SCENARIOS="${SCENARIOS:-set_no_index set_1_index set_4_indexes}"
+
+if [[ " $SCENARIOS " == *" set_hnsw_insert "* ]]; then
+    CONCURRENCY_LEVELS="${CONCURRENCY_LEVELS:-1}"
+    read -r -a hnsw_concurrency <<< "$CONCURRENCY_LEVELS"
+    if [ "${#hnsw_concurrency[@]}" -ne 1 ] || [ "${hnsw_concurrency[0]}" != 1 ]; then
+        echo "error: set_hnsw_insert only supports CONCURRENCY_LEVELS=1" >&2
+        exit 1
+    fi
+else
+    CONCURRENCY_LEVELS="${CONCURRENCY_LEVELS:-1 10 50 100}"
+fi
 TOTAL_REQUESTS="${TOTAL_REQUESTS:-10000}"
 BATCH_SIZE="${BATCH_SIZE:-1000}"
 VECTOR_DIMENSION="${VECTOR_DIMENSION:-128}"
@@ -117,13 +128,12 @@ SERVER_ARGS=(
     --size-calculation-interval "${SIZE_CALCULATION_INTERVAL:-60}"
 )
 
-SCENARIOS="${SCENARIOS:-set_no_index set_1_index set_4_indexes}"
-
 {
     echo "commit: $(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
     if [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]; then
         echo "tree: dirty"
     fi
+    echo "server ref: ${SERVER_REF:-unspecified}"
     echo "host: $(uname -srm)"
     echo "ghz: $(ghz --version 2>&1 >/dev/null)"
     echo "server binary: $SERVER_BIN"
@@ -160,16 +170,20 @@ done
 
 scenario_config() {
     case "$1" in
-        set_no_index) echo "0 100" ;;
-        set_1_index) echo "1 100" ;;
-        set_4_indexes) echo "4 100" ;;
+        set_no_index) echo "0 100 update false" ;;
+        set_1_index) echo "1 100 update false" ;;
+        set_4_indexes) echo "4 100 update false" ;;
+        set_hnsw_insert) echo "0 100 insert true" ;;
         *) echo "error: unknown scenario '$1'" >&2; return 1 ;;
     esac
 }
 
 log "Creating stores and generating ghz payloads"
 for scenario in $SCENARIOS; do
-    read -r indexed_fields cardinality <<< "$(scenario_config "$scenario")"
+    read -r indexed_fields cardinality workload hnsw <<< "$(scenario_config "$scenario")"
+    if [ "$workload" = insert ]; then
+        continue
+    fi
     spec="$SPEC_DIR/$scenario.json"
     payload="$PAYLOAD_DIR/$scenario.json"
     cat > "$spec" <<EOF
@@ -180,7 +194,10 @@ for scenario in $SCENARIOS; do
   "indexed_fields": $indexed_fields,
   "cardinality": $cardinality,
   "pool_requests": $POOL_REQUESTS,
-  "payload_file": "$payload"
+  "payload_file": "$payload",
+  "workload": "$workload",
+  "hnsw": $hnsw,
+  "expected_requests": 0
 }
 EOF
     "$HARNESS_BIN_DIR/setup_set" generate "$spec"
@@ -207,8 +224,39 @@ server_cpu_seconds() {
 
 run_ghz() {
     local label="$1" concurrency="$2" repeat="$3"
-    local cpu_before cpu_after
+    local cpu_before cpu_after indexed_fields cardinality workload hnsw spec payload
     local connections=$(( concurrency < CONNECTIONS ? concurrency : CONNECTIONS ))
+    read -r indexed_fields cardinality workload hnsw <<< "$(scenario_config "$label")"
+
+    if [ "$workload" = insert ]; then
+        local store="${label}_c${concurrency}_r${repeat}"
+        spec="$SPEC_DIR/${store}.json"
+        payload="$PAYLOAD_DIR/${store}.json"
+        cat > "$spec" <<EOF
+{
+  "store": "$store",
+  "batch": $BATCH_SIZE,
+  "dimension": $VECTOR_DIMENSION,
+  "indexed_fields": $indexed_fields,
+  "cardinality": $cardinality,
+  "pool_requests": $POOL_REQUESTS,
+  "payload_file": "$payload",
+  "workload": "$workload",
+  "hnsw": $hnsw,
+  "expected_requests": $((TOTAL_REQUESTS + WARMUP_REQUESTS))
+}
+EOF
+        "$HARNESS_BIN_DIR/setup_set" generate "$spec"
+        AHNLICH_DB_ADDR="$HOST:$PORT" "$HARNESS_BIN_DIR/setup_set" prepare "$spec"
+    else
+        spec="$SPEC_DIR/$label.json"
+        payload="$PAYLOAD_DIR/$label.json"
+    fi
+
+    local -a template_args=()
+    if [ "$workload" = update ]; then
+        template_args+=(--disable-template-data)
+    fi
 
     echo "  run $repeat/$REPEATS: $label @ concurrency=$concurrency (connections=$connections)"
     cpu_before="$(server_cpu_seconds)"
@@ -216,8 +264,8 @@ run_ghz() {
         --proto "$PROTO_DIR/services/db_service.proto" \
         --import-paths "$PROTO_DIR" \
         --call "services.db_service.DBService/Set" \
-        --data-file "$PAYLOAD_DIR/$label.json" \
-        --disable-template-data \
+        --data-file "$payload" \
+        "${template_args[@]}" \
         --concurrency "$concurrency" \
         --connections "$connections" \
         --total "$((TOTAL_REQUESTS + WARMUP_REQUESTS))" \
@@ -245,6 +293,11 @@ run_ghz() {
     awk -v a="$cpu_before" -v b="$cpu_after" -v n="$((TOTAL_REQUESTS + WARMUP_REQUESTS))" \
         'BEGIN { printf "%.1f", (b - a) * 1000000 / n }' \
         > "$RESULTS_DIR/${label}_c${concurrency}_r${repeat}.cpu"
+
+    if [ "$workload" = insert ]; then
+        AHNLICH_DB_ADDR="$HOST:$PORT" "$HARNESS_BIN_DIR/setup_set" verify "$spec"
+        AHNLICH_DB_ADDR="$HOST:$PORT" "$HARNESS_BIN_DIR/setup_set" cleanup "$spec"
+    fi
 }
 
 log "Benchmarking ($TOTAL_REQUESTS requests per run, $WARMUP_REQUESTS warmup, $REPEATS repeats)"
@@ -260,8 +313,11 @@ done
 
 log "Verifying stores"
 for scenario in $SCENARIOS; do
-    AHNLICH_DB_ADDR="$HOST:$PORT" \
-        "$HARNESS_BIN_DIR/setup_set" verify "$SPEC_DIR/$scenario.json"
+    read -r _ _ workload _ <<< "$(scenario_config "$scenario")"
+    if [ "$workload" = update ]; then
+        AHNLICH_DB_ADDR="$HOST:$PORT" \
+            "$HARNESS_BIN_DIR/setup_set" verify "$SPEC_DIR/$scenario.json"
+    fi
 done
 
 log "Summary"
