@@ -672,10 +672,9 @@ impl<D: DistanceFn> HNSW<D> {
             }
 
             graph
-                .get_or_insert(
-                    layer_index,
-                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref()),
-                )
+                .get_or_insert_with(layer_index, || {
+                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref())
+                })
                 .pin()
                 .insert(value.id);
 
@@ -843,10 +842,9 @@ impl<D: DistanceFn> HNSW<D> {
             }
 
             graph
-                .get_or_insert(
-                    layer_index,
-                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref()),
-                )
+                .get_or_insert_with(layer_index, || {
+                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref())
+                })
                 .pin()
                 .insert(value.id);
 
