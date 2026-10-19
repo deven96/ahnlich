@@ -4,7 +4,83 @@
 
 use super::*;
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct HnswTopology {
+    top_layer: u8,
+    entry_points: Vec<u64>,
+    graph: Vec<(u16, Vec<u64>)>,
+    nodes: Vec<(u64, Vec<(u16, Vec<u64>)>, Vec<u64>)>,
+}
+
 impl<D: DistanceFn> HNSW<D> {
+    /// Benchmark facade for the unchanged insertion implementation.
+    pub fn insert_control_for_benchmark(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
+        for key in new {
+            self.insert_node(Node::new(key.clone()))?;
+        }
+        Ok(())
+    }
+
+    /// Deep-copy an index outside the timed part of an incremental insertion benchmark.
+    pub fn clone_for_benchmark(&self) -> Self {
+        TempHNSW::from(self).into()
+    }
+
+    /// Benchmark facade for the candidate insertion implementation.
+    pub fn insert_reuse_distances_candidate(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
+        for key in new {
+            self.insert_node_reuse_distances_candidate(Node::new(key.clone()))?;
+        }
+        Ok(())
+    }
+
+    /// Deterministic graph representation used to prove that the insertion variants build the
+    /// same graph before their timings are compared.
+    pub fn topology_snapshot(&self) -> HnswTopology {
+        let mut entry_points: Vec<_> = self.enter_point.load().iter().map(|id| id.0).collect();
+        entry_points.sort_unstable();
+
+        let graph_guard = self.graph.pin();
+        let mut graph: Vec<_> = graph_guard
+            .iter()
+            .map(|(layer, ids)| {
+                let mut ids: Vec<_> = ids.pin().iter().map(|id| id.0).collect();
+                ids.sort_unstable();
+                (layer.0, ids)
+            })
+            .collect();
+        graph.sort_unstable_by_key(|(layer, _)| *layer);
+
+        let nodes_guard = self.nodes.pin();
+        let mut nodes: Vec<_> = nodes_guard
+            .iter()
+            .map(|(id, node)| {
+                let neighbours_guard = node.neighbours.pin();
+                let mut neighbours: Vec<_> = neighbours_guard
+                    .iter()
+                    .map(|(layer, ids)| {
+                        let mut ids: Vec<_> = ids.pin().iter().map(|id| id.0).collect();
+                        ids.sort_unstable();
+                        (layer.0, ids)
+                    })
+                    .collect();
+                neighbours.sort_unstable_by_key(|(layer, _)| *layer);
+
+                let mut back_links: Vec<_> = node.back_links.pin().iter().map(|id| id.0).collect();
+                back_links.sort_unstable();
+                (id.0, neighbours, back_links)
+            })
+            .collect();
+        nodes.sort_unstable_by_key(|(id, _, _)| *id);
+
+        HnswTopology {
+            top_layer: self.top_most_layer.load(Ordering::Acquire),
+            entry_points,
+            graph,
+            nodes,
+        }
+    }
+
     fn materialize_ids_with_scores(
         &self,
         reference_point: &[f32],
@@ -80,5 +156,64 @@ impl<D: DistanceFn> HNSW<D> {
             .map(|node| 2 + node.neighbours.pin().len())
             .sum();
         (nodes.len(), collections)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn vectors(start: usize, count: usize, dimensions: usize) -> Vec<EmbeddingKey> {
+        (start..start + count)
+            .map(|id| {
+                EmbeddingKey::new(
+                    (0..dimensions)
+                        .map(|dimension| {
+                            let mixed = id
+                                .wrapping_mul(1_664_525)
+                                .wrapping_add(dimension.wrapping_mul(1_013_904_223));
+                            ((mixed % 20_003) as f32 / 10_001.5) - 1.0
+                        })
+                        .collect(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn insertion_distance_reuse_preserves_graph_topology() {
+        let base = vectors(0, 128, 64);
+        let additions = vectors(128, 32, 64);
+
+        for shared_collector in [false, true] {
+            for metric in [
+                LinearAlgorithm::EuclideanDistance,
+                LinearAlgorithm::CosineSimilarity,
+                LinearAlgorithm::DotProductSimilarity,
+            ] {
+                let new_index = || {
+                    if shared_collector {
+                        HNSW::new_with_config_and_shared_collector_and_counter_shards(
+                            HNSWConfig::default(),
+                            metric,
+                            NonZeroUsize::new(1).unwrap(),
+                        )
+                    } else {
+                        HNSW::new_with_config(HNSWConfig::default(), metric)
+                    }
+                };
+                let control = new_index();
+                control.insert_control_for_benchmark(&base).unwrap();
+                control.insert_control_for_benchmark(&additions).unwrap();
+
+                let candidate = new_index();
+                candidate.insert_reuse_distances_candidate(&base).unwrap();
+                candidate
+                    .insert_reuse_distances_candidate(&additions)
+                    .unwrap();
+
+                assert_eq!(candidate.topology_snapshot(), control.topology_snapshot());
+            }
+        }
     }
 }

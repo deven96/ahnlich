@@ -55,11 +55,41 @@ keys with the same values, keeping the store size and operation type stable acro
 | `set_4_indexes` | 4 | 100 |
 
 The zero-index row is the negative control for predicate ingestion. Every indexed store
-contains a sentinel membership created before timing. No HNSW or KD-tree index is created.
+contains a sentinel membership created before timing. These default scenarios do not create
+an HNSW or KD-tree index.
 
 Payload files are generated once and reused for every concurrency level and repeat. The
 first two vector coordinates encode request and row identity, allowing the harness to
 verify the stored values after the sweep.
+
+### HNSW insertion
+
+`set_hnsw_insert` measures newly inserted vectors flowing through `Set` and into an HNSW
+index. It is opt-in because insertion grows the store on every request and therefore needs a
+smaller request count than the update workloads:
+
+```bash
+SCENARIOS=set_hnsw_insert \
+TOTAL_REQUESTS=100 \
+WARMUP_REQUESTS=10 \
+BATCH_SIZE=100 \
+VECTOR_DIMENSION=768 \
+CONCURRENCY_LEVELS=1 \
+./run_set.sh
+```
+
+The HNSW insertion scenario defaults to concurrency 1 and rejects other concurrency levels.
+This keeps the A/B comparison focused on distance reuse in a single writer. The other Set
+scenarios retain their configurable concurrency sweep.
+
+Each ghz request receives a unique request number in its first vector coordinate. A fresh
+HNSW store is created for every concurrency/repeat run and removed afterward. After timing,
+the harness checks the primary-store length and uses filtered HNSW `GetSimN` queries to verify
+that every inserted vector is present in the HNSW node map. The unindexed
+`benchmark_request_shard` metadata field groups up to 64 vectors per verification query to
+bound response size; it is identical in control and candidate payloads. This check establishes
+node membership, not full graph connectivity or topology. Store creation, verification, and
+removal are outside the measured interval.
 
 ## Reference numbers
 
@@ -84,8 +114,8 @@ At batch 100 with four existing indexes and concurrency 16, throughput increased
 | variable | default | notes |
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `1369` | |
-| `CONCURRENCY_LEVELS` | `1 10 50 100` | space separated |
-| `SCENARIOS` | all scenarios | space-separated scenario names to run |
+| `CONCURRENCY_LEVELS` | `1 10 50 100` for update scenarios; `1` for HNSW insertion | space separated; HNSW insertion accepts only `1` |
+| `SCENARIOS` | update scenarios | space-separated scenario names; `set_hnsw_insert` is opt-in |
 | `TOTAL_REQUESTS` | `10000` | measured requests per run |
 | `WARMUP_REQUESTS` | `500` | issued first, excluded from stats |
 | `REPEATS` | `3` | runs per configuration |
@@ -97,6 +127,7 @@ At batch 100 with four existing indexes and concurrency 16, throughput increased
 | `SIZE_CALCULATION_INTERVAL` | `60` | milliseconds |
 | `REQUEST_TIMEOUT` | `60s` | |
 | `SERVER_BIN` | built locally | optional prebuilt `ahnlich-db` binary |
+| `SERVER_REF` | unspecified | descriptive revision recorded in `RUN.txt` |
 | `RESULTS_DIR` | timestamped | |
 
 ```bash
@@ -116,12 +147,17 @@ SERVER_BIN=/tmp/candidate/ahnlich-db RESULTS_DIR=/tmp/set-candidate ./run_set.sh
 - Every figure is the median of `REPEATS` runs. `RPS range` is the spread across them;
   changes smaller than the spread are not measurable.
 - `server us/req` is the server process's own CPU time. It excludes client cost.
-- `RPS` includes client cost. At concurrency 1 ghz is a larger part of the round trip, so
-  use higher concurrency for throughput and concurrency 1 to isolate per-request changes.
+- `RPS` includes client cost. At concurrency 1 ghz is a larger part of the round trip. The
+  HNSW insertion comparison uses only concurrency 1; other Set scenarios can use higher
+  concurrency.
 - `set_no_index` shows whether a change affects general `Set` processing independently of
   predicate indexes.
 - Store length, predicate configuration, sentinel membership, and sampled values are
   verified after the measured runs. Any non-`OK` response fails the run.
+- HNSW insertion runs verify their final store length, HNSW configuration, and membership of
+  every measured vector in the HNSW node map before removing the per-run store. If the length
+  differs, verification reports missing ghz request-number batches; if HNSW membership differs,
+  it reports the affected request and rows.
 
 ## Profiling
 

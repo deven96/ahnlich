@@ -735,6 +735,7 @@ async fn verify_answers(
                 algorithm: algorithm_number(algorithm),
                 condition: None,
                 schema: None,
+                ef_search: None,
             },
             None,
         )
@@ -770,6 +771,7 @@ async fn verify_answers_with_condition(
                 algorithm: algorithm_number(algorithm),
                 condition: Some(condition),
                 schema: None,
+                ef_search: None,
             },
             None,
         )
