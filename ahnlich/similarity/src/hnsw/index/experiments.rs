@@ -29,7 +29,7 @@ impl<D: DistanceFn> HNSW<D> {
     /// Benchmark facade for the candidate insertion implementation.
     pub fn insert_reuse_distances_candidate(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
         for key in new {
-            self.insert_node_reuse_distances_candidate(Node::new(key.clone()))?;
+            self.insert_node_with_reused_distances(Node::new(key.clone()))?;
         }
         Ok(())
     }
