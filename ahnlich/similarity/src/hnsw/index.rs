@@ -22,8 +22,11 @@ use std::{
     },
 };
 
-#[cfg(feature = "bench-experiments")]
-mod experiments;
+#[cfg(any(
+    feature = "bench-experiments",
+    feature = "compact-adjacency-experiment"
+))]
+pub mod experiments;
 
 #[cfg(test)]
 mod collector_sharing_tests;

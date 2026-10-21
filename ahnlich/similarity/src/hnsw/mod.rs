@@ -282,10 +282,22 @@ impl<F: DistanceFn> NearestFirst<F> {
         query: &Node,
         distance_algorithm: F,
     ) -> Self {
+        Self::from_scored_with_embedding(nodes, query.value.clone(), distance_algorithm)
+    }
+
+    /// Build a scored queue without constructing a graph node for the query.
+    ///
+    /// Candidate representations may not use [`Node`] for their stored graph
+    /// nodes, but retain the same score queue and distance semantics.
+    pub(crate) fn from_scored_with_embedding(
+        nodes: impl Iterator<Item = OrderedNode>,
+        query: EmbeddingKey,
+        distance_algorithm: F,
+    ) -> Self {
         Self {
             heap: nodes.collect(),
             distance_algorithm,
-            query: query.value.clone(),
+            query,
         }
     }
 

@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 default = ["server"]
 bench-experiments = []
+bench-compact-adjacency = ["ahnlich_similarity/compact-adjacency-experiment"]
 server = [
     "dep:tonic",
     "dep:prost",
