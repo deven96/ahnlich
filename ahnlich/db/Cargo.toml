@@ -6,6 +6,10 @@ edition = "2024"
 [features]
 default = ["server"]
 bench-experiments = []
+# Compact adjacency is the production default. Keep the original storage selectable
+# for ghz comparisons and fallback builds.
+bench-control-adjacency = []
+bench-compact-adjacency = []
 server = [
     "dep:tonic",
     "dep:prost",

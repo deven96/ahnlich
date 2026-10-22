@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+pub mod edges;
 pub mod index;
 pub mod utils;
 
@@ -7,7 +8,8 @@ pub mod utils;
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
 use crate::{Closeness, DistanceFn, EmbeddingKey};
-use arc_swap::ArcSwap;
+pub use edges::CompactEdges;
+use edges::{EdgeSnapshot, EdgeStorage};
 use papaya::{HashMap, HashSet};
 use seize::Collector;
 use std::sync::Arc;
@@ -41,42 +43,6 @@ impl Hasher for PassThroughHasher {
 
 pub(crate) type NodeIdBuildHasher = std::hash::BuildHasherDefault<PassThroughHasher>;
 pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHasher>;
-pub(crate) type CompactEdges = ArcSwap<Vec<NodeId>>;
-
-pub(crate) fn compact_edges_insert(edges: &CompactEdges, id: NodeId) {
-    let mut current = edges.load();
-    loop {
-        if current.contains(&id) {
-            return;
-        }
-        let mut next = Vec::with_capacity(current.len() + 1);
-        next.extend_from_slice(&current);
-        next.push(id);
-        let previous = edges.compare_and_swap(&*current, Arc::new(next));
-        if Arc::ptr_eq(&current, &previous) {
-            return;
-        }
-        current = previous;
-    }
-}
-
-pub(crate) fn compact_edges_remove(edges: &CompactEdges, id: NodeId) {
-    let mut current = edges.load();
-    loop {
-        let Some(index) = current.iter().position(|edge| *edge == id) else {
-            return;
-        };
-        let mut next = Vec::with_capacity(current.len() - 1);
-        next.extend_from_slice(&current[..index]);
-        next.extend_from_slice(&current[index + 1..]);
-        let previous = edges.compare_and_swap(&*current, Arc::new(next));
-        if Arc::ptr_eq(&current, &previous) {
-            return;
-        }
-        current = previous;
-    }
-}
-
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -127,20 +93,23 @@ pub struct NodeId(pub u64);
 /// ```
 /// This shows that Node 42 participates in layers 0 through 3.
 #[derive(Debug)]
-pub struct Node {
+pub struct Node<E: EdgeStorage = HashSet<NodeId>> {
     id: NodeId,
     value: EmbeddingKey,
-    neighbours: HashMap<LayerIndex, CompactEdges>,
+    neighbours: HashMap<LayerIndex, E>,
     back_links: HashSet<NodeId>,
 }
 
-impl Clone for Node {
+impl<E: EdgeStorage> Clone for Node<E> {
     fn clone(&self) -> Self {
         let neighbours = HashMap::new();
         {
             let target = neighbours.pin();
             for (layer, edges) in self.neighbours.pin().iter() {
-                target.insert(*layer, ArcSwap::from_pointee(edges.load().as_ref().clone()));
+                target.insert(
+                    *layer,
+                    E::from_ids(edges.snapshot().iter().copied().collect(), None, None),
+                );
             }
         }
         let back_links = HashSet::new();
@@ -158,6 +127,12 @@ impl Clone for Node {
         }
     }
 }
+impl Node {
+    pub fn new(value: EmbeddingKey) -> Self {
+        Self::new_with_edges(value)
+    }
+}
+
 /// Compute deterministic level for a node based on its ID hash.
 ///
 /// Uses exponential distribution: P(level >= l) ≈ (1/M)^l
@@ -183,14 +158,14 @@ fn compute_node_level(node_id: &NodeId, m: usize) -> u8 {
     level.min(255.0) as u8
 }
 
-impl Node {
+impl<E: EdgeStorage> Node<E> {
     /// Get the deterministic level for this node.
     /// Level is computed from the node's ID hash using exponential distribution.
     pub fn level(&self, m: usize) -> u8 {
         compute_node_level(&self.id, m)
     }
 
-    pub fn new(value: EmbeddingKey) -> Self {
+    pub(crate) fn new_with_edges(value: EmbeddingKey) -> Self {
         let id = get_node_id(&value.0);
         Self {
             id,
@@ -252,15 +227,15 @@ impl Node {
     /// Optional helper: add a neighbour at a specific layer
     pub fn add_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
         let guard = self.neighbours.pin();
-        let edges = guard.get_or_insert_with(layer, || ArcSwap::from_pointee(Vec::new()));
-        compact_edges_insert(edges, neighbour);
+        let edges = guard.get_or_insert_with(layer, || E::from_ids(Vec::new(), None, None));
+        edges.insert_edge(neighbour);
     }
 
     /// Optional helper: remove a neighbour at a specific layer
     pub fn remove_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
         let guard = self.neighbours.pin();
         if let Some(edges) = guard.get(&layer) {
-            compact_edges_remove(edges, neighbour);
+            edges.remove_edge(neighbour);
         }
     }
 }
@@ -311,9 +286,9 @@ where
 }
 
 impl<F: DistanceFn> NearestFirst<F> {
-    pub(crate) fn from_nodes<'a>(
-        nodes: impl Iterator<Item = &'a Node>,
-        query: &Node,
+    pub(crate) fn from_nodes<'a, E: EdgeStorage>(
+        nodes: impl Iterator<Item = &'a Node<E>>,
+        query: &Node<E>,
         distance_algorithm: F,
     ) -> Self {
         let heap = nodes
@@ -330,7 +305,7 @@ impl<F: DistanceFn> NearestFirst<F> {
         }
     }
 
-    pub(crate) fn push(&mut self, node: &Node) {
+    pub(crate) fn push<E: EdgeStorage>(&mut self, node: &Node<E>) {
         let closeness = self
             .distance_algorithm
             .closeness(node.value.as_slice(), self.query.as_slice());
@@ -338,9 +313,9 @@ impl<F: DistanceFn> NearestFirst<F> {
     }
 
     /// Build a candidate queue from distances already computed by the caller.
-    pub(crate) fn from_scored(
+    pub(crate) fn from_scored<E: EdgeStorage>(
         nodes: impl Iterator<Item = OrderedNode>,
-        query: &Node,
+        query: &Node<E>,
         distance_algorithm: F,
     ) -> Self {
         Self::from_scored_with_embedding(nodes, query.value.clone(), distance_algorithm)

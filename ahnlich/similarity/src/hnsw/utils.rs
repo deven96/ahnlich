@@ -2,10 +2,10 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use crate::error::Error;
-use crate::hnsw::index::HNSW;
+use crate::hnsw::{edges::EdgeStorage, index::HNSW};
 use crate::{EmbeddingKey, LinearAlgorithm, NonLinearAlgorithmWithIndexImpl};
 
-impl NonLinearAlgorithmWithIndexImpl for HNSW<LinearAlgorithm> {
+impl<E: EdgeStorage> NonLinearAlgorithmWithIndexImpl for HNSW<LinearAlgorithm, E> {
     #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
         self.insert(new)

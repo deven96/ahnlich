@@ -12,11 +12,11 @@ pub struct HnswTopology {
     nodes: Vec<(u64, Vec<(u16, Vec<u64>)>, Vec<u64>)>,
 }
 
-impl<D: DistanceFn> HNSW<D> {
+impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Benchmark facade for the unchanged insertion implementation.
     pub fn insert_control_for_benchmark(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
         for key in new {
-            self.insert_node(Node::new(key.clone()))?;
+            self.insert_node(Node::<E>::new_with_edges(key.clone()))?;
         }
         Ok(())
     }
@@ -29,7 +29,7 @@ impl<D: DistanceFn> HNSW<D> {
     /// Benchmark facade for the candidate insertion implementation.
     pub fn insert_reuse_distances_candidate(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
         for key in new {
-            self.insert_node_with_reused_distances(Node::new(key.clone()))?;
+            self.insert_node_with_reused_distances(Node::<E>::new_with_edges(key.clone()))?;
         }
         Ok(())
     }
@@ -59,7 +59,7 @@ impl<D: DistanceFn> HNSW<D> {
                 let mut neighbours: Vec<_> = neighbours_guard
                     .iter()
                     .map(|(layer, ids)| {
-                        let mut ids: Vec<_> = ids.load().iter().map(|id| id.0).collect();
+                        let mut ids: Vec<_> = ids.snapshot().iter().map(|id| id.0).collect();
                         ids.sort_unstable();
                         (layer.0, ids)
                     })
@@ -107,7 +107,7 @@ impl<D: DistanceFn> HNSW<D> {
         n: NonZeroUsize,
         ef: Option<usize>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
-        let query = Node::new(EmbeddingKey::new(reference_point.to_vec()));
+        let query = Node::<E>::new_with_edges(EmbeddingKey::new(reference_point.to_vec()));
         let ids = self.knn_search(&query, n.get(), ef, None)?;
         Ok(self.materialize_ids_with_scores(reference_point, ids))
     }
@@ -119,13 +119,13 @@ impl<D: DistanceFn> HNSW<D> {
         n: NonZeroUsize,
         ef: Option<usize>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
-        let query = Node::new(EmbeddingKey::new(reference_point.to_vec()));
+        let query = Node::<E>::new_with_edges(EmbeddingKey::new(reference_point.to_vec()));
         let ids = self.knn_search_reuse_distances(&query, n.get(), ef, None)?;
         Ok(self.materialize_ids_with_scores(reference_point, ids))
     }
 }
 
-impl<D: DistanceFn> HNSW<D> {
+impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Stored nodes and live logical collectors (retired collections are excluded).
     /// Used by the collector-sharing benchmark's correctness checks and report.
     pub fn collector_sharing_bench_counts(&self) -> (usize, usize) {
@@ -134,7 +134,7 @@ impl<D: DistanceFn> HNSW<D> {
             + self.graph.pin().len()
             + nodes
                 .values()
-                .map(|node| 2 + node.neighbours.pin().len())
+                .map(|node| 2 + usize::from(E::HASH_COLLECTION) * node.neighbours.pin().len())
                 .sum::<usize>();
         (
             nodes.len(),
@@ -147,15 +147,33 @@ impl<D: DistanceFn> HNSW<D> {
     }
 }
 
-impl<D: DistanceFn> HNSW<D> {
+impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Stored nodes and live per-node collections, excluding index-wide maps/sets.
     pub fn counter_shards_bench_counts(&self) -> (usize, usize) {
         let nodes = self.nodes.pin();
         let collections = nodes
             .values()
-            .map(|node| 2 + node.neighbours.pin().len())
+            .map(|node| 2 + usize::from(E::HASH_COLLECTION) * node.neighbours.pin().len())
             .sum();
         (nodes.len(), collections)
+    }
+}
+
+impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
+    pub fn compact_adjacency_bench_counts(&self) -> (usize, usize) {
+        let nodes = self.nodes.pin();
+        let lists = nodes.values().map(|node| node.neighbours.pin().len()).sum();
+        let edges = nodes
+            .values()
+            .map(|node| {
+                node.neighbours
+                    .pin()
+                    .values()
+                    .map(|edges| edges.snapshot().len())
+                    .sum::<usize>()
+            })
+            .sum();
+        (lists, edges)
     }
 }
 
