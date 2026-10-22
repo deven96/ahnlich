@@ -4,11 +4,7 @@ use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
-#[cfg(feature = "bench-compact-adjacency")]
-use ahnlich_similarity::hnsw::HNSWConfig as CompactHnswConfig;
 use ahnlich_similarity::hnsw::index::HNSW;
-#[cfg(feature = "bench-compact-adjacency")]
-use ahnlich_similarity::hnsw::index::experiments::CompactAdjacencyHNSW;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_types::algorithm::algorithms::DistanceMetric;
 use ahnlich_types::algorithm::nonlinear::{
@@ -29,8 +25,6 @@ use utils::fallible;
 pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
     Hnsw(Box<HNSW<LinearAlgorithm>>),
-    #[cfg(feature = "bench-compact-adjacency")]
-    HnswCompactAdjacency(Box<CompactAdjacencyHNSW<LinearAlgorithm>>),
 }
 
 impl NonLinearAlgorithmWithIndex {
@@ -43,25 +37,6 @@ impl NonLinearAlgorithmWithIndex {
             ),
             NonLinearAlgorithmIndexConf::Hnsw(conf) => {
                 let hnsw_conf: DbHnswConfig = conf.into();
-                #[cfg(feature = "bench-compact-adjacency")]
-                {
-                    log::info!(
-                        "Using compact-adjacency HNSW benchmark candidate; persistence, deletion, and filtered HNSW search are unsupported"
-                    );
-                    return NonLinearAlgorithmWithIndex::HnswCompactAdjacency(Box::new(
-                        CompactAdjacencyHNSW::new(
-                            CompactHnswConfig {
-                                ef_construction: hnsw_conf.ef_construction,
-                                maximum_connections: hnsw_conf.maximum_connections,
-                                maximum_connections_zero: hnsw_conf.maximum_connections_zero,
-                                extend_candidates: hnsw_conf.extend_candidates,
-                                keep_pruned_connections: hnsw_conf.keep_pruned_connections,
-                            },
-                            hnsw_conf.distance_algorithm,
-                        ),
-                    ));
-                }
-                #[cfg(not(feature = "bench-compact-adjacency"))]
                 NonLinearAlgorithmWithIndex::Hnsw(Box::new(
                     HNSW::new_with_shared_collector_and_counter_shards(
                         hnsw_conf.distance_algorithm,
@@ -85,8 +60,6 @@ impl NonLinearAlgorithmWithIndex {
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
                 <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::insert(hnsw, new)
             }
-            #[cfg(feature = "bench-compact-adjacency")]
-            NonLinearAlgorithmWithIndex::HnswCompactAdjacency(hnsw) => hnsw.insert(new),
         } {
             tracing::error!("Error inserting into index: {:?}", err)
         }
@@ -102,10 +75,6 @@ impl NonLinearAlgorithmWithIndex {
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
                 <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::delete(hnsw, del)
             }
-            #[cfg(feature = "bench-compact-adjacency")]
-            NonLinearAlgorithmWithIndex::HnswCompactAdjacency(_) => {
-                panic!("compact adjacency benchmark candidate does not support deletion")
-            }
         } {
             tracing::error!("Error deleting from index: {:?}", err)
         }
@@ -120,8 +89,6 @@ impl NonLinearAlgorithmWithIndex {
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
                 <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::size(hnsw)
             }
-            #[cfg(feature = "bench-compact-adjacency")]
-            NonLinearAlgorithmWithIndex::HnswCompactAdjacency(hnsw) => hnsw.size(),
         }
     }
 
@@ -132,25 +99,6 @@ impl NonLinearAlgorithmWithIndex {
                 index: Some(NonLinearAlgorithmIndexConf::Kdtree(KdTreeConfig {})),
             },
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                let config = hnsw.config();
-                let distance = match hnsw.distance_algorithm() {
-                    LinearAlgorithm::EuclideanDistance => DistanceMetric::Euclidean,
-                    LinearAlgorithm::CosineSimilarity => DistanceMetric::Cosine,
-                    LinearAlgorithm::DotProductSimilarity => DistanceMetric::DotProduct,
-                };
-                nonlinear::NonLinearIndex {
-                    index: Some(NonLinearAlgorithmIndexConf::Hnsw(HnswConfig {
-                        distance: Some(distance.into()),
-                        ef_construction: Some(config.ef_construction as u32),
-                        maximum_connections: Some(config.maximum_connections as u32),
-                        maximum_connections_zero: Some(config.maximum_connections_zero as u32),
-                        extend_candidates: Some(config.extend_candidates),
-                        keep_pruned_connections: Some(config.keep_pruned_connections),
-                    })),
-                }
-            }
-            #[cfg(feature = "bench-compact-adjacency")]
-            NonLinearAlgorithmWithIndex::HnswCompactAdjacency(hnsw) => {
                 let config = hnsw.config();
                 let distance = match hnsw.distance_algorithm() {
                     LinearAlgorithm::EuclideanDistance => DistanceMetric::Euclidean,
@@ -193,14 +141,6 @@ impl NonLinearAlgorithmWithIndex {
             }
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
                 hnsw.n_nearest_with_ef(search_vector.as_slice(), n, accept_list, ef_search)
-            }
-            #[cfg(feature = "bench-compact-adjacency")]
-            NonLinearAlgorithmWithIndex::HnswCompactAdjacency(hnsw) => {
-                assert!(
-                    accept_list.is_none(),
-                    "compact adjacency benchmark candidate supports only unfiltered HNSW search"
-                );
-                hnsw.n_nearest_with_ef(search_vector.as_slice(), n, ef_search)
             }
         }
         .expect("Index does not have the same size as reference_point");

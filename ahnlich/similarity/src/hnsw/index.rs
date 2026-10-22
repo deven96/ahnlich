@@ -5,7 +5,10 @@
 #![allow(dead_code)]
 use crate::{DistanceFn, LinearAlgorithm, error::Error, hnsw::HNSWConfig};
 
-use super::{LayerIndex, NearestFirst, Node, NodeId, NodeIdHashSet, OrderedNode, get_node_id};
+use super::{
+    LayerIndex, NearestFirst, Node, NodeId, NodeIdHashSet, OrderedNode, compact_edges_insert,
+    compact_edges_remove, get_node_id,
+};
 use crate::EmbeddingKey;
 use crate::heap::BoundedMaxHeap;
 
@@ -22,10 +25,7 @@ use std::{
     },
 };
 
-#[cfg(any(
-    feature = "bench-experiments",
-    feature = "compact-adjacency-experiment"
-))]
+#[cfg(feature = "bench-experiments")]
 pub mod experiments;
 
 #[cfg(test)]
@@ -655,19 +655,13 @@ impl<D: DistanceFn> HNSW<D> {
                     .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
 
                 let n_guard = neighbour_node.neighbours.pin();
-                n_guard
-                    .get_or_insert_with(layer_index, || {
-                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
-                    })
-                    .pin()
-                    .insert(value.id);
+                let edges =
+                    n_guard.get_or_insert_with(layer_index, || ArcSwap::from_pointee(Vec::new()));
+                compact_edges_insert(edges, value.id);
 
-                value_neighbours_guard
-                    .get_or_insert_with(layer_index, || {
-                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
-                    })
-                    .pin()
-                    .insert(*neighbour_id);
+                let edges = value_neighbours_guard
+                    .get_or_insert_with(layer_index, || ArcSwap::from_pointee(Vec::new()));
+                compact_edges_insert(edges, *neighbour_id);
 
                 // NOTE: invert for backlinks
                 value_backlinks_guard.insert(*neighbour_id);
@@ -701,8 +695,9 @@ impl<D: DistanceFn> HNSW<D> {
                     .get(&layer_index)
                     .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
 
-                if e_conn.pin().len() > maximum_connections {
-                    let e_conn_vec: Vec<NodeId> = e_conn.pin().iter().copied().collect();
+                let edge_ids = e_conn.load();
+                if edge_ids.len() > maximum_connections {
+                    let e_conn_vec = edge_ids.as_ref().clone();
                     // Prune neighbor's connections back to Mmax using heuristic selection
                     // (maximum_connections = Mmax0 at layer 0, M at other layers)
                     let new_neighbour_connections = self.select_neighbours_heuristic(
@@ -714,18 +709,7 @@ impl<D: DistanceFn> HNSW<D> {
                         false,
                     )?;
 
-                    let neighbour_node = nodes
-                        .get(neighbour)
-                        .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
-
-                    neighbour_node.neighbours.pin().insert(
-                        layer_index,
-                        node_hashset_from_iter(
-                            new_neighbour_connections,
-                            self.collector.as_ref(),
-                            self.node_counter_shards,
-                        ),
-                    );
+                    e_conn.store(Arc::new(new_neighbour_connections));
                 }
             }
 
@@ -826,19 +810,13 @@ impl<D: DistanceFn> HNSW<D> {
                     .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
 
                 let n_guard = neighbour_node.neighbours.pin();
-                n_guard
-                    .get_or_insert_with(layer_index, || {
-                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
-                    })
-                    .pin()
-                    .insert(value.id);
+                let edges =
+                    n_guard.get_or_insert_with(layer_index, || ArcSwap::from_pointee(Vec::new()));
+                compact_edges_insert(edges, value.id);
 
-                value_neighbours_guard
-                    .get_or_insert_with(layer_index, || {
-                        node_hashset(self.collector.as_ref(), self.node_counter_shards)
-                    })
-                    .pin()
-                    .insert(*neighbour_id);
+                let edges = value_neighbours_guard
+                    .get_or_insert_with(layer_index, || ArcSwap::from_pointee(Vec::new()));
+                compact_edges_insert(edges, *neighbour_id);
 
                 value_backlinks_guard.insert(*neighbour_id);
                 neighbour_node.back_links.pin().insert(value.id);
@@ -867,9 +845,10 @@ impl<D: DistanceFn> HNSW<D> {
                     .get(&layer_index)
                     .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
 
-                if e_conn.pin().len() > maximum_connections {
+                let edge_ids = e_conn.load();
+                if edge_ids.len() > maximum_connections {
                     let scored_connections: Vec<OrderedNode> = e_conn
-                        .pin()
+                        .load()
                         .iter()
                         .filter_map(|id| nodes.get(id))
                         .map(|node| {
@@ -892,18 +871,7 @@ impl<D: DistanceFn> HNSW<D> {
                             false,
                         )?;
 
-                    let neighbour_node = nodes
-                        .get(neighbour)
-                        .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
-
-                    neighbour_node.neighbours.pin().insert(
-                        layer_index,
-                        node_hashset_from_iter(
-                            new_neighbour_connections,
-                            self.collector.as_ref(),
-                            self.node_counter_shards,
-                        ),
-                    );
+                    e_conn.store(Arc::new(new_neighbour_connections));
                 }
             }
 
@@ -995,7 +963,8 @@ impl<D: DistanceFn> HNSW<D> {
             // Explore neighbors
             let vn_neighbours_guard = visited_node.neighbours.pin();
             if let Some(visited_node_neighbours) = vn_neighbours_guard.get(layer) {
-                for neighbour_id in visited_node_neighbours.pin().iter() {
+                let edge_ids = visited_node_neighbours.load();
+                for neighbour_id in edge_ids.iter() {
                     // insert returns false if already present - combines contains + insert
                     if !visited_items.insert(*neighbour_id) {
                         continue;
@@ -1071,7 +1040,8 @@ impl<D: DistanceFn> HNSW<D> {
                     .get(layer)
                     .ok_or_else(|| Error::NotFoundError(format!("{:?} not Found", layer)))?;
 
-                for neighbour_id in neighbours_at.pin().iter() {
+                let edge_ids = neighbours_at.load();
+                for neighbour_id in edge_ids.iter() {
                     if !working_queue.contains(neighbour_id)
                         && let Some(neighbour_node) = nodes.get(neighbour_id)
                     {
@@ -1174,7 +1144,8 @@ impl<D: DistanceFn> HNSW<D> {
                     .get(layer)
                     .ok_or_else(|| Error::NotFoundError(format!("{:?} not Found", layer)))?;
 
-                for neighbour_id in neighbours_at.pin().iter() {
+                let edge_ids = neighbours_at.load();
+                for neighbour_id in edge_ids.iter() {
                     if !working_queue.contains(neighbour_id)
                         && let Some(neighbour_node) = nodes.get(neighbour_id)
                     {
@@ -1356,7 +1327,8 @@ impl<D: DistanceFn> HNSW<D> {
                 .ok_or_else(|| Error::NotFoundError("Node not found".to_string()))?;
             let neighbours = visited_node.neighbours.pin();
             if let Some(layer_neighbours) = neighbours.get(layer) {
-                for neighbour_id in layer_neighbours.pin().iter() {
+                let edge_ids = layer_neighbours.load();
+                for neighbour_id in edge_ids.iter() {
                     if !visited_items.insert(*neighbour_id) {
                         continue;
                     }
@@ -1460,8 +1432,8 @@ impl<D: DistanceFn> HNSW<D> {
                 let neighbour_keys_inner = guard.keys();
 
                 for layer_index in neighbour_keys_inner {
-                    if let Some(set) = guard.get(layer_index) {
-                        set.pin().remove(node_id);
+                    if let Some(edges) = guard.get(layer_index) {
+                        compact_edges_remove(edges, *node_id);
                     };
 
                     if let Some(layer_set) = graph.get(layer_index) {
@@ -1568,8 +1540,8 @@ impl From<&Node> for TempNode {
     fn from(node: &Node) -> Self {
         let neighbours_guard = node.neighbours.pin();
         let mut neighbours = std::collections::HashMap::new();
-        for (layer, node_set) in neighbours_guard.iter() {
-            let node_ids: Vec<NodeId> = node_set.pin().iter().copied().collect();
+        for (layer, edges) in neighbours_guard.iter() {
+            let node_ids = edges.load().as_ref().clone();
             neighbours.insert(*layer, node_ids);
         }
         let back_links: Vec<NodeId> = node.back_links.pin().iter().copied().collect();
@@ -1596,8 +1568,7 @@ fn node_from_temp_with_shared_collector(
     {
         let guard = neighbours.pin();
         for (layer, node_ids) in temp.neighbours {
-            let set = hashset_from_iter_with_shared_collector(node_ids, collector);
-            guard.insert(layer, set);
+            guard.insert(layer, ArcSwap::from_pointee(node_ids));
         }
     }
 
@@ -1623,7 +1594,7 @@ fn node_from_temp_with_counter_shards(
     {
         let guard = neighbours.pin();
         for (layer, ids) in temp.neighbours {
-            guard.insert(layer, node_hashset_from_iter(ids, collector, shards));
+            guard.insert(layer, ArcSwap::from_pointee(ids));
         }
     }
     Node {
@@ -1807,7 +1778,7 @@ mod tests {
             };
             node.neighbours
                 .pin()
-                .insert(LayerIndex(0), HashSet::from_iter(neighbours));
+                .insert(LayerIndex(0), ArcSwap::from_pointee(neighbours));
             hnsw.nodes.pin().insert(NodeId(id), node);
         }
         hnsw.enter_point
@@ -1880,7 +1851,7 @@ mod tests {
                 .pin()
                 .get(&LayerIndex(0))
                 .unwrap()
-                .pin()
+                .load()
                 .contains(&b)
         );
         assert!(
@@ -1889,7 +1860,7 @@ mod tests {
                 .pin()
                 .get(&LayerIndex(0))
                 .unwrap()
-                .pin()
+                .load()
                 .contains(&a)
         );
 
@@ -1924,10 +1895,10 @@ mod tests {
                 // Degree bound
                 let neighbours_guard = node.neighbours.pin();
                 if let Some(neighbours) = neighbours_guard.get(&layer0) {
-                    let set_guard = neighbours.pin();
-                    assert!(set_guard.len() <= hnsw.maximum_connections_zero);
+                    let edge_ids = neighbours.load();
+                    assert!(edge_ids.len() <= hnsw.maximum_connections_zero);
 
-                    for n in set_guard.iter() {
+                    for n in edge_ids.iter() {
                         // Neighbour exists
                         assert!(nodes.contains_key(n));
 
@@ -2013,7 +1984,7 @@ mod tests {
                 .neighbours
                 .pin()
                 .iter()
-                .all(|(_, s)| !s.pin().contains(&b))
+                .all(|(_, edges)| !edges.load().contains(&b))
         );
         assert!(!a_node.back_links.pin().contains(&b));
     }
@@ -2048,7 +2019,7 @@ mod tests {
                 node.neighbours
                     .pin()
                     .iter()
-                    .all(|(_, s)| !s.pin().contains(target))
+                    .all(|(_, edges)| !edges.load().contains(target))
             );
             assert!(!node.back_links.pin().contains(target));
         }
@@ -2073,7 +2044,7 @@ mod tests {
                 // neighbours must exist
                 let neighbours_guard = node.neighbours.pin();
                 for (_, neighbours) in neighbours_guard.iter() {
-                    for n in neighbours.pin().iter() {
+                    for n in neighbours.load().iter() {
                         assert!(nodes.contains_key(n));
                     }
                 }
@@ -2086,7 +2057,7 @@ mod tests {
                 // Bidirectional consistency
                 for (lc, neighbours) in neighbours_guard.iter() {
                     assert!(graph.get(lc).unwrap().pin().contains(id));
-                    for n in neighbours.pin().iter() {
+                    for n in neighbours.load().iter() {
                         let other = nodes.get(n).unwrap();
                         assert!(other.back_links.pin().contains(id));
                     }

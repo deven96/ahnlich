@@ -35,14 +35,13 @@ fn assert_shared(index: &HNSW<LinearAlgorithm>) {
             node.back_links.guard().collector(),
             collector.as_ref()
         ));
-        for (layer, set) in node.neighbours.pin().iter() {
-            assert!(std::ptr::eq(set.guard().collector(), collector.as_ref()));
+        for (layer, edges) in node.neighbours.pin().iter() {
             let maximum = if layer.0 == 0 {
                 index.maximum_connections_zero
             } else {
                 index.maximum_connections
             };
-            assert!(set.pin().len() <= maximum);
+            assert!(edges.load().len() <= maximum);
         }
     }
 }

@@ -4,10 +4,6 @@
 
 use super::*;
 
-mod compact_adjacency;
-#[allow(unused_imports)] // Used by benchmark crates; lib tests use the child directly.
-pub use compact_adjacency::CompactAdjacencyHNSW;
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct HnswTopology {
     top_layer: u8,
@@ -63,7 +59,7 @@ impl<D: DistanceFn> HNSW<D> {
                 let mut neighbours: Vec<_> = neighbours_guard
                     .iter()
                     .map(|(layer, ids)| {
-                        let mut ids: Vec<_> = ids.pin().iter().map(|id| id.0).collect();
+                        let mut ids: Vec<_> = ids.load().iter().map(|id| id.0).collect();
                         ids.sort_unstable();
                         (layer.0, ids)
                     })
@@ -161,23 +157,6 @@ impl<D: DistanceFn> HNSW<D> {
             .sum();
         (nodes.len(), collections)
     }
-
-    /// Count per-layer outgoing lists and their edges for adjacency experiments.
-    pub fn compact_adjacency_bench_counts(&self) -> (usize, usize) {
-        let nodes = self.nodes.pin();
-        let lists = nodes.values().map(|node| node.neighbours.pin().len()).sum();
-        let edges = nodes
-            .values()
-            .map(|node| {
-                let layers = node.neighbours.pin();
-                layers
-                    .values()
-                    .map(|edges| edges.pin().len())
-                    .sum::<usize>()
-            })
-            .sum();
-        (lists, edges)
-    }
 }
 
 #[cfg(test)]
@@ -234,65 +213,6 @@ mod tests {
                     .unwrap();
 
                 assert_eq!(candidate.topology_snapshot(), control.topology_snapshot());
-            }
-        }
-    }
-
-    #[test]
-    fn compact_adjacency_candidate_preserves_topology_and_results() {
-        let data = vectors(0, 256, 64);
-        let config = HNSWConfig {
-            ef_construction: 100,
-            maximum_connections: 16,
-            maximum_connections_zero: 32,
-            extend_candidates: false,
-            keep_pruned_connections: false,
-        };
-
-        for metric in [
-            LinearAlgorithm::EuclideanDistance,
-            LinearAlgorithm::CosineSimilarity,
-            LinearAlgorithm::DotProductSimilarity,
-        ] {
-            let control = HNSW::new_with_config_and_shared_collector_and_counter_shards(
-                config,
-                metric,
-                NonZeroUsize::new(1).unwrap(),
-            );
-            control.insert(&data).unwrap();
-
-            let candidate = CompactAdjacencyHNSW::new(config, metric);
-            candidate.insert(&data).unwrap();
-
-            assert_eq!(candidate.topology_snapshot(), control.topology_snapshot());
-            assert_eq!(
-                candidate.edge_counts().1,
-                candidate
-                    .topology_snapshot()
-                    .nodes
-                    .iter()
-                    .map(|(_, layers, _)| layers.iter().map(|(_, ids)| ids.len()).sum::<usize>())
-                    .sum::<usize>()
-            );
-
-            for query in data.iter().step_by(31) {
-                assert_eq!(
-                    candidate
-                        .n_nearest_with_ef(
-                            query.as_slice(),
-                            NonZeroUsize::new(10).unwrap(),
-                            NonZeroUsize::new(100)
-                        )
-                        .unwrap(),
-                    control
-                        .n_nearest_with_ef(
-                            query.as_slice(),
-                            NonZeroUsize::new(10).unwrap(),
-                            None,
-                            NonZeroUsize::new(100)
-                        )
-                        .unwrap(),
-                );
             }
         }
     }
