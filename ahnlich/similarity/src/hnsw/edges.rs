@@ -2,9 +2,12 @@
 use super::{NodeId, NodeIdHashSet};
 use crate::error::Error;
 use arc_swap::ArcSwap;
+#[cfg(any(test, feature = "bench-experiments"))]
 use papaya::HashSet;
 use seize::Collector;
-use std::{collections::hash_map::RandomState, fmt::Debug, num::NonZeroUsize, sync::Arc};
+#[cfg(any(test, feature = "bench-experiments"))]
+use std::collections::hash_map::RandomState;
+use std::{fmt::Debug, num::NonZeroUsize, sync::Arc};
 
 /// Immutable outgoing adjacency snapshot, backed by a contiguous vector.
 pub type CompactEdges = ArcSwap<Vec<NodeId>>;
@@ -47,6 +50,7 @@ pub trait EdgeStorage: Debug + Send + Sync + 'static {
         Self: Sized;
 }
 
+#[cfg(any(test, feature = "bench-experiments"))]
 impl EdgeSnapshot for papaya::HashSetRef<'_, NodeId, RandomState, seize::LocalGuard<'_>> {
     fn iter(&self) -> impl Iterator<Item = &NodeId> {
         self.iter()
@@ -56,6 +60,7 @@ impl EdgeSnapshot for papaya::HashSetRef<'_, NodeId, RandomState, seize::LocalGu
     }
 }
 
+#[cfg(any(test, feature = "bench-experiments"))]
 impl EdgeStorage for HashSet<NodeId> {
     type Snapshot<'a> = papaya::HashSetRef<'a, NodeId, RandomState, seize::LocalGuard<'a>>;
     const HASH_COLLECTION: bool = true;

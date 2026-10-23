@@ -36,13 +36,12 @@ fn assert_shared(index: &HNSW<LinearAlgorithm>) {
             collector.as_ref()
         ));
         for (layer, set) in node.neighbours.pin().iter() {
-            assert!(std::ptr::eq(set.guard().collector(), collector.as_ref()));
             let maximum = if layer.0 == 0 {
                 index.maximum_connections_zero
             } else {
                 index.maximum_connections
             };
-            assert!(set.pin().len() <= maximum);
+            assert!(set.snapshot().len() <= maximum);
         }
     }
 }

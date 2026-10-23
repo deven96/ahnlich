@@ -4,6 +4,35 @@
 
 use super::*;
 
+/// Original outgoing HashSet storage, available only to experiments and unit tests.
+pub type ControlHNSW<D> = HNSW<D, HashSet<NodeId>>;
+
+impl<D: DistanceFn> HNSW<D, HashSet<NodeId>> {
+    pub fn new_control_with_config(config: HNSWConfig, distance_algorithm: D) -> Self {
+        Self::new_with_config_for_edges(config, distance_algorithm)
+    }
+
+    pub fn new_control_with_config_and_shared_collector(
+        config: HNSWConfig,
+        distance_algorithm: D,
+    ) -> Self {
+        Self::new_with_config_and_shared_collector_for_edges(config, distance_algorithm)
+    }
+
+    /// Control with explicit per-node counter shards, matching the candidate fixture.
+    pub fn new_control_with_config_and_shared_collector_and_counter_shards(
+        config: HNSWConfig,
+        distance_algorithm: D,
+        shards: NonZeroUsize,
+    ) -> Self {
+        Self::new_with_config_and_shared_collector_and_counter_shards_for_edges(
+            config,
+            distance_algorithm,
+            shards,
+        )
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct HnswTopology {
     top_layer: u8,

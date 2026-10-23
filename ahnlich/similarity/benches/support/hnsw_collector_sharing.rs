@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use ahnlich_similarity::hnsw::HNSWConfig;
-use ahnlich_similarity::hnsw::index::HNSW;
+use ahnlich_similarity::hnsw::index::experiments::ControlHNSW as HNSW;
 use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm};
 use rand::{Rng, SeedableRng, rngs::StdRng};
 
@@ -91,10 +91,13 @@ pub fn index(variant: Variant, scenario: Scenario) -> HNSW<LinearAlgorithm> {
         keep_pruned_connections: false,
     };
     match variant {
-        Variant::Control => HNSW::new_with_config(config, LinearAlgorithm::CosineSimilarity),
-        Variant::Candidate => {
-            HNSW::new_with_config_and_shared_collector(config, LinearAlgorithm::CosineSimilarity)
+        Variant::Control => {
+            HNSW::new_control_with_config(config, LinearAlgorithm::CosineSimilarity)
         }
+        Variant::Candidate => HNSW::new_control_with_config_and_shared_collector(
+            config,
+            LinearAlgorithm::CosineSimilarity,
+        ),
     }
 }
 

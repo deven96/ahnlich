@@ -4,15 +4,7 @@ use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
-#[cfg(not(feature = "bench-control-adjacency"))]
-use ahnlich_similarity::hnsw::CompactEdges;
 use ahnlich_similarity::hnsw::index::HNSW;
-
-#[cfg(not(feature = "bench-control-adjacency"))]
-type DbHnsw = HNSW<LinearAlgorithm, CompactEdges>;
-#[cfg(feature = "bench-control-adjacency")]
-type DbHnsw = HNSW<LinearAlgorithm>;
-
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_types::algorithm::algorithms::DistanceMetric;
 use ahnlich_types::algorithm::nonlinear::{
@@ -32,7 +24,7 @@ use utils::fallible;
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
-    Hnsw(Box<DbHnsw>),
+    Hnsw(Box<HNSW<LinearAlgorithm>>),
 }
 
 impl NonLinearAlgorithmWithIndex {
@@ -45,11 +37,7 @@ impl NonLinearAlgorithmWithIndex {
             ),
             NonLinearAlgorithmIndexConf::Hnsw(conf) => {
                 let hnsw_conf: DbHnswConfig = conf.into();
-                #[cfg(feature = "bench-control-adjacency")]
-                let constructor = DbHnsw::new_with_shared_collector_and_counter_shards;
-                #[cfg(not(feature = "bench-control-adjacency"))]
-                let constructor = DbHnsw::new_with_compact_adjacency;
-                NonLinearAlgorithmWithIndex::Hnsw(Box::new(constructor(
+                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new_with_compact_adjacency(
                     hnsw_conf.distance_algorithm,
                     hnsw_conf.ef_construction,
                     hnsw_conf.maximum_connections,
@@ -68,7 +56,7 @@ impl NonLinearAlgorithmWithIndex {
                 <KDTree as NonLinearAlgorithmWithIndexImpl>::insert(kdtree, new)
             }
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <DbHnsw as NonLinearAlgorithmWithIndexImpl>::insert(hnsw, new)
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::insert(hnsw, new)
             }
         } {
             tracing::error!("Error inserting into index: {:?}", err)
@@ -83,7 +71,7 @@ impl NonLinearAlgorithmWithIndex {
             }
 
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <DbHnsw as NonLinearAlgorithmWithIndexImpl>::delete(hnsw, del)
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::delete(hnsw, del)
             }
         } {
             tracing::error!("Error deleting from index: {:?}", err)
@@ -97,7 +85,7 @@ impl NonLinearAlgorithmWithIndex {
                 <KDTree as NonLinearAlgorithmWithIndexImpl>::size(kdtree)
             }
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <DbHnsw as NonLinearAlgorithmWithIndexImpl>::size(hnsw)
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::size(hnsw)
             }
         }
     }

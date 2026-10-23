@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use ahnlich_similarity::hnsw::HNSWConfig;
-use ahnlich_similarity::hnsw::index::HNSW;
+use ahnlich_similarity::hnsw::index::experiments::ControlHNSW as HNSW;
 use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm};
 use criterion::{
     BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main,
@@ -26,7 +26,7 @@ fn metric_name(metric: LinearAlgorithm) -> &'static str {
 }
 
 fn new_index(metric: LinearAlgorithm) -> HNSW<LinearAlgorithm> {
-    HNSW::new_with_config(
+    HNSW::new_control_with_config(
         HNSWConfig {
             ef_construction: 100,
             maximum_connections: 40,

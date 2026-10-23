@@ -1,6 +1,8 @@
 use super::*;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 
+use super::experiments::ControlHNSW;
+
 type Candidate = HNSW<LinearAlgorithm, CompactEdges>;
 
 fn data(count: usize) -> Vec<EmbeddingKey> {
@@ -95,7 +97,7 @@ fn compact_graph_matches_control_and_restores_in_both_directions() {
             maximum_connections_zero: 8,
             ..HNSWConfig::default()
         };
-        let control = HNSW::new_with_config_and_shared_collector_and_counter_shards(
+        let control = ControlHNSW::new_control_with_config_and_shared_collector_and_counter_shards(
             config,
             metric,
             NonZeroUsize::new(1).unwrap(),
@@ -117,7 +119,7 @@ fn compact_graph_matches_control_and_restores_in_both_directions() {
 
         let restored_compact: Candidate =
             serde_json::from_str(&serde_json::to_string(&control).unwrap()).unwrap();
-        let restored_control: HNSW<LinearAlgorithm> =
+        let restored_control: ControlHNSW<LinearAlgorithm> =
             serde_json::from_str(&serde_json::to_string(&candidate).unwrap()).unwrap();
         assert_eq!(topology(&control), topology(&restored_compact));
         assert_eq!(topology(&control), topology(&restored_control));

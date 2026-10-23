@@ -3,7 +3,10 @@ use std::{num::NonZeroUsize, time::Duration};
 
 use ahnlich_similarity::{
     LinearAlgorithm,
-    hnsw::{CompactEdges, HNSWConfig, index::HNSW},
+    hnsw::{
+        CompactEdges, HNSWConfig,
+        index::{HNSW, experiments::ControlHNSW},
+    },
 };
 use criterion::{
     BatchSize, BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main,
@@ -25,8 +28,8 @@ const BASE_COUNT: usize = 2_500;
 const ADDITION_COUNT: usize = 100;
 const SEARCH_COUNT: usize = 10_000;
 
-fn control() -> HNSW<LinearAlgorithm> {
-    HNSW::new_with_config_and_shared_collector_and_counter_shards(
+fn control() -> ControlHNSW<LinearAlgorithm> {
+    ControlHNSW::new_control_with_config_and_shared_collector_and_counter_shards(
         CONFIG,
         LinearAlgorithm::CosineSimilarity,
         NonZeroUsize::new(1).unwrap(),
@@ -186,7 +189,7 @@ fn benchmark(c: &mut Criterion) {
 }
 
 enum Either {
-    Control(HNSW<LinearAlgorithm>),
+    Control(ControlHNSW<LinearAlgorithm>),
     Candidate(HNSW<LinearAlgorithm, CompactEdges>),
 }
 

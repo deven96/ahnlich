@@ -93,7 +93,7 @@ pub struct NodeId(pub u64);
 /// ```
 /// This shows that Node 42 participates in layers 0 through 3.
 #[derive(Debug)]
-pub struct Node<E: EdgeStorage = HashSet<NodeId>> {
+pub struct Node<E: EdgeStorage = CompactEdges> {
     id: NodeId,
     value: EmbeddingKey,
     neighbours: HashMap<LayerIndex, E>,

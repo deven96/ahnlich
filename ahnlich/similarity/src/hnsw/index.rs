@@ -26,7 +26,7 @@ use std::{
     },
 };
 
-#[cfg(feature = "bench-experiments")]
+#[cfg(any(test, feature = "bench-experiments"))]
 pub mod experiments;
 
 #[cfg(test)]
@@ -226,7 +226,7 @@ pub(super) fn node_hashset_from_iter<K: std::hash::Hash + Eq + Send + 'static>(
 /// back-links automatically updated upon deletion.
 /// ```
 #[derive(Debug)]
-pub struct HNSW<D: DistanceFn, E: EdgeStorage = HashSet<NodeId>> {
+pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
     // Runtime-only state. None preserves the independent-collector control path.
     collector: Option<Arc<Collector>>,
     // Runtime-only allocation policy, not part of the persisted graph configuration.
@@ -1872,7 +1872,7 @@ mod tests {
             };
             node.neighbours
                 .pin()
-                .insert(LayerIndex(0), HashSet::from_iter(neighbours));
+                .insert(LayerIndex(0), ArcSwap::from_pointee(neighbours));
             hnsw.nodes.pin().insert(NodeId(id), node);
         }
         hnsw.enter_point
@@ -1945,8 +1945,9 @@ mod tests {
                 .pin()
                 .get(&LayerIndex(0))
                 .unwrap()
-                .pin()
-                .contains(&b)
+                .snapshot()
+                .iter()
+                .any(|id| id == &b)
         );
         assert!(
             b_node
@@ -1954,8 +1955,9 @@ mod tests {
                 .pin()
                 .get(&LayerIndex(0))
                 .unwrap()
-                .pin()
-                .contains(&a)
+                .snapshot()
+                .iter()
+                .any(|id| id == &a)
         );
 
         // Back-links
@@ -1989,7 +1991,7 @@ mod tests {
                 // Degree bound
                 let neighbours_guard = node.neighbours.pin();
                 if let Some(neighbours) = neighbours_guard.get(&layer0) {
-                    let set_guard = neighbours.pin();
+                    let set_guard = neighbours.snapshot();
                     assert!(set_guard.len() <= hnsw.maximum_connections_zero);
 
                     for n in set_guard.iter() {
@@ -2078,7 +2080,7 @@ mod tests {
                 .neighbours
                 .pin()
                 .iter()
-                .all(|(_, s)| !s.pin().contains(&b))
+                .all(|(_, s)| !s.load().contains(&b))
         );
         assert!(!a_node.back_links.pin().contains(&b));
     }
@@ -2113,7 +2115,7 @@ mod tests {
                 node.neighbours
                     .pin()
                     .iter()
-                    .all(|(_, s)| !s.pin().contains(target))
+                    .all(|(_, s)| !s.load().contains(target))
             );
             assert!(!node.back_links.pin().contains(target));
         }
@@ -2138,7 +2140,7 @@ mod tests {
                 // neighbours must exist
                 let neighbours_guard = node.neighbours.pin();
                 for (_, neighbours) in neighbours_guard.iter() {
-                    for n in neighbours.pin().iter() {
+                    for n in neighbours.snapshot().iter() {
                         assert!(nodes.contains_key(n));
                     }
                 }
@@ -2151,7 +2153,7 @@ mod tests {
                 // Bidirectional consistency
                 for (lc, neighbours) in neighbours_guard.iter() {
                     assert!(graph.get(lc).unwrap().pin().contains(id));
-                    for n in neighbours.pin().iter() {
+                    for n in neighbours.snapshot().iter() {
                         let other = nodes.get(n).unwrap();
                         assert!(other.back_links.pin().contains(id));
                     }

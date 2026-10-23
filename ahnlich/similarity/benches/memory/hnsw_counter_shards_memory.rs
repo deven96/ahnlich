@@ -3,7 +3,7 @@ mod support;
 
 use ahnlich_similarity::{
     EmbeddingKey, LinearAlgorithm,
-    hnsw::{HNSWConfig, index::HNSW},
+    hnsw::{HNSWConfig, index::experiments::ControlHNSW as HNSW},
 };
 use std::fmt::Write as _;
 use std::hint::black_box;
@@ -52,10 +52,11 @@ fn populated(variant: Variant, scenario: Scenario, data: &[EmbeddingKey]) -> HNS
         keep_pruned_connections: false,
     };
     let index = match variant.shards() {
-        None => {
-            HNSW::new_with_config_and_shared_collector(config, LinearAlgorithm::CosineSimilarity)
-        }
-        Some(shards) => HNSW::new_with_config_and_shared_collector_and_counter_shards(
+        None => HNSW::new_control_with_config_and_shared_collector(
+            config,
+            LinearAlgorithm::CosineSimilarity,
+        ),
+        Some(shards) => HNSW::new_control_with_config_and_shared_collector_and_counter_shards(
             config,
             LinearAlgorithm::CosineSimilarity,
             shards,
