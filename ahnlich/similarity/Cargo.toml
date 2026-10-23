@@ -78,3 +78,15 @@ name = "hnsw_insert_distance_reuse"
 path = "benches/experiments/hnsw_insert_distance_reuse.rs"
 harness = false
 required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_compact_adjacency_graph"
+path = "benches/experiments/hnsw_compact_adjacency_graph.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_compact_adjacency_graph_memory"
+path = "benches/memory/hnsw_compact_adjacency_graph_memory.rs"
+harness = false
+required-features = ["bench-experiments"]

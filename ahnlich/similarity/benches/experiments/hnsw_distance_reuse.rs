@@ -1,8 +1,8 @@
 use std::num::NonZeroUsize;
 use std::time::Duration;
 
-use ahnlich_similarity::hnsw::index::HNSW;
-use ahnlich_similarity::hnsw::{HNSWConfig, Node};
+use ahnlich_similarity::hnsw::HNSWConfig;
+use ahnlich_similarity::hnsw::index::experiments::ControlHNSW as HNSW;
 use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm};
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 
@@ -43,10 +43,10 @@ fn build_index(dimensions: usize, metric: LinearAlgorithm) -> HNSW<LinearAlgorit
         extend_candidates: false,
         keep_pruned_connections: false,
     };
-    let index = HNSW::new_with_config(config, metric);
+    let index = HNSW::new_control_with_config(config, metric);
     for id in 0..INDEX_SIZE {
         index
-            .insert_node(Node::new(EmbeddingKey::new(vector(id, dimensions))))
+            .insert_control_for_benchmark(&[EmbeddingKey::new(vector(id, dimensions))])
             .unwrap();
     }
     index
