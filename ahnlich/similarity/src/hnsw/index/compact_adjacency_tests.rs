@@ -102,7 +102,7 @@ fn compact_graph_matches_control_and_restores_in_both_directions() {
             metric,
             NonZeroUsize::new(1).unwrap(),
         );
-        let candidate = Candidate::new_with_config_and_compact_adjacency(
+        let candidate = Candidate::new_with_config_and_shared_collector_and_counter_shards(
             config,
             metric,
             NonZeroUsize::new(1).unwrap(),

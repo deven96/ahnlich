@@ -1,6 +1,5 @@
-//! Benchmark facades for the HNSW distance-reuse experiment.
-//!
-//! These retain the previous search path as a control against the production candidate.
+//! Helpers for the HNSW benchmark experiments: the original hash-set edge storage as a
+//! control, graph snapshots for equivalence checks, and allocation counters.
 
 use super::*;
 
@@ -9,14 +8,19 @@ pub type ControlHNSW<D> = HNSW<D, HashSet<NodeId>>;
 
 impl<D: DistanceFn> HNSW<D, HashSet<NodeId>> {
     pub fn new_control_with_config(config: HNSWConfig, distance_algorithm: D) -> Self {
-        Self::new_with_config_for_edges(config, distance_algorithm)
+        Self::build(config, distance_algorithm, None, None)
     }
 
     pub fn new_control_with_config_and_shared_collector(
         config: HNSWConfig,
         distance_algorithm: D,
     ) -> Self {
-        Self::new_with_config_and_shared_collector_for_edges(config, distance_algorithm)
+        Self::build(
+            config,
+            distance_algorithm,
+            Some(Arc::new(Collector::new())),
+            None,
+        )
     }
 
     /// Control with explicit per-node counter shards, matching the candidate fixture.
@@ -25,46 +29,29 @@ impl<D: DistanceFn> HNSW<D, HashSet<NodeId>> {
         distance_algorithm: D,
         shards: NonZeroUsize,
     ) -> Self {
-        Self::new_with_config_and_shared_collector_and_counter_shards_for_edges(
+        Self::build(
             config,
             distance_algorithm,
-            shards,
+            Some(Arc::new(Collector::new())),
+            Some(shards),
         )
     }
 }
+
+/// A node's ID, its outgoing edges per layer, and its backlinks.
+type NodeTopology = (u64, Vec<(u16, Vec<u64>)>, Vec<u64>);
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct HnswTopology {
     top_layer: u8,
     entry_points: Vec<u64>,
     graph: Vec<(u16, Vec<u64>)>,
-    nodes: Vec<(u64, Vec<(u16, Vec<u64>)>, Vec<u64>)>,
+    nodes: Vec<NodeTopology>,
 }
 
 impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
-    /// Benchmark facade for the unchanged insertion implementation.
-    pub fn insert_control_for_benchmark(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
-        for key in new {
-            self.insert_node(Node::<E>::new_with_edges(key.clone()))?;
-        }
-        Ok(())
-    }
-
-    /// Deep-copy an index outside the timed part of an incremental insertion benchmark.
-    pub fn clone_for_benchmark(&self) -> Self {
-        TempHNSW::from(self).into()
-    }
-
-    /// Benchmark facade for the candidate insertion implementation.
-    pub fn insert_reuse_distances_candidate(&self, new: &[EmbeddingKey]) -> Result<(), Error> {
-        for key in new {
-            self.insert_node_with_reused_distances(Node::<E>::new_with_edges(key.clone()))?;
-        }
-        Ok(())
-    }
-
-    /// Deterministic graph representation used to prove that the insertion variants build the
-    /// same graph before their timings are compared.
+    /// Deterministic graph representation used to prove that two indexes (for example the two
+    /// edge storages) built the same graph before their timings are compared.
     pub fn topology_snapshot(&self) -> HnswTopology {
         let mut entry_points: Vec<_> = self.enter_point.load().ids.iter().map(|id| id.0).collect();
         entry_points.sort_unstable();
@@ -110,51 +97,6 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         }
     }
 
-    fn materialize_ids_with_scores(
-        &self,
-        reference_point: &[f32],
-        ids: Vec<NodeId>,
-    ) -> Vec<(EmbeddingKey, f32)> {
-        let nodes = self.nodes.pin();
-        ids.into_iter()
-            .filter_map(|id| {
-                nodes.get(&id).map(|node| {
-                    let key = node.value.clone();
-                    let value = self
-                        .distance_algorithm
-                        .value(reference_point, key.as_slice());
-                    (key, value)
-                })
-            })
-            .collect()
-    }
-
-    /// Benchmark facade for the current main implementation at the public-result boundary.
-    pub fn n_nearest_control(
-        &self,
-        reference_point: &[f32],
-        n: NonZeroUsize,
-        ef: Option<usize>,
-    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
-        let query = Node::<E>::new_with_edges(EmbeddingKey::new(reference_point.to_vec()));
-        let ids = self.knn_search(&query, n.get(), ef, None)?;
-        Ok(self.materialize_ids_with_scores(reference_point, ids))
-    }
-
-    /// Benchmark facade for the distance-reusing implementation at the public-result boundary.
-    pub fn n_nearest_reuse_distances(
-        &self,
-        reference_point: &[f32],
-        n: NonZeroUsize,
-        ef: Option<usize>,
-    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
-        let query = Node::<E>::new_with_edges(EmbeddingKey::new(reference_point.to_vec()));
-        let ids = self.knn_search_reuse_distances(&query, n.get(), ef, None)?;
-        Ok(self.materialize_ids_with_scores(reference_point, ids))
-    }
-}
-
-impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Stored nodes and live logical collectors (retired collections are excluded).
     /// Used by the collector-sharing benchmark's correctness checks and report.
     pub fn collector_sharing_bench_counts(&self) -> (usize, usize) {
@@ -174,9 +116,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             },
         )
     }
-}
 
-impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Stored nodes and live per-node collections, excluding index-wide maps/sets.
     pub fn counter_shards_bench_counts(&self) -> (usize, usize) {
         let nodes = self.nodes.pin();
@@ -186,9 +126,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             .sum();
         (nodes.len(), collections)
     }
-}
 
-impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     pub fn compact_adjacency_bench_counts(&self) -> (usize, usize) {
         let nodes = self.nodes.pin();
         let lists = nodes.values().map(|node| node.neighbours.pin().len()).sum();
@@ -203,64 +141,5 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             })
             .sum();
         (lists, edges)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn vectors(start: usize, count: usize, dimensions: usize) -> Vec<EmbeddingKey> {
-        (start..start + count)
-            .map(|id| {
-                EmbeddingKey::new(
-                    (0..dimensions)
-                        .map(|dimension| {
-                            let mixed = id
-                                .wrapping_mul(1_664_525)
-                                .wrapping_add(dimension.wrapping_mul(1_013_904_223));
-                            ((mixed % 20_003) as f32 / 10_001.5) - 1.0
-                        })
-                        .collect(),
-                )
-            })
-            .collect()
-    }
-
-    #[test]
-    fn insertion_distance_reuse_preserves_graph_topology() {
-        let base = vectors(0, 128, 64);
-        let additions = vectors(128, 32, 64);
-
-        for shared_collector in [false, true] {
-            for metric in [
-                LinearAlgorithm::EuclideanDistance,
-                LinearAlgorithm::CosineSimilarity,
-                LinearAlgorithm::DotProductSimilarity,
-            ] {
-                let new_index = || {
-                    if shared_collector {
-                        HNSW::new_with_config_and_shared_collector_and_counter_shards(
-                            HNSWConfig::default(),
-                            metric,
-                            NonZeroUsize::new(1).unwrap(),
-                        )
-                    } else {
-                        HNSW::new_with_config(HNSWConfig::default(), metric)
-                    }
-                };
-                let control = new_index();
-                control.insert_control_for_benchmark(&base).unwrap();
-                control.insert_control_for_benchmark(&additions).unwrap();
-
-                let candidate = new_index();
-                candidate.insert_reuse_distances_candidate(&base).unwrap();
-                candidate
-                    .insert_reuse_distances_candidate(&additions)
-                    .unwrap();
-
-                assert_eq!(candidate.topology_snapshot(), control.topology_snapshot());
-            }
-        }
     }
 }

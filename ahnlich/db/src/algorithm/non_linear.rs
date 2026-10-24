@@ -4,6 +4,7 @@ use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
+use ahnlich_similarity::hnsw::HNSWConfig;
 use ahnlich_similarity::hnsw::index::HNSW;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_types::algorithm::algorithms::DistanceMetric;
@@ -37,13 +38,15 @@ impl NonLinearAlgorithmWithIndex {
             ),
             NonLinearAlgorithmIndexConf::Hnsw(conf) => {
                 let hnsw_conf: DbHnswConfig = conf.into();
-                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new_with_compact_adjacency(
+                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new_with_startup_counter_shards(
+                    HNSWConfig {
+                        ef_construction: hnsw_conf.ef_construction,
+                        maximum_connections: hnsw_conf.maximum_connections,
+                        maximum_connections_zero: hnsw_conf.maximum_connections_zero,
+                        extend_candidates: hnsw_conf.extend_candidates,
+                        keep_pruned_connections: hnsw_conf.keep_pruned_connections,
+                    },
                     hnsw_conf.distance_algorithm,
-                    hnsw_conf.ef_construction,
-                    hnsw_conf.maximum_connections,
-                    hnsw_conf.maximum_connections_zero,
-                    hnsw_conf.extend_candidates,
-                    hnsw_conf.keep_pruned_connections,
                 )))
             }
         }

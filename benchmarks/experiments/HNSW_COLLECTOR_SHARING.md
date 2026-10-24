@@ -5,7 +5,7 @@ versus 0.42 GiB with linear search. This candidate tests whether independent
 Papaya reclamation collectors contribute to that footprint. It makes no claim
 about memory savings until measured.
 
-The default DB build uses `HNSW::new_with_shared_collector` and a shared collector per
+The default DB build uses `HNSW::new_with_startup_counter_shards` and a shared collector per
 index. The original constructors remain available for the control. Similarity
 benchmarks can enable `bench-experiments` and call
 `new_with_config` (control) and `new_with_config_and_shared_collector` in the same binary.

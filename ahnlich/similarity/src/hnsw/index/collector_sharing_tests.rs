@@ -9,8 +9,16 @@ fn fixture() -> Vec<EmbeddingKey> {
         .collect()
 }
 
+const CONFIG: HNSWConfig = HNSWConfig {
+    ef_construction: 100,
+    maximum_connections: 4,
+    maximum_connections_zero: 8,
+    extend_candidates: false,
+    keep_pruned_connections: false,
+};
+
 fn with_shared_collector(metric: LinearAlgorithm) -> HNSW<LinearAlgorithm> {
-    HNSW::new_with_shared_collector(metric, 100, 4, 8, false, false)
+    HNSW::new_with_config_and_shared_collector(CONFIG, metric)
 }
 
 fn assert_shared(index: &HNSW<LinearAlgorithm>) {
@@ -84,7 +92,7 @@ fn shared_collector_preserves_search_results() {
         LinearAlgorithm::CosineSimilarity,
         LinearAlgorithm::DotProductSimilarity,
     ] {
-        let control = HNSW::new(metric, 100, 4, 8, false, false);
+        let control = HNSW::new_with_config(CONFIG, metric);
         let with_shared_collector = with_shared_collector(metric);
         assert!(control.collector.is_none());
         control.insert(&data).unwrap();
@@ -195,17 +203,17 @@ fn shared_collector_supports_concurrent_reads_after_loading() {
 #[cfg(feature = "bench-experiments")]
 #[test]
 fn collector_benchmark_delete_all_nodes_preserves_empty_index() {
+    const LARGE_CONFIG: HNSWConfig = HNSWConfig {
+        ef_construction: 500,
+        maximum_connections: 15,
+        maximum_connections_zero: 30,
+        extend_candidates: false,
+        keep_pruned_connections: false,
+    };
     let data = fixture();
     for index in [
-        HNSW::new(LinearAlgorithm::CosineSimilarity, 500, 15, 30, false, false),
-        HNSW::new_with_shared_collector(
-            LinearAlgorithm::CosineSimilarity,
-            500,
-            15,
-            30,
-            false,
-            false,
-        ),
+        HNSW::new_with_config(LARGE_CONFIG, LinearAlgorithm::CosineSimilarity),
+        HNSW::new_with_config_and_shared_collector(LARGE_CONFIG, LinearAlgorithm::CosineSimilarity),
     ] {
         assert_eq!(index.collector_sharing_bench_counts().0, 0);
         index.insert(&data).unwrap();
@@ -224,16 +232,9 @@ fn counter_shards_preserve_graph_results_and_collector_lifecycle() {
         LinearAlgorithm::DotProductSimilarity,
     ] {
         for shards in [1, 2] {
-            let config = HNSWConfig {
-                ef_construction: 100,
-                maximum_connections: 4,
-                maximum_connections_zero: 8,
-                extend_candidates: false,
-                keep_pruned_connections: false,
-            };
-            let control = HNSW::new_with_config_and_shared_collector(config, metric);
+            let control = HNSW::new_with_config_and_shared_collector(CONFIG, metric);
             let candidate = HNSW::new_with_config_and_shared_collector_and_counter_shards(
-                config,
+                CONFIG,
                 metric,
                 NonZeroUsize::new(shards).unwrap(),
             );
@@ -270,14 +271,7 @@ fn counter_shards_preserve_graph_results_and_collector_lifecycle() {
 #[cfg(feature = "serde")]
 #[test]
 fn counter_shards_restore_policy_without_changing_snapshot_format() {
-    let index = HNSW::new_with_shared_collector_and_counter_shards(
-        LinearAlgorithm::EuclideanDistance,
-        100,
-        4,
-        8,
-        false,
-        false,
-    );
+    let index = HNSW::new_with_startup_counter_shards(CONFIG, LinearAlgorithm::EuclideanDistance);
     let data = fixture();
     index.insert(&data).unwrap();
     let bytes = serde_json::to_vec(&index).unwrap();
@@ -318,14 +312,7 @@ fn configured_counter_shards_apply_to_creation_and_restore() {
         return;
     }
     configure_node_counter_shards(NonZeroUsize::new(4).unwrap());
-    let index = HNSW::new_with_shared_collector_and_counter_shards(
-        LinearAlgorithm::EuclideanDistance,
-        100,
-        4,
-        8,
-        false,
-        false,
-    );
+    let index = HNSW::new_with_startup_counter_shards(CONFIG, LinearAlgorithm::EuclideanDistance);
     assert_eq!(index.node_counter_shards.unwrap().get(), 4);
     let data = fixture();
     index.insert(&data).unwrap();

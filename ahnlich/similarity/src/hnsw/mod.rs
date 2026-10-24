@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod edges;
 pub mod index;
 pub mod utils;
@@ -7,7 +5,7 @@ pub mod utils;
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
-use crate::{Closeness, DistanceFn, EmbeddingKey};
+use crate::{Closeness, EmbeddingKey};
 pub use edges::CompactEdges;
 use edges::{EdgeSnapshot, EdgeStorage};
 use papaya::{HashMap, HashSet};
@@ -275,70 +273,19 @@ impl Ord for OrderedNode {
 ///
 /// A plain max-heap: `OrderedNode` orders by closeness, so the closest is always the
 /// greatest, whichever metric is in use. There is no min/max variant to pick.
-pub(crate) struct NearestFirst<F>
-where
-    F: DistanceFn,
-{
+pub(crate) struct NearestFirst {
     heap: BinaryHeap<OrderedNode>,
-    distance_algorithm: F,
-    /// Query embedding - stored as EmbeddingKey for cheap cloning (Arc pointer bump)
-    query: EmbeddingKey,
 }
 
-impl<F: DistanceFn> NearestFirst<F> {
-    pub(crate) fn from_nodes<'a, E: EdgeStorage>(
-        nodes: impl Iterator<Item = &'a Node<E>>,
-        query: &Node<E>,
-        distance_algorithm: F,
-    ) -> Self {
-        let heap = nodes
-            .map(|node| {
-                let closeness =
-                    distance_algorithm.closeness(node.value.as_slice(), query.value.as_slice());
-                OrderedNode::new(node.id, closeness)
-            })
-            .collect::<BinaryHeap<_>>();
-        Self {
-            heap,
-            distance_algorithm,
-            query: query.value.clone(),
-        }
-    }
-
-    pub(crate) fn push<E: EdgeStorage>(&mut self, node: &Node<E>) {
-        let closeness = self
-            .distance_algorithm
-            .closeness(node.value.as_slice(), self.query.as_slice());
-        self.heap.push(OrderedNode::new(node.id, closeness))
-    }
-
-    /// Build a candidate queue from distances already computed by the caller.
-    pub(crate) fn from_scored<E: EdgeStorage>(
-        nodes: impl Iterator<Item = OrderedNode>,
-        query: &Node<E>,
-        distance_algorithm: F,
-    ) -> Self {
-        Self::from_scored_with_embedding(nodes, query.value.clone(), distance_algorithm)
-    }
-
-    /// Build a scored queue without constructing a graph node for the query.
-    ///
-    /// Candidate representations may not use [`Node`] for their stored graph
-    /// nodes, but retain the same score queue and distance semantics.
-    pub(crate) fn from_scored_with_embedding(
-        nodes: impl Iterator<Item = OrderedNode>,
-        query: EmbeddingKey,
-        distance_algorithm: F,
-    ) -> Self {
+impl NearestFirst {
+    /// Build a queue from nodes whose query distance the caller has already computed.
+    pub(crate) fn new(nodes: impl Iterator<Item = OrderedNode>) -> Self {
         Self {
             heap: nodes.collect(),
-            distance_algorithm,
-            query,
         }
     }
 
-    /// Admit a node without repeating its query-distance calculation.
-    pub(crate) fn push_scored(&mut self, node: OrderedNode) {
+    pub(crate) fn push(&mut self, node: OrderedNode) {
         self.heap.push(node);
     }
 
@@ -352,10 +299,6 @@ impl<F: DistanceFn> NearestFirst<F> {
 
     pub(crate) fn len(&self) -> usize {
         self.heap.len()
-    }
-
-    pub(crate) fn peek(&self) -> Option<&OrderedNode> {
-        self.heap.peek()
     }
 
     pub(crate) fn iter(&self) -> impl Iterator<Item = &OrderedNode> {

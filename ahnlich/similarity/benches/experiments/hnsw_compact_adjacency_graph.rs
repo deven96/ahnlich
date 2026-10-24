@@ -37,7 +37,7 @@ fn control() -> ControlHNSW<LinearAlgorithm> {
 }
 
 fn candidate() -> HNSW<LinearAlgorithm, CompactEdges> {
-    HNSW::new_with_config_and_compact_adjacency(
+    HNSW::new_with_config_and_shared_collector_and_counter_shards(
         CONFIG,
         LinearAlgorithm::CosineSimilarity,
         NonZeroUsize::new(1).unwrap(),
