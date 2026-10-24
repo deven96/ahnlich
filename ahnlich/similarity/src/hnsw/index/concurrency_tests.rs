@@ -483,3 +483,46 @@ fn test_inserting_the_same_node_twice_keeps_one_copy() {
     index.insert(std::slice::from_ref(&key)).unwrap();
     assert_eq!(index.nodes.pin().len(), 1);
 }
+
+fn check_writers_racing_into_an_empty_index_still_get_linked<E: EdgeStorage>(
+    index: Arc<HNSW<LinearAlgorithm, E>>,
+) {
+    let [first, second]: [EmbeddingKey; 2] = vectors(14, 2).try_into().unwrap();
+
+    // While `first` is still linking into the empty index, `second` is inserted, as a second
+    // writer would be.
+    let ran = std::rc::Rc::new(std::cell::Cell::new(false));
+    AFTER_NEIGHBOUR_SELECTION.with(|hook| {
+        let (index, second, ran) = (Arc::clone(&index), second.clone(), std::rc::Rc::clone(&ran));
+        *hook.borrow_mut() = Some(Box::new(move |_| {
+            if !ran.replace(true) {
+                index.insert(std::slice::from_ref(&second)).unwrap();
+            }
+        }));
+    });
+    let result = index.insert(std::slice::from_ref(&first));
+    AFTER_NEIGHBOUR_SELECTION.with(|hook| *hook.borrow_mut() = None);
+    result.unwrap();
+    assert!(ran.get());
+
+    let nodes = index.nodes.pin();
+    assert_eq!(nodes.len(), 2);
+    for (id, node) in nodes.iter() {
+        let edges = node.neighbours.pin();
+        let layer_zero = edges
+            .get(&LayerIndex(0))
+            .map_or(0, |edges| edges.snapshot().len());
+        assert!(layer_zero > 0, "{id:?} was left without edges");
+    }
+    assert_eq!(dangling_references(&index), vec![]);
+}
+
+#[test]
+fn test_writers_racing_into_an_empty_index_still_get_linked_hash_set() {
+    check_writers_racing_into_an_empty_index_still_get_linked(Arc::new(hash_set_index()));
+}
+
+#[test]
+fn test_writers_racing_into_an_empty_index_still_get_linked_compact() {
+    check_writers_racing_into_an_empty_index_still_get_linked(Arc::new(compact_index()));
+}

@@ -579,11 +579,18 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             return Ok(());
         };
 
+        let level = stored.level(self.maximum_connections);
+        // Writers that start on an empty index must have something to link to, so the first
+        // node becomes the entry point as soon as it is published, not once it is linked.
+        if self.enter_point.load().ids.is_empty() {
+            self.promote_entry_point(id, level);
+        }
+
         if let Err(err) = self.link_node(&nodes, stored) {
             self.delete_node(&id);
             return Err(err);
         }
-        self.promote_entry_point(id, stored.level(self.maximum_connections));
+        self.promote_entry_point(id, level);
         Ok(())
     }
 
@@ -602,13 +609,14 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
         for level_current in (new_elements_lvl + 1..=top_layer).rev() {
             enter_point = self.live_entry_points(nodes, enter_point);
-            let nearest_neighbours = self.search_layer(
+            let mut nearest_neighbours = self.search_layer(
                 value,
                 &enter_point,
                 initial_ef,
                 &LayerIndex(level_current as u16),
                 None,
             )?;
+            nearest_neighbours.retain(|nearest| nearest.id != value.id);
 
             if let Some(nearest) = nearest_neighbours.into_iter().max() {
                 enter_point = smallvec![nearest.id];
@@ -618,13 +626,14 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
             enter_point = self.live_entry_points(nodes, enter_point);
-            let nearest_neighbours = self.search_layer(
+            let mut nearest_neighbours = self.search_layer(
                 value,
                 &enter_point,
                 self.ef_construction,
                 &layer_index,
                 None,
             )?;
+            nearest_neighbours.retain(|nearest| nearest.id != value.id);
 
             let neighbours = self.select_neighbours_heuristic(
                 value,
@@ -634,7 +643,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 false,
                 false,
             )?;
-            let neighbours = self.live_link_targets(nodes, &neighbours);
+            let neighbours = self.live_link_targets(nodes, &neighbours, value.id);
 
             let value_neighbours_guard = value.neighbours.pin();
             let value_backlinks_guard = value.back_links.pin();
@@ -773,7 +782,12 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
     /// The chosen neighbours that are still stored. If every one has been deleted since it
     /// was chosen, fall back to the entry point so the new node is not left without edges.
-    fn live_link_targets(&self, nodes: &NodesRef<'_, E>, chosen: &[NodeId]) -> Vec<NodeId> {
+    fn live_link_targets(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        chosen: &[NodeId],
+        new_id: NodeId,
+    ) -> Vec<NodeId> {
         #[cfg(test)]
         AFTER_NEIGHBOUR_SELECTION.with(|hook| {
             if let Some(hook) = hook.borrow().as_ref() {
@@ -804,7 +818,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             .ids
             .iter()
             .copied()
-            .filter(|id| nodes.contains_key(id))
+            .filter(|id| *id != new_id && nodes.contains_key(id))
             .collect()
     }
 
