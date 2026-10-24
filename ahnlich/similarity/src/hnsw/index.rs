@@ -671,9 +671,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 };
 
                 let nn_guard = neighbour_node.neighbours.pin();
-                let e_conn = nn_guard
-                    .get(&layer_index)
-                    .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
+                let Some(e_conn) = nn_guard.get(&layer_index) else {
+                    skip_missing_node(neighbour);
+                    continue;
+                };
 
                 if let Some(replacement) = e_conn.prune(
                     maximum_connections,
