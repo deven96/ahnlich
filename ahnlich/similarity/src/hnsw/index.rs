@@ -87,6 +87,11 @@ thread_local! {
     /// test can remove the chosen neighbours at exactly the point a concurrent delete would.
     static AFTER_NEIGHBOUR_SELECTION: std::cell::RefCell<Option<NeighbourSelectionHook>> =
         const { std::cell::RefCell::new(None) };
+
+    /// This runs on the searching thread right after a search has loaded the entry
+    /// point, so a test can delete it at exactly the point a concurrent delete would.
+    static AFTER_SEARCH_ENTRY_LOAD: std::cell::RefCell<Option<Box<dyn Fn()>>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
@@ -1421,26 +1426,36 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 self.top_most_layer.load(Ordering::Acquire),
             )
         };
+        #[cfg(test)]
+        AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
+            if let Some(hook) = hook.borrow().as_ref() {
+                hook();
+            }
+        });
 
         for level_current in (1..=ep_level).rev() {
             let layer = LayerIndex(level_current as u16);
+            enter_point = self.live_entry_points(&nodes, enter_point);
 
             // Upper layers are navigation only (ef=1 greedy descent). Filtering here would
             // strand the descent on a non-matching entry point, so it stays unfiltered.
             let searched = self.search_layer(query, &enter_point, 1, &layer, None)?;
 
-            let ep = NearestFirst::from_nodes(
+            // An empty result means the nodes found were deleted since; keep the current
+            // start point and let the next layer restart from the index entry point if needed.
+            if let Some(nearest) = NearestFirst::from_nodes(
                 searched.iter().filter_map(|id| nodes.get(id)),
                 query,
                 self.distance_algorithm,
             )
             .peek()
-            .map(|node| node.id)
-            .ok_or(Error::QueueEmpty)?;
-            enter_point = smallvec![ep];
+            {
+                enter_point = smallvec![nearest.id];
+            }
         }
 
         // Layer 0 is where results are collected, so this is the only layer that filters.
+        enter_point = self.live_entry_points(&nodes, enter_point);
         let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0), accept_list)?;
         let mut current_nearest_elements = NearestFirst::from_nodes(
             level_zero.iter().filter_map(|id| nodes.get(id)),
@@ -1556,6 +1571,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         ef: Option<usize>,
         accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<OrderedNode>, Error> {
+        let nodes = self.nodes.pin();
         let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
         let ef = ef.unwrap_or_else(|| k.max(50)).max(k);
         let (mut enter_point, ep_level) = {
@@ -1565,8 +1581,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 self.top_most_layer.load(Ordering::Acquire),
             )
         };
+        #[cfg(test)]
+        AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
+            if let Some(hook) = hook.borrow().as_ref() {
+                hook();
+            }
+        });
 
         for level_current in (1..=ep_level).rev() {
+            enter_point = self.live_entry_points(&nodes, enter_point);
             let searched = self.search_layer_reuse_distances(
                 query,
                 &enter_point,
@@ -1574,10 +1597,12 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 &LayerIndex(level_current as u16),
                 None,
             )?;
-            let nearest = searched.into_iter().max().ok_or(Error::QueueEmpty)?;
-            enter_point = smallvec![nearest.id];
+            if let Some(nearest) = searched.into_iter().max() {
+                enter_point = smallvec![nearest.id];
+            }
         }
 
+        enter_point = self.live_entry_points(&nodes, enter_point);
         let level_zero = self.search_layer_reuse_distances(
             query,
             &enter_point,
@@ -1606,13 +1631,21 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     }
 
     /// Delete a single element from the HNSW graph by NodeId.
+    ///
+    /// Known worry: the node is only taken out of the `graph` layer sets while we walk its
+    /// backlinks, so a node with no backlinks can leave a stale entry behind in `graph`. Search
+    /// never reads `graph` (it is only written on insert and saved in snapshots), so this "should"
+    /// only waste a little memory and snapshot size. I've honestly not confirmed how often it happens.
     pub fn delete_node(&self, node_id: &NodeId) {
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
 
         if let Some(node) = nodes.get(node_id) {
             for backlink in &node.back_links.pin() {
-                let related = nodes.get(backlink).unwrap();
+                let Some(related) = nodes.get(backlink) else {
+                    skip_missing_node(backlink);
+                    continue;
+                };
 
                 let guard = related.neighbours.pin();
                 let neighbour_keys_inner = guard.keys();
@@ -1630,6 +1663,35 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             }
 
             nodes.remove(node_id);
+            self.repair_entry_point(&nodes, node_id);
+        }
+    }
+
+    /// If `deleted` was the index entry point, move it to the highest-level node that remains
+    /// (and lower `top_most_layer` to match), so searches and inserts do not start from a
+    /// node that no longer exists. This scans every node, but only when the entry point itself
+    /// is deleted.
+    fn repair_entry_point(&self, nodes: &NodesRef<'_, E>, deleted: &NodeId) {
+        let current = self.enter_point.load();
+        if !current.contains(deleted) {
+            return;
+        }
+        // Ties go to the smallest ID: map iteration order differs between processes, and
+        // replicas applying the same deletes must agree on the entry point.
+        let replacement = nodes
+            .iter()
+            .map(|(id, node)| (*id, node.level(self.maximum_connections)))
+            .max_by(|(a_id, a_level), (b_id, b_level)| {
+                a_level.cmp(b_level).then(b_id.0.cmp(&a_id.0))
+            });
+        let (entry, top_layer) = match replacement {
+            Some((id, level)) => (smallvec![id], level),
+            None => (SmallVec::new(), 0),
+        };
+        // Another writer may have installed a higher node meanwhile; leave it alone then.
+        let previous = self.enter_point.compare_and_swap(&current, Arc::new(entry));
+        if Arc::ptr_eq(&current, &previous) {
+            self.top_most_layer.store(top_layer, Ordering::Release);
         }
     }
 
@@ -2632,5 +2694,186 @@ mod tests {
         check_insert_survives_chosen_neighbours_being_deleted(
             Arc::new(concurrency_compact_index()),
         );
+    }
+
+    fn check_deleting_the_entry_point_keeps_the_index_usable<E: EdgeStorage>(
+        index: &HNSW<LinearAlgorithm, E>,
+    ) {
+        let data = concurrency_vectors(3, 400);
+        index.insert(&data).unwrap();
+        assert!(
+            index.top_most_layer.load(Ordering::Acquire) >= 1,
+            "fixture should have upper layers"
+        );
+
+        let entry = index.enter_point.load()[0];
+        let entry_key = data
+            .iter()
+            .find(|key| get_node_id(key.as_slice()) == entry)
+            .unwrap()
+            .clone();
+        assert_eq!(index.delete(std::slice::from_ref(&entry_key)).unwrap(), 1);
+
+        let results = index
+            .n_nearest_with_ef(
+                data[1].as_slice(),
+                NonZeroUsize::new(10).unwrap(),
+                None,
+                NonZeroUsize::new(50),
+            )
+            .expect("search must still work after the entry point is deleted");
+        assert!(!results.is_empty());
+        assert!(results.iter().all(|(key, _)| *key != entry_key));
+
+        index
+            .insert(&concurrency_vectors(4, 20))
+            .expect("insert must still work after the entry point is deleted");
+        assert_eq!(dangling_references(index), vec![]);
+
+        assert_entry_is_highest_with_smallest_id(index);
+
+        // Keep deleting the entry point. Once only level-0 nodes remain they all tie, which
+        // is what the smallest-ID rule is for.
+        for _ in 0..100 {
+            let entry = index.enter_point.load()[0];
+            index.delete_node(&entry);
+            assert_entry_is_highest_with_smallest_id(index);
+        }
+        assert_eq!(dangling_references(index), vec![]);
+    }
+
+    /// After an entry point delete, the entry point must be the highest-level node, with ties
+    /// broken by smallest ID, and `top_most_layer` must equal that level.
+    fn assert_entry_is_highest_with_smallest_id<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) {
+        let nodes = index.nodes.pin();
+        let level = |node: &Node<E>| node.level(index.maximum_connections);
+        let highest = nodes.values().map(level).max().unwrap();
+        let smallest_at_highest = nodes
+            .iter()
+            .filter(|(_, node)| level(node) == highest)
+            .map(|(id, _)| id.0)
+            .min()
+            .unwrap();
+        assert_eq!(index.enter_point.load()[0].0, smallest_at_highest);
+        assert_eq!(index.top_most_layer.load(Ordering::Acquire), highest);
+    }
+
+    #[test]
+    fn test_deleting_the_entry_point_keeps_the_index_usable_hash_set() {
+        check_deleting_the_entry_point_keeps_the_index_usable(&concurrency_hash_set_index());
+    }
+
+    #[test]
+    fn test_deleting_the_entry_point_keeps_the_index_usable_compact() {
+        check_deleting_the_entry_point_keeps_the_index_usable(&concurrency_compact_index());
+    }
+
+    fn check_delete_tolerates_a_backlink_to_a_missing_node<E: EdgeStorage>(
+        index: &HNSW<LinearAlgorithm, E>,
+    ) {
+        let data = concurrency_vectors(7, 100);
+        index.insert(&data).unwrap();
+
+        let nodes = index.nodes.pin();
+        let (victim, backlinked) = nodes
+            .iter()
+            .find_map(|(id, node)| {
+                node.back_links
+                    .pin()
+                    .iter()
+                    .next()
+                    .map(|backlink| (*id, *backlink))
+            })
+            .unwrap();
+        // The backlinked node disappears (as if another thread deleted it), leaving a stale
+        // backlink behind on the node we are about to delete.
+        nodes.remove(&backlinked);
+
+        index.delete_node(&victim);
+        assert!(!nodes.contains_key(&victim));
+    }
+
+    #[test]
+    fn test_delete_tolerates_a_backlink_to_a_missing_node_hash_set() {
+        check_delete_tolerates_a_backlink_to_a_missing_node(&concurrency_hash_set_index());
+    }
+
+    #[test]
+    fn test_delete_tolerates_a_backlink_to_a_missing_node_compact() {
+        check_delete_tolerates_a_backlink_to_a_missing_node(&concurrency_compact_index());
+    }
+
+    #[test]
+    fn test_deleting_every_node_leaves_a_reusable_index() {
+        let index = concurrency_hash_set_index();
+        let data = concurrency_vectors(8, 60);
+        index.insert(&data).unwrap();
+        assert_eq!(index.delete(&data).unwrap(), data.len());
+        assert!(index.nodes.pin().is_empty());
+        assert!(index.enter_point.load().is_empty());
+        assert_eq!(index.top_most_layer.load(Ordering::Acquire), 0);
+
+        index.insert(&data[..20]).unwrap();
+        let results = index
+            .n_nearest_with_ef(
+                data[0].as_slice(),
+                NonZeroUsize::new(5).unwrap(),
+                None,
+                NonZeroUsize::new(20),
+            )
+            .unwrap();
+        assert_eq!(results.len(), 5);
+    }
+
+    fn check_search_survives_entry_point_deleted_mid_search<E: EdgeStorage>(
+        index: Arc<HNSW<LinearAlgorithm, E>>,
+    ) {
+        let data = concurrency_vectors(9, 400);
+        index.insert(&data).unwrap();
+        assert!(index.top_most_layer.load(Ordering::Acquire) >= 1);
+        let entry = index.enter_point.load()[0];
+
+        // Delete the entry point after the search has loaded it, as a concurrent delete would.
+        AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
+            let index = Arc::clone(&index);
+            *hook.borrow_mut() = Some(Box::new(move || index.delete_node(&entry)));
+        });
+        let scored = index.n_nearest_with_ef(
+            data[1].as_slice(),
+            NonZeroUsize::new(10).unwrap(),
+            None,
+            NonZeroUsize::new(50),
+        );
+        // Delete again for the other search function (the hook above already ran once).
+        index.insert(std::slice::from_ref(&data[0])).unwrap();
+        let entry = index.enter_point.load()[0];
+        AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
+            let index = Arc::clone(&index);
+            *hook.borrow_mut() = Some(Box::new(move || index.delete_node(&entry)));
+        });
+        let plain = index.knn_search(
+            &Node::<E>::new_with_edges(data[2].clone()),
+            10,
+            Some(50),
+            None,
+        );
+        AFTER_SEARCH_ENTRY_LOAD.with(|hook| *hook.borrow_mut() = None);
+
+        let scored = scored.expect("search must tolerate its entry point being deleted");
+        assert_eq!(scored.len(), 10);
+        let plain = plain.expect("knn_search must tolerate its entry point being deleted");
+        assert_eq!(plain.len(), 10);
+    }
+
+    #[test]
+    fn test_search_survives_entry_point_deleted_mid_search_hash_set() {
+        check_search_survives_entry_point_deleted_mid_search(
+            Arc::new(concurrency_hash_set_index()),
+        );
+    }
+
+    #[test]
+    fn test_search_survives_entry_point_deleted_mid_search_compact() {
+        check_search_survives_entry_point_deleted_mid_search(Arc::new(concurrency_compact_index()));
     }
 }
