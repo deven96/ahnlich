@@ -22,7 +22,7 @@ use std::{
     num::NonZeroUsize,
     sync::{
         Arc,
-        atomic::{AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -92,6 +92,18 @@ thread_local! {
     /// point, so a test can delete it at exactly the point a concurrent delete would.
     static AFTER_SEARCH_ENTRY_LOAD: std::cell::RefCell<Option<Box<dyn Fn()>>> =
         const { std::cell::RefCell::new(None) };
+
+    /// This runs once, between reading the entry point and trying to replace it, so a test
+    /// can land a competing writer in exactly that gap.
+    static BEFORE_ENTRY_PROMOTION: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The entry point node(s) and the layer they sit on, published together.
+#[derive(Debug, Default)]
+struct EntryPoint {
+    ids: SmallVec<[NodeId; 1]>,
+    level: u8,
 }
 
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
@@ -236,8 +248,8 @@ pub(super) fn node_hashset_from_iter<K: std::hash::Hash + Eq + Send + 'static>(
 /// and supports deletion operations.
 ///
 /// Uses papaya's concurrent HashMap for lock-free concurrent read access to nodes
-/// and graph layers. The enter_point is protected by a parking_lot RwLock, and
-/// top_most_layer uses an AtomicU8 for lock-free reads.
+/// and graph layers. The entry point and the top layer are held together in one ArcSwap,
+/// so readers get a consistent pair with a single lock-free load.
 ///
 /// Design rationale:
 /// 1. `nodes` is the single source of truth: all Node structs live here, keyed by NodeId.
@@ -270,9 +282,6 @@ pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: usize,
 
-    /// Top-most layer index in the graph (L)
-    top_most_layer: AtomicU8,
-
     /// Maximum number of connections per node (M)
     pub maximum_connections: usize,
 
@@ -298,13 +307,14 @@ pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
 
     /// Entry point node ID for search operations.
     ///
-    /// This is the node at the highest layer (top_most_layer) and serves as the
+    /// This is the node at the highest layer (the top layer) and serves as the
     /// starting point for all k-NN searches. Using the top-layer node ensures
     /// efficient hierarchical navigation through the graph.
     ///
     /// Updated whenever a new node is inserted at a higher layer than the current
-    /// top_most_layer. Protected by ArcSwap for lock-free concurrent access.
-    enter_point: ArcSwap<SmallVec<[NodeId; 1]>>,
+    /// top layer. Protected by ArcSwap for lock-free concurrent access. The node and
+    /// the top layer (L) live in one value, so a reader never sees one without the other.
+    enter_point: ArcSwap<EntryPoint>,
 
     /// distance algorithm
     /// can be ec
@@ -442,7 +452,6 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
         Self {
             ef_construction: config.ef_construction,
-            top_most_layer: AtomicU8::new(0),
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
@@ -450,7 +459,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             node_counter_shards: None,
             graph: new_hashmap(),
             nodes: new_hashmap(),
-            enter_point: ArcSwap::new(SmallVec::new().into()),
+            enter_point: ArcSwap::from_pointee(EntryPoint::default()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
             extend_candidates: config.extend_candidates,
@@ -465,7 +474,6 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let collector = Arc::new(Collector::new());
         Self {
             ef_construction: config.ef_construction,
-            top_most_layer: AtomicU8::new(0),
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
@@ -473,7 +481,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             nodes: new_hashmap_with_shared_collector(Some(&collector)),
             collector: Some(collector),
             node_counter_shards: None,
-            enter_point: ArcSwap::new(SmallVec::new().into()),
+            enter_point: ArcSwap::from_pointee(EntryPoint::default()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
             extend_candidates: config.extend_candidates,
@@ -514,7 +522,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
     /// Get the current top-most layer index
     pub fn top_layer(&self) -> u8 {
-        self.top_most_layer.load(Ordering::Acquire)
+        self.enter_point.load().level
     }
 
     /// Batch insert new embeddings into the HNSW graph.
@@ -689,7 +697,6 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         };
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
-        let top_layer = self.top_most_layer.load(Ordering::Acquire);
 
         if nodes.contains_key(&value.id) {
             return Ok(());
@@ -697,7 +704,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         // internally uses SEARCH-LAYER, SELECT-neighbourS
         let inital_ef = 1;
 
-        let mut enter_point = self.enter_point.load().as_ref().clone();
+        let entry = self.enter_point.load();
+        let top_layer = entry.level;
+        let mut enter_point = entry.ids.clone();
         let new_elements_lvl = value.level(self.maximum_connections);
 
         // NOTE: think of this as finding the best hallway in different floors in a building with
@@ -843,18 +852,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let value_id = value.id;
         nodes.insert(value.id, value);
 
-        // NOTE: given that we use u8 for topmost layer, we want that on first insertion we always
-        // set enterpoint else this would be a pain
-        //
-        // Update enter_point and top_most_layer atomically
-        {
-            let current_top = self.top_most_layer.load(Ordering::Acquire);
-            if new_elements_lvl > current_top || nodes.len() == 1 {
-                self.top_most_layer
-                    .store(new_elements_lvl, Ordering::Release);
-                self.enter_point.swap(smallvec![value_id].into());
-            }
-        }
+        self.promote_entry_point(value_id, new_elements_lvl);
         Ok(())
     }
 
@@ -875,14 +873,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         };
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
-        let top_layer = self.top_most_layer.load(Ordering::Acquire);
 
         if nodes.contains_key(&value.id) {
             return Ok(());
         }
         let initial_ef = 1;
 
-        let mut enter_point = self.enter_point.load().as_ref().clone();
+        let entry = self.enter_point.load();
+        let top_layer = entry.level;
+        let mut enter_point = entry.ids.clone();
         let new_elements_lvl = value.level(self.maximum_connections);
 
         for level_current in (new_elements_lvl + 1..=top_layer).rev() {
@@ -1017,13 +1016,33 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let value_id = value.id;
         nodes.insert(value.id, value);
 
-        let current_top = self.top_most_layer.load(Ordering::Acquire);
-        if new_elements_lvl > current_top || nodes.len() == 1 {
-            self.top_most_layer
-                .store(new_elements_lvl, Ordering::Release);
-            self.enter_point.swap(smallvec![value_id].into());
-        }
+        self.promote_entry_point(value_id, new_elements_lvl);
         Ok(())
+    }
+
+    /// Make `id` the entry point if it sits on a higher layer than the current one, or if the
+    /// index has no entry point yet. A compare-and-swap loop means a writer that read a stale
+    /// entry point never overwrites a higher one that was installed in the meantime.
+    fn promote_entry_point(&self, id: NodeId, level: u8) {
+        let mut current = self.enter_point.load();
+        loop {
+            if !current.ids.is_empty() && level <= current.level {
+                return;
+            }
+            #[cfg(test)]
+            if let Some(hook) = BEFORE_ENTRY_PROMOTION.with(|hook| hook.borrow_mut().take()) {
+                hook();
+            }
+            let next = Arc::new(EntryPoint {
+                ids: smallvec![id],
+                level,
+            });
+            let previous = self.enter_point.compare_and_swap(&current, next);
+            if Arc::ptr_eq(&current, &previous) {
+                return;
+            }
+            current = previous;
+        }
     }
 
     /// Keep the search start points if any is still stored; otherwise restart from the index
@@ -1036,7 +1055,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         if entry_points.iter().any(|id| nodes.contains_key(id)) {
             return entry_points;
         }
-        self.enter_point.load().as_ref().clone()
+        self.enter_point.load().ids.clone()
     }
 
     /// The chosen neighbours that are still stored. If every one has been deleted since it
@@ -1069,6 +1088,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         }
         self.enter_point
             .load()
+            .ids
             .iter()
             .copied()
             .filter(|id| nodes.contains_key(id))
@@ -1417,14 +1437,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         // Ensure ef >= k as per paper requirements
         let ef = ef.max(k);
 
-        // Read enter_point and top_most_layer together
-        // to ensure a consistent snapshot
+        // The entry point and its layer are published together, so one load is consistent.
         let (mut enter_point, ep_level) = {
-            let ep = self.enter_point.load();
-            (
-                ep.as_ref().clone(),
-                self.top_most_layer.load(Ordering::Acquire),
-            )
+            let entry = self.enter_point.load();
+            (entry.ids.clone(), entry.level)
         };
         #[cfg(test)]
         AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
@@ -1575,11 +1591,8 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
         let ef = ef.unwrap_or_else(|| k.max(50)).max(k);
         let (mut enter_point, ep_level) = {
-            let ep = self.enter_point.load();
-            (
-                ep.as_ref().clone(),
-                self.top_most_layer.load(Ordering::Acquire),
-            )
+            let entry = self.enter_point.load();
+            (entry.ids.clone(), entry.level)
         };
         #[cfg(test)]
         AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
@@ -1668,12 +1681,12 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     }
 
     /// If `deleted` was the index entry point, move it to the highest-level node that remains
-    /// (and lower `top_most_layer` to match), so searches and inserts do not start from a
+    /// (and lower the top layer to match), so searches and inserts do not start from a
     /// node that no longer exists. This scans every node, but only when the entry point itself
     /// is deleted.
     fn repair_entry_point(&self, nodes: &NodesRef<'_, E>, deleted: &NodeId) {
         let current = self.enter_point.load();
-        if !current.contains(deleted) {
+        if !current.ids.contains(deleted) {
             return;
         }
         // Ties go to the smallest ID: map iteration order differs between processes, and
@@ -1684,15 +1697,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             .max_by(|(a_id, a_level), (b_id, b_level)| {
                 a_level.cmp(b_level).then(b_id.0.cmp(&a_id.0))
             });
-        let (entry, top_layer) = match replacement {
-            Some((id, level)) => (smallvec![id], level),
-            None => (SmallVec::new(), 0),
+        let next = match replacement {
+            Some((id, level)) => EntryPoint {
+                ids: smallvec![id],
+                level,
+            },
+            None => EntryPoint::default(),
         };
-        // Another writer may have installed a higher node meanwhile; leave it alone then.
-        let previous = self.enter_point.compare_and_swap(&current, Arc::new(entry));
-        if Arc::ptr_eq(&current, &previous) {
-            self.top_most_layer.store(top_layer, Ordering::Release);
-        }
+        // If another writer changed the entry point meanwhile, leave theirs in place.
+        self.enter_point.compare_and_swap(&current, Arc::new(next));
     }
 
     // finds the best entry point from candidates
@@ -1755,7 +1768,6 @@ impl Default for HNSW<LinearAlgorithm> {
 
         Self {
             ef_construction: config.ef_construction,
-            top_most_layer: AtomicU8::new(0),
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m, // ln(1/M)
@@ -1763,7 +1775,7 @@ impl Default for HNSW<LinearAlgorithm> {
             node_counter_shards: None,
             graph: new_hashmap(),
             nodes: new_hashmap(),
-            enter_point: ArcSwap::new(SmallVec::new().into()),
+            enter_point: ArcSwap::from_pointee(EntryPoint::default()),
             distance_algorithm,
 
             extend_candidates: config.extend_candidates,
@@ -1884,11 +1896,12 @@ impl<D: DistanceFn, E: EdgeStorage> From<&HNSW<D, E>> for TempHNSW<D> {
             nodes.insert(*node_id, TempNode::from(node));
         }
 
-        let enter_point: Vec<NodeId> = hnsw.enter_point.load().iter().copied().collect();
+        let entry = hnsw.enter_point.load();
+        let enter_point: Vec<NodeId> = entry.ids.iter().copied().collect();
 
         TempHNSW {
             ef_construction: hnsw.ef_construction,
-            top_most_layer: hnsw.top_most_layer.load(Ordering::Acquire),
+            top_most_layer: entry.level,
             maximum_connections: hnsw.maximum_connections,
             maximum_connections_zero: hnsw.maximum_connections_zero,
             inv_log_m: hnsw.inv_log_m,
@@ -1930,19 +1943,21 @@ impl<D: DistanceFn, E: EdgeStorage> From<TempHNSW<D>> for HNSW<D, E> {
             }
         }
 
-        let enter_point: SmallVec<[NodeId; 1]> = temp.enter_point.into_iter().collect();
+        let enter_point = EntryPoint {
+            ids: temp.enter_point.into_iter().collect(),
+            level: temp.top_most_layer,
+        };
 
         HNSW {
             collector,
             node_counter_shards,
             ef_construction: temp.ef_construction,
-            top_most_layer: AtomicU8::new(temp.top_most_layer),
             maximum_connections: temp.maximum_connections,
             maximum_connections_zero: temp.maximum_connections_zero,
             inv_log_m: temp.inv_log_m,
             graph,
             nodes,
-            enter_point: ArcSwap::new(enter_point.into()),
+            enter_point: ArcSwap::from_pointee(enter_point),
             distance_algorithm: temp.distance_algorithm,
             keep_pruned_connections: temp.keep_pruned_connections,
             extend_candidates: temp.extend_candidates,
@@ -2032,8 +2047,10 @@ mod tests {
                 .insert(LayerIndex(0), ArcSwap::from_pointee(neighbours));
             hnsw.nodes.pin().insert(NodeId(id), node);
         }
-        hnsw.enter_point
-            .store(std::sync::Arc::new(smallvec::smallvec![NodeId(1)]));
+        hnsw.enter_point.store(std::sync::Arc::new(EntryPoint {
+            ids: smallvec::smallvec![NodeId(1)],
+            level: 0,
+        }));
         let n = NonZeroUsize::new(1).unwrap();
         let narrow = hnsw
             .n_nearest_with_ef(&[0.0], n, None, NonZeroUsize::new(1))
@@ -2640,7 +2657,7 @@ mod tests {
         index: Arc<HNSW<LinearAlgorithm, E>>,
     ) {
         index.insert(&concurrency_vectors(5, 300)).unwrap();
-        let entry = index.enter_point.load()[0];
+        let entry = index.enter_point.load().ids[0];
         let removed = std::rc::Rc::new(std::cell::Cell::new(0usize));
 
         // Delete every chosen neighbour (except the entry point) right after selection,
@@ -2701,12 +2718,9 @@ mod tests {
     ) {
         let data = concurrency_vectors(3, 400);
         index.insert(&data).unwrap();
-        assert!(
-            index.top_most_layer.load(Ordering::Acquire) >= 1,
-            "fixture should have upper layers"
-        );
+        assert!(index.top_layer() >= 1, "fixture should have upper layers");
 
-        let entry = index.enter_point.load()[0];
+        let entry = index.enter_point.load().ids[0];
         let entry_key = data
             .iter()
             .find(|key| get_node_id(key.as_slice()) == entry)
@@ -2735,7 +2749,7 @@ mod tests {
         // Keep deleting the entry point. Once only level-0 nodes remain they all tie, which
         // is what the smallest-ID rule is for.
         for _ in 0..100 {
-            let entry = index.enter_point.load()[0];
+            let entry = index.enter_point.load().ids[0];
             index.delete_node(&entry);
             assert_entry_is_highest_with_smallest_id(index);
         }
@@ -2743,7 +2757,7 @@ mod tests {
     }
 
     /// After an entry point delete, the entry point must be the highest-level node, with ties
-    /// broken by smallest ID, and `top_most_layer` must equal that level.
+    /// broken by smallest ID, and `top_layer()` must equal that level.
     fn assert_entry_is_highest_with_smallest_id<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) {
         let nodes = index.nodes.pin();
         let level = |node: &Node<E>| node.level(index.maximum_connections);
@@ -2754,8 +2768,8 @@ mod tests {
             .map(|(id, _)| id.0)
             .min()
             .unwrap();
-        assert_eq!(index.enter_point.load()[0].0, smallest_at_highest);
-        assert_eq!(index.top_most_layer.load(Ordering::Acquire), highest);
+        assert_eq!(index.enter_point.load().ids[0].0, smallest_at_highest);
+        assert_eq!(index.top_layer(), highest);
     }
 
     #[test]
@@ -2810,8 +2824,8 @@ mod tests {
         index.insert(&data).unwrap();
         assert_eq!(index.delete(&data).unwrap(), data.len());
         assert!(index.nodes.pin().is_empty());
-        assert!(index.enter_point.load().is_empty());
-        assert_eq!(index.top_most_layer.load(Ordering::Acquire), 0);
+        assert!(index.enter_point.load().ids.is_empty());
+        assert_eq!(index.top_layer(), 0);
 
         index.insert(&data[..20]).unwrap();
         let results = index
@@ -2830,8 +2844,8 @@ mod tests {
     ) {
         let data = concurrency_vectors(9, 400);
         index.insert(&data).unwrap();
-        assert!(index.top_most_layer.load(Ordering::Acquire) >= 1);
-        let entry = index.enter_point.load()[0];
+        assert!(index.top_layer() >= 1);
+        let entry = index.enter_point.load().ids[0];
 
         // Delete the entry point after the search has loaded it, as a concurrent delete would.
         AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
@@ -2846,7 +2860,7 @@ mod tests {
         );
         // Delete again for the other search function (the hook above already ran once).
         index.insert(std::slice::from_ref(&data[0])).unwrap();
-        let entry = index.enter_point.load()[0];
+        let entry = index.enter_point.load().ids[0];
         AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
             let index = Arc::clone(&index);
             *hook.borrow_mut() = Some(Box::new(move || index.delete_node(&entry)));
@@ -2875,5 +2889,50 @@ mod tests {
     #[test]
     fn test_search_survives_entry_point_deleted_mid_search_compact() {
         check_search_survives_entry_point_deleted_mid_search(Arc::new(concurrency_compact_index()));
+    }
+
+    fn check_stale_writer_does_not_overwrite_a_higher_entry_point<E: EdgeStorage>(
+        index: Arc<HNSW<LinearAlgorithm, E>>,
+    ) {
+        index.insert(&concurrency_vectors(10, 200)).unwrap();
+        let level = |key: &EmbeddingKey| {
+            Node::<E>::new_with_edges(key.clone()).level(index.maximum_connections)
+        };
+        let base = index.top_layer();
+
+        // A node above the current top layer, and a second one that is higher still.
+        let mut above = (11..)
+            .map(|seed| concurrency_vectors(seed, 1).remove(0))
+            .filter(|key| level(key) > base);
+        let slow = above.next().unwrap();
+        let fast = above.find(|key| level(key) > level(&slow)).unwrap();
+
+        // `slow` reads the entry point, then `fast` finishes inserting before `slow` writes.
+        BEFORE_ENTRY_PROMOTION.with(|hook| {
+            let (index, fast) = (Arc::clone(&index), fast.clone());
+            *hook.borrow_mut() = Some(Box::new(move || {
+                index.insert(std::slice::from_ref(&fast)).unwrap();
+            }));
+        });
+        index.insert(std::slice::from_ref(&slow)).unwrap();
+
+        let entry = index.enter_point.load();
+        assert_eq!(entry.ids[0], get_node_id(fast.as_slice()));
+        assert_eq!(entry.level, level(&fast));
+        assert_eq!(index.top_layer(), level(&fast));
+    }
+
+    #[test]
+    fn test_stale_writer_does_not_overwrite_a_higher_entry_point_hash_set() {
+        check_stale_writer_does_not_overwrite_a_higher_entry_point(Arc::new(
+            concurrency_hash_set_index(),
+        ));
+    }
+
+    #[test]
+    fn test_stale_writer_does_not_overwrite_a_higher_entry_point_compact() {
+        check_stale_writer_does_not_overwrite_a_higher_entry_point(Arc::new(
+            concurrency_compact_index(),
+        ));
     }
 }

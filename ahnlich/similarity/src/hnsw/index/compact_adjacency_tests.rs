@@ -126,7 +126,7 @@ fn compact_graph_matches_control_and_restores_in_both_directions() {
         assert_queries(&control, &restored_compact, &data[..3]);
         assert_queries(&restored_control, &candidate, &data[..3]);
 
-        let entry = candidate.enter_point.load()[0];
+        let entry = candidate.enter_point.load().ids[0];
         let deleted = data
             .iter()
             .filter(|key| get_node_id(key.as_slice()) != entry)

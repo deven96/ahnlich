@@ -66,7 +66,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Deterministic graph representation used to prove that the insertion variants build the
     /// same graph before their timings are compared.
     pub fn topology_snapshot(&self) -> HnswTopology {
-        let mut entry_points: Vec<_> = self.enter_point.load().iter().map(|id| id.0).collect();
+        let mut entry_points: Vec<_> = self.enter_point.load().ids.iter().map(|id| id.0).collect();
         entry_points.sort_unstable();
 
         let graph_guard = self.graph.pin();
@@ -103,7 +103,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         nodes.sort_unstable_by_key(|(id, _, _)| *id);
 
         HnswTopology {
-            top_layer: self.top_most_layer.load(Ordering::Acquire),
+            top_layer: self.top_layer(),
             entry_points,
             graph,
             nodes,

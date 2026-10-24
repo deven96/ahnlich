@@ -61,7 +61,7 @@ fn collector_sharing_survives_insertion_pruning_and_deletion() {
     assert_eq!(index.nodes.pin().len(), data.len());
     assert_shared(&index);
     // Avoid deleting the entry point, whose replacement is a separate concern.
-    let entry = index.enter_point.load()[0];
+    let entry = index.enter_point.load().ids[0];
     let deleted: Vec<_> = data
         .iter()
         .filter(|key| get_node_id(&key.0) != entry)
