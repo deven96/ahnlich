@@ -526,3 +526,93 @@ fn test_writers_racing_into_an_empty_index_still_get_linked_hash_set() {
 fn test_writers_racing_into_an_empty_index_still_get_linked_compact() {
     check_writers_racing_into_an_empty_index_still_get_linked(Arc::new(compact_index()));
 }
+
+/// `(owner, other)` entries in `owner.back_links` where the two nodes have no edge between
+/// them in either direction.
+fn stale_backlinks<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) -> Vec<(NodeId, NodeId)> {
+    let nodes = index.nodes.pin();
+    let mut stale = Vec::new();
+    for (owner, node) in nodes.iter() {
+        for other in node.back_links.pin().iter() {
+            let linked = nodes.get(other).is_some_and(|other_node| {
+                index.has_edge_to(other_node, *owner) || index.has_edge_to(node, *other)
+            });
+            if !linked {
+                stale.push((*owner, *other));
+            }
+        }
+    }
+    stale
+}
+
+/// `(from, to)` edges where either node is missing from the other's back_links.
+/// `delete_node` finds the edges to clean through back_links, so a missing entry would leave a
+/// dangling edge.
+fn edges_without_backlink<E: EdgeStorage>(
+    index: &HNSW<LinearAlgorithm, E>,
+) -> Vec<(NodeId, NodeId)> {
+    let nodes = index.nodes.pin();
+    let mut missing = Vec::new();
+    for (from, node) in nodes.iter() {
+        for edges in node.neighbours.pin().values() {
+            for to in edges.snapshot().iter() {
+                let listed = nodes.get(to).is_some_and(|target| {
+                    target.back_links.pin().contains(from) && node.back_links.pin().contains(to)
+                });
+                if !listed {
+                    missing.push((*from, *to));
+                }
+            }
+        }
+    }
+    missing
+}
+
+fn check_pruning_leaves_no_stale_backlinks<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) {
+    for batch in vectors(20, 600).chunks(50) {
+        index.insert(batch).unwrap();
+    }
+    assert_eq!(stale_backlinks(index), vec![]);
+    assert_eq!(edges_without_backlink(index), vec![]);
+}
+
+#[test]
+fn test_pruning_leaves_no_stale_backlinks_hash_set() {
+    check_pruning_leaves_no_stale_backlinks(&hash_set_index());
+}
+
+#[test]
+fn test_pruning_leaves_no_stale_backlinks_compact() {
+    check_pruning_leaves_no_stale_backlinks(&compact_index());
+}
+
+fn check_every_edge_keeps_its_backlink_under_concurrent_writers<E: EdgeStorage>(
+    index: &HNSW<LinearAlgorithm, E>,
+) {
+    index.insert(&vectors(21, 100)).unwrap();
+    let batches: Vec<_> = (0..WRITERS).map(|w| vectors(22 + w as u64, 150)).collect();
+    let barrier = Barrier::new(WRITERS);
+    std::thread::scope(|scope| {
+        for batch in &batches {
+            let barrier = &barrier;
+            scope.spawn(move || {
+                barrier.wait();
+                for chunk in batch.chunks(10) {
+                    index.insert(chunk).unwrap();
+                }
+            });
+        }
+    });
+    assert_eq!(edges_without_backlink(index), vec![]);
+    // Deleting through back_links must leave nothing dangling.
+    let doomed: Vec<_> = batches.iter().flatten().step_by(3).cloned().collect();
+    index.delete(&doomed).unwrap();
+    assert_eq!(dangling_references(index), vec![]);
+}
+
+#[test]
+fn test_every_edge_keeps_its_backlink_under_concurrent_writers_compact() {
+    for _ in 0..10 {
+        check_every_edge_keeps_its_backlink_under_concurrent_writers(&compact_index());
+    }
+}

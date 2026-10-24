@@ -701,6 +701,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                     continue;
                 };
 
+                // The compact prune may run the selection again after a lost compare-and-swap,
+                // so this holds the drops of the last attempt only.
+                let mut dropped: Vec<NodeId> = Vec::new();
                 if let Some(replacement) = e_conn.prune(
                     maximum_connections,
                     self.collector.as_ref(),
@@ -719,17 +722,23 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                                 )
                             })
                             .collect::<Vec<_>>();
-                        self.select_neighbours_heuristic(
+                        let selected = self.select_neighbours_heuristic(
                             neighbour_node,
                             &scored_connections,
                             maximum_connections,
                             &layer_index,
                             false,
                             false,
-                        )
+                        )?;
+                        dropped.clear();
+                        dropped.extend(ids.iter().filter(|id| !selected.contains(id)));
+                        Ok(selected)
                     },
                 )? {
                     nn_guard.insert(layer_index, replacement);
+                }
+                for target in dropped {
+                    self.forget_backlink(nodes, neighbour_node, target);
                 }
             }
 
@@ -1072,6 +1081,36 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             .into_iter()
             .map(|node| node.id)
             .collect())
+    }
+
+    /// Pruning dropped an edge `from -> to`. `back_links` holds each linked pair in both
+    /// directions (`to.back_links` has `from` and `from.back_links` has `to`), and
+    /// `delete_node` relies on that to clean up after a deleted node. So the pair is only
+    /// forgotten once there is no edge between the two on any layer, in either direction.
+    fn forget_backlink(&self, nodes: &NodesRef<'_, E>, from: &Node<E>, to: NodeId) {
+        let Some(target) = nodes.get(&to) else {
+            return;
+        };
+        let linked = || self.has_edge_to(from, to) || self.has_edge_to(target, from.id);
+        if linked() {
+            return;
+        }
+        target.back_links.pin().remove(&from.id);
+        from.back_links.pin().remove(&to);
+        // A writer may have linked the pair again between the check and the removals. Put the
+        // entries back then.
+        if linked() {
+            target.back_links.pin().insert(from.id);
+            from.back_links.pin().insert(to);
+        }
+    }
+
+    /// Whether `from` has an edge to `to` on any layer.
+    fn has_edge_to(&self, from: &Node<E>, to: NodeId) -> bool {
+        from.neighbours
+            .pin()
+            .values()
+            .any(|edges| edges.snapshot().iter().any(|id| *id == to))
     }
 
     /// Delete a single element from the HNSW graph by NodeId.
