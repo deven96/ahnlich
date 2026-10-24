@@ -437,3 +437,49 @@ fn test_stale_writer_does_not_overwrite_a_higher_entry_point_hash_set() {
 fn test_stale_writer_does_not_overwrite_a_higher_entry_point_compact() {
     check_stale_writer_does_not_overwrite_a_higher_entry_point(Arc::new(compact_index()));
 }
+
+fn check_new_node_is_stored_before_it_is_linked<E: EdgeStorage>(
+    index: Arc<HNSW<LinearAlgorithm, E>>,
+) {
+    index.insert(&vectors(11, 200)).unwrap();
+    let key = vectors(12, 1).remove(0);
+    let new_id = get_node_id(key.as_slice());
+
+    // Runs between neighbour selection and linking. A node that is not stored yet cannot take
+    // part in pruning the neighbours it links to.
+    let stored_at_link_time = std::rc::Rc::new(std::cell::Cell::new(false));
+    AFTER_NEIGHBOUR_SELECTION.with(|hook| {
+        let (index, seen) = (Arc::clone(&index), std::rc::Rc::clone(&stored_at_link_time));
+        *hook.borrow_mut() = Some(Box::new(move |_| {
+            seen.set(index.nodes.pin().contains_key(&new_id));
+        }));
+    });
+    let result = index.insert(std::slice::from_ref(&key));
+    AFTER_NEIGHBOUR_SELECTION.with(|hook| *hook.borrow_mut() = None);
+
+    result.unwrap();
+    assert!(
+        stored_at_link_time.get(),
+        "node was not stored when linking started"
+    );
+    assert_eq!(dangling_references(&index), vec![]);
+}
+
+#[test]
+fn test_new_node_is_stored_before_it_is_linked_hash_set() {
+    check_new_node_is_stored_before_it_is_linked(Arc::new(hash_set_index()));
+}
+
+#[test]
+fn test_new_node_is_stored_before_it_is_linked_compact() {
+    check_new_node_is_stored_before_it_is_linked(Arc::new(compact_index()));
+}
+
+#[test]
+fn test_inserting_the_same_node_twice_keeps_one_copy() {
+    let index = compact_index();
+    let key = vectors(13, 1).remove(0);
+    index.insert(std::slice::from_ref(&key)).unwrap();
+    index.insert(std::slice::from_ref(&key)).unwrap();
+    assert_eq!(index.nodes.pin().len(), 1);
+}

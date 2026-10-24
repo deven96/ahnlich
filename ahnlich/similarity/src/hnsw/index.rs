@@ -556,8 +556,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// If a node with the same embedding is added, we silently skip as it doesn't make sense to do
     /// any work but also we shouldn't fail necessarily
     ///
-    /// Distances computed during layer search are reused for neighbour selection and
-    /// entry-point selection.
+    /// The node is published in `nodes` before it is linked, so it takes part in pruning the
+    /// neighbours it links to, and other writers can never follow an edge to a node that is
+    /// not stored. If linking fails, the node is removed again.
     pub fn insert_node(&self, value: Node<E>) -> Result<(), Error> {
         let value = match self.collector.as_ref() {
             Some(collector)
@@ -572,11 +573,26 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             _ => value,
         };
         let nodes = self.nodes.pin();
-        let graph = self.graph.pin();
-
-        if nodes.contains_key(&value.id) {
+        let id = value.id;
+        // Only one writer can claim an ID; a duplicate is silently skipped.
+        let Ok(stored) = nodes.try_insert(id, value) else {
             return Ok(());
+        };
+
+        if let Err(err) = self.link_node(&nodes, stored) {
+            self.delete_node(&id);
+            return Err(err);
         }
+        self.promote_entry_point(id, stored.level(self.maximum_connections));
+        Ok(())
+    }
+
+    /// Connect an already published node to the graph on every layer it belongs to.
+    ///
+    /// Distances computed during layer search are reused for neighbour selection and
+    /// entry-point selection.
+    fn link_node(&self, nodes: &NodesRef<'_, E>, value: &Node<E>) -> Result<(), Error> {
+        let graph = self.graph.pin();
         let initial_ef = 1;
 
         let entry = self.enter_point.load();
@@ -585,9 +601,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let new_elements_lvl = value.level(self.maximum_connections);
 
         for level_current in (new_elements_lvl + 1..=top_layer).rev() {
-            enter_point = self.live_entry_points(&nodes, enter_point);
+            enter_point = self.live_entry_points(nodes, enter_point);
             let nearest_neighbours = self.search_layer(
-                &value,
+                value,
                 &enter_point,
                 initial_ef,
                 &LayerIndex(level_current as u16),
@@ -601,9 +617,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
         for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
-            enter_point = self.live_entry_points(&nodes, enter_point);
+            enter_point = self.live_entry_points(nodes, enter_point);
             let nearest_neighbours = self.search_layer(
-                &value,
+                value,
                 &enter_point,
                 self.ef_construction,
                 &layer_index,
@@ -611,14 +627,14 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             )?;
 
             let neighbours = self.select_neighbours_heuristic(
-                &value,
+                value,
                 &nearest_neighbours,
                 self.maximum_connections,
                 &layer_index,
                 false,
                 false,
             )?;
-            let neighbours = self.live_link_targets(&nodes, &neighbours);
+            let neighbours = self.live_link_targets(nodes, &neighbours);
 
             let value_neighbours_guard = value.neighbours.pin();
             let value_backlinks_guard = value.back_links.pin();
@@ -714,10 +730,6 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             };
         }
 
-        let value_id = value.id;
-        nodes.insert(value.id, value);
-
-        self.promote_entry_point(value_id, new_elements_lvl);
         Ok(())
     }
 
