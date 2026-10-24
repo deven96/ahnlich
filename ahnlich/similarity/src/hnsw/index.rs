@@ -58,6 +58,37 @@ fn default_node_counter_shards() -> NonZeroUsize {
     NonZeroUsize::new(DEFAULT_NODE_COUNTER_SHARDS.load(Ordering::Relaxed)).unwrap()
 }
 
+/// A node ID can be reachable from an edge while the node itself is not (yet, or any
+/// longer) in `nodes`, because inserts and deletes publish and retract in separate steps.
+/// Callers skip such IDs and the debug log keeps genuine inconsistencies visible.
+#[track_caller]
+fn skip_missing_node(id: &NodeId) {
+    tracing::debug!(
+        ?id,
+        caller = %std::panic::Location::caller(),
+        "skipping node ID that is not in the index"
+    );
+}
+
+type NodesRef<'a, E> = papaya::HashMapRef<
+    'a,
+    NodeId,
+    Node<E>,
+    std::collections::hash_map::RandomState,
+    seize::LocalGuard<'a>,
+>;
+
+#[cfg(test)]
+type NeighbourSelectionHook = Box<dyn Fn(&[NodeId])>;
+
+#[cfg(test)]
+thread_local! {
+    /// This gives us a test only break point between neighbour selection and linking, so a
+    /// test can remove the chosen neighbours at exactly the point a concurrent delete would.
+    static AFTER_NEIGHBOUR_SELECTION: std::cell::RefCell<Option<NeighbourSelectionHook>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
 /// inside `catch_unwind` to surface initialization panics at construction time
 /// rather than on the first insert.
@@ -668,6 +699,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         // muiltiple hallways in a floor...
         // We keep finding the best flow until we get to the `new_elements_lvl+1`
         for level_current in (new_elements_lvl + 1..=top_layer).rev() {
+            enter_point = self.live_entry_points(&nodes, enter_point);
             let nearest_neighbours = self.search_layer(
                 &value,
                 &enter_point,
@@ -677,7 +709,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             )?;
 
             // NOTE: get the nearest element from W to q
-            let nearest_ele = NearestFirst::from_nodes(
+            if let Some(nearest_ele) = NearestFirst::from_nodes(
                 nearest_neighbours
                     .iter()
                     .filter_map(|node_id| nodes.get(node_id)),
@@ -685,15 +717,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 self.distance_algorithm,
             )
             .pop()
-            .map(|ele| ele.id)
-            .ok_or_else(|| Error::NotFoundError("nearest element not found".to_string()))?;
-
-            enter_point = smallvec![nearest_ele];
+            {
+                enter_point = smallvec![nearest_ele.id];
+            }
         }
 
         // Deeper search
         for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
+            enter_point = self.live_entry_points(&nodes, enter_point);
 
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
             let nearest_neighbours = self.search_layer(
@@ -714,14 +746,16 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 false,
                 false,
             )?;
+            let neighbours = self.live_link_targets(&nodes, &neighbours);
 
             // NOTE: add bidirectional connections from neighbours to q at layer lc
             let value_neighbours_guard = value.neighbours.pin();
             let value_backlinks_guard = value.back_links.pin();
             for neighbour_id in neighbours.iter() {
-                let neighbour_node = nodes
-                    .get(neighbour_id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+                let Some(neighbour_node) = nodes.get(neighbour_id) else {
+                    skip_missing_node(neighbour_id);
+                    continue;
+                };
 
                 let n_guard = neighbour_node.neighbours.pin();
                 let edges = n_guard.get_or_insert_with(layer_index, || {
@@ -763,11 +797,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                     self.maximum_connections
                 };
 
-                // TODO: shouldn't return here, we can handle this and move on with the loop,
-                // could be a node marked for deletion??
-                let neighbour_node = nodes
-                    .get(neighbour)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+                let Some(neighbour_node) = nodes.get(neighbour) else {
+                    skip_missing_node(neighbour);
+                    continue;
+                };
 
                 let nn_guard = neighbour_node.neighbours.pin();
                 let e_conn = nn_guard
@@ -848,6 +881,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let new_elements_lvl = value.level(self.maximum_connections);
 
         for level_current in (new_elements_lvl + 1..=top_layer).rev() {
+            enter_point = self.live_entry_points(&nodes, enter_point);
             let nearest_neighbours = self.search_layer_reuse_distances(
                 &value,
                 &enter_point,
@@ -856,15 +890,14 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 None,
             )?;
 
-            let nearest = nearest_neighbours
-                .into_iter()
-                .max()
-                .ok_or_else(|| Error::NotFoundError("nearest element not found".to_string()))?;
-            enter_point = smallvec![nearest.id];
+            if let Some(nearest) = nearest_neighbours.into_iter().max() {
+                enter_point = smallvec![nearest.id];
+            }
         }
 
         for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
+            enter_point = self.live_entry_points(&nodes, enter_point);
             let nearest_neighbours = self.search_layer_reuse_distances(
                 &value,
                 &enter_point,
@@ -881,13 +914,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 false,
                 false,
             )?;
+            let neighbours = self.live_link_targets(&nodes, &neighbours);
 
             let value_neighbours_guard = value.neighbours.pin();
             let value_backlinks_guard = value.back_links.pin();
             for neighbour_id in neighbours.iter() {
-                let neighbour_node = nodes
-                    .get(neighbour_id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+                let Some(neighbour_node) = nodes.get(neighbour_id) else {
+                    skip_missing_node(neighbour_id);
+                    continue;
+                };
 
                 let n_guard = neighbour_node.neighbours.pin();
                 let edges = n_guard.get_or_insert_with(layer_index, || {
@@ -926,9 +961,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                     self.maximum_connections
                 };
 
-                let neighbour_node = nodes
-                    .get(neighbour)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+                let Some(neighbour_node) = nodes.get(neighbour) else {
+                    skip_missing_node(neighbour);
+                    continue;
+                };
 
                 let nn_guard = neighbour_node.neighbours.pin();
                 let e_conn = nn_guard
@@ -983,6 +1019,55 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             self.enter_point.swap(smallvec![value_id].into());
         }
         Ok(())
+    }
+
+    /// Keep the search start points if any is still stored; otherwise restart from the index
+    /// entry point, since a search seeded only with deleted nodes finds nothing.
+    fn live_entry_points(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        entry_points: SmallVec<[NodeId; 1]>,
+    ) -> SmallVec<[NodeId; 1]> {
+        if entry_points.iter().any(|id| nodes.contains_key(id)) {
+            return entry_points;
+        }
+        self.enter_point.load().as_ref().clone()
+    }
+
+    /// The chosen neighbours that are still stored. If every one has been deleted since it
+    /// was chosen, fall back to the entry point so the new node is not left without edges.
+    fn live_link_targets(&self, nodes: &NodesRef<'_, E>, chosen: &[NodeId]) -> Vec<NodeId> {
+        #[cfg(test)]
+        AFTER_NEIGHBOUR_SELECTION.with(|hook| {
+            if let Some(hook) = hook.borrow().as_ref() {
+                hook(chosen);
+            }
+        });
+
+        if chosen.is_empty() {
+            return Vec::new();
+        }
+
+        let live: Vec<NodeId> = chosen
+            .iter()
+            .copied()
+            .filter(|id| {
+                let present = nodes.contains_key(id);
+                if !present {
+                    skip_missing_node(id);
+                }
+                present
+            })
+            .collect();
+        if !live.is_empty() {
+            return live;
+        }
+        self.enter_point
+            .load()
+            .iter()
+            .copied()
+            .filter(|id| nodes.contains_key(id))
+            .collect()
     }
 
     /// Search for ef nearest neighbours in a specific layer
@@ -1048,9 +1133,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 break;
             }
 
-            let visited_node = nodes
-                .get(&nearest.id)
-                .ok_or_else(|| Error::NotFoundError("Node not found".to_string()))?;
+            let Some(visited_node) = nodes.get(&nearest.id) else {
+                skip_missing_node(&nearest.id);
+                continue;
+            };
 
             // Explore neighbors
             let vn_neighbours_guard = visited_node.neighbours.pin();
@@ -1062,9 +1148,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                         continue;
                     }
 
-                    let neighbour_node = nodes
-                        .get(neighbour_id)
-                        .ok_or_else(|| Error::NotFoundError("Neighbor not found".to_string()))?;
+                    let Some(neighbour_node) = nodes.get(neighbour_id) else {
+                        skip_missing_node(neighbour_id);
+                        continue;
+                    };
 
                     let neighbour_closeness = self
                         .distance_algorithm
@@ -1153,25 +1240,27 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             let candidate = working_queue.pop().ok_or(Error::QueueEmpty)?;
 
             // NOTE: edge case
-            // TODO: loop error handling??
             if response.is_empty() {
-                let node = nodes
-                    .get(&candidate.id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
+                let Some(node) = nodes.get(&candidate.id) else {
+                    skip_missing_node(&candidate.id);
+                    continue;
+                };
                 response.push(node);
                 continue;
             }
 
             // Get the candidate node to compute distances to already-selected neighbors
-            let candidate_node = nodes
-                .get(&candidate.id)
-                .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
+            let Some(candidate_node) = nodes.get(&candidate.id) else {
+                skip_missing_node(&candidate.id);
+                continue;
+            };
             // Check if candidate is closer to query than to any already-selected neighbor
             let mut is_diverse = true;
             for selected in response.iter() {
-                let selected_node = nodes
-                    .get(&selected.id)
-                    .ok_or_else(|| Error::NotFoundError("Selected node not found".to_string()))?;
+                let Some(selected_node) = nodes.get(&selected.id) else {
+                    skip_missing_node(&selected.id);
+                    continue;
+                };
 
                 let closeness_to_selected = self.distance_algorithm.closeness(
                     candidate_node.value.as_slice(),
@@ -1197,9 +1286,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             while !discarded_candidates.is_empty() && response.len() < m {
                 let nearest_from_wd_to_q = discarded_candidates.pop().ok_or(Error::QueueEmpty)?;
 
-                let node = nodes
-                    .get(&nearest_from_wd_to_q.id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
+                let Some(node) = nodes.get(&nearest_from_wd_to_q.id) else {
+                    skip_missing_node(&nearest_from_wd_to_q.id);
+                    continue;
+                };
                 response.push(node);
             }
         }
@@ -1263,14 +1353,16 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 continue;
             }
 
-            let candidate_node = nodes
-                .get(&candidate.id)
-                .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
+            let Some(candidate_node) = nodes.get(&candidate.id) else {
+                skip_missing_node(&candidate.id);
+                continue;
+            };
             let mut is_diverse = true;
             for selected in response.iter() {
-                let selected_node = nodes
-                    .get(&selected.id)
-                    .ok_or_else(|| Error::NotFoundError("Selected node not found".to_string()))?;
+                let Some(selected_node) = nodes.get(&selected.id) else {
+                    skip_missing_node(&selected.id);
+                    continue;
+                };
 
                 let closeness_to_selected = self.distance_algorithm.closeness(
                     candidate_node.value.as_slice(),
@@ -1414,9 +1506,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 break;
             }
 
-            let visited_node = nodes
-                .get(&nearest.id)
-                .ok_or_else(|| Error::NotFoundError("Node not found".to_string()))?;
+            let Some(visited_node) = nodes.get(&nearest.id) else {
+                skip_missing_node(&nearest.id);
+                continue;
+            };
             let neighbours = visited_node.neighbours.pin();
             if let Some(layer_neighbours) = neighbours.get(layer) {
                 let edge_ids = layer_neighbours.snapshot();
@@ -1425,9 +1518,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                         continue;
                     }
 
-                    let neighbour_node = nodes
-                        .get(neighbour_id)
-                        .ok_or_else(|| Error::NotFoundError("Neighbor not found".to_string()))?;
+                    let Some(neighbour_node) = nodes.get(neighbour_id) else {
+                        skip_missing_node(neighbour_id);
+                        continue;
+                    };
                     let scored = OrderedNode::new(
                         neighbour_node.id,
                         self.distance_algorithm
@@ -1847,6 +1941,7 @@ pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
         .collect()
 }
 
+// FIXME: File is growing large so we should atleast remove these tests into their own unit
 #[cfg(test)]
 mod tests {
 
@@ -2295,5 +2390,247 @@ mod tests {
         println!("Node 1: id={:?}, level={}", node1.id(), node1.level(m));
         println!("Node 2: id={:?}, level={}", node2.id(), node2.level(m));
         println!("Node 3: id={:?}, level={}", node3.id(), node3.level(m));
+    }
+
+    use rand::{Rng, SeedableRng, rngs::StdRng};
+    use std::sync::Barrier;
+
+    const DIMENSION: usize = 16;
+    const WRITERS: usize = 8;
+    const BATCHES_PER_WRITER: usize = 4;
+    const BATCH_SIZE: usize = 40;
+
+    fn concurrency_vectors(seed: u64, count: usize) -> Vec<EmbeddingKey> {
+        let mut rng = StdRng::seed_from_u64(seed);
+        (0..count)
+            .map(|_| EmbeddingKey::new((0..DIMENSION).map(|_| rng.gen_range(-2.0..2.0)).collect()))
+            .collect()
+    }
+
+    fn concurrency_config() -> HNSWConfig {
+        HNSWConfig {
+            ef_construction: 100,
+            maximum_connections: 8,
+            maximum_connections_zero: 16,
+            extend_candidates: false,
+            keep_pruned_connections: false,
+        }
+    }
+
+    fn concurrency_hash_set_index() -> HNSW<LinearAlgorithm> {
+        HNSW::new_with_config_and_shared_collector_and_counter_shards(
+            concurrency_config(),
+            LinearAlgorithm::EuclideanDistance,
+            NonZeroUsize::new(1).unwrap(),
+        )
+    }
+
+    fn concurrency_compact_index() -> HNSW<LinearAlgorithm, CompactEdges> {
+        HNSW::new_with_config_and_compact_adjacency(
+            concurrency_config(),
+            LinearAlgorithm::EuclideanDistance,
+            NonZeroUsize::new(1).unwrap(),
+        )
+    }
+
+    /// Every edge and backlink of every stored node must resolve to a stored node.
+    fn dangling_references<E: EdgeStorage>(
+        index: &HNSW<LinearAlgorithm, E>,
+    ) -> Vec<(NodeId, NodeId)> {
+        let nodes = index.nodes.pin();
+        let mut dangling = Vec::new();
+        for (id, node) in nodes.iter() {
+            for edges in node.neighbours.pin().values() {
+                for target in edges.snapshot().iter() {
+                    if !nodes.contains_key(target) {
+                        dangling.push((*id, *target));
+                    }
+                }
+            }
+            for target in node.back_links.pin().iter() {
+                if !nodes.contains_key(target) {
+                    dangling.push((*id, *target));
+                }
+            }
+        }
+        dangling
+    }
+
+    fn check_concurrent_inserts_are_complete_and_consistent<E: EdgeStorage>(
+        index: &HNSW<LinearAlgorithm, E>,
+    ) {
+        let seed = concurrency_vectors(1, 300);
+        index.insert(&seed).unwrap();
+
+        let batches: Vec<Vec<EmbeddingKey>> = (0..WRITERS * BATCHES_PER_WRITER)
+            .map(|batch| concurrency_vectors(1_000 + batch as u64, BATCH_SIZE))
+            .collect();
+        let barrier = Barrier::new(WRITERS);
+
+        let errors: Vec<String> = std::thread::scope(|scope| {
+            let handles: Vec<_> = batches
+                .chunks(BATCHES_PER_WRITER)
+                .map(|assigned| {
+                    let barrier = &barrier;
+                    scope.spawn(move || {
+                        barrier.wait();
+                        assigned
+                            .iter()
+                            .filter_map(|batch| index.insert(batch).err().map(|e| format!("{e:?}")))
+                            .collect::<Vec<_>>()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .flat_map(|handle| handle.join().unwrap())
+                .collect()
+        });
+        assert!(errors.is_empty(), "insert errors: {errors:?}");
+
+        let expected: std::collections::HashSet<NodeId> = seed
+            .iter()
+            .chain(batches.iter().flatten())
+            .map(|key| get_node_id(key.as_slice()))
+            .collect();
+        let stored: std::collections::HashSet<NodeId> = index.nodes.pin().keys().copied().collect();
+        assert_eq!(
+            stored.len(),
+            expected.len(),
+            "some vectors were not indexed"
+        );
+        assert_eq!(stored, expected);
+        assert_eq!(dangling_references(index), vec![]);
+    }
+
+    #[test]
+    fn test_concurrent_inserts_are_complete_and_consistent_hash_set() {
+        check_concurrent_inserts_are_complete_and_consistent(&concurrency_hash_set_index());
+    }
+
+    #[test]
+    fn test_concurrent_inserts_are_complete_and_consistent_compact() {
+        check_concurrent_inserts_are_complete_and_consistent(&concurrency_compact_index());
+    }
+
+    fn check_searches_during_inserts_never_fail<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) {
+        let seed = concurrency_vectors(2, 300);
+        index.insert(&seed).unwrap();
+        let batches: Vec<Vec<EmbeddingKey>> = (0..WRITERS)
+            .map(|batch| concurrency_vectors(2_000 + batch as u64, BATCH_SIZE * BATCHES_PER_WRITER))
+            .collect();
+        let barrier = Barrier::new(WRITERS + 4);
+        let done = std::sync::atomic::AtomicUsize::new(0);
+
+        let failures: Vec<String> = std::thread::scope(|scope| {
+            let writers: Vec<_> = batches
+                .iter()
+                .map(|batch| {
+                    let (barrier, done) = (&barrier, &done);
+                    scope.spawn(move || {
+                        barrier.wait();
+                        let result = index.insert(batch);
+                        done.fetch_add(1, Ordering::SeqCst);
+                        result.err().map(|e| format!("insert: {e:?}"))
+                    })
+                })
+                .collect();
+            let readers: Vec<_> = (0..4)
+                .map(|_| {
+                    let (barrier, done, seed) = (&barrier, &done, &seed);
+                    scope.spawn(move || {
+                        barrier.wait();
+                        let mut failures = Vec::new();
+                        while done.load(Ordering::SeqCst) < WRITERS {
+                            if let Err(e) = index.n_nearest_with_ef(
+                                seed[0].as_slice(),
+                                NonZeroUsize::new(10).unwrap(),
+                                None,
+                                NonZeroUsize::new(50),
+                            ) {
+                                failures.push(format!("search: {e:?}"));
+                            }
+                        }
+                        failures.pop()
+                    })
+                })
+                .collect();
+            writers
+                .into_iter()
+                .chain(readers)
+                .filter_map(|handle| handle.join().unwrap())
+                .collect()
+        });
+        assert!(failures.is_empty(), "failures: {failures:?}");
+    }
+
+    #[test]
+    fn test_searches_during_inserts_never_fail_hash_set() {
+        check_searches_during_inserts_never_fail(&concurrency_hash_set_index());
+    }
+
+    #[test]
+    fn test_searches_during_inserts_never_fail_compact() {
+        check_searches_during_inserts_never_fail(&concurrency_compact_index());
+    }
+
+    fn check_insert_survives_chosen_neighbours_being_deleted<E: EdgeStorage>(
+        index: Arc<HNSW<LinearAlgorithm, E>>,
+    ) {
+        index.insert(&concurrency_vectors(5, 300)).unwrap();
+        let entry = index.enter_point.load()[0];
+        let removed = std::rc::Rc::new(std::cell::Cell::new(0usize));
+
+        // Delete every chosen neighbour (except the entry point) right after selection,
+        // which is what a concurrent delete between selection and linking looks like.
+        AFTER_NEIGHBOUR_SELECTION.with(|hook| {
+            let (index, removed) = (Arc::clone(&index), std::rc::Rc::clone(&removed));
+            *hook.borrow_mut() = Some(Box::new(move |chosen| {
+                for id in chosen.iter().filter(|id| **id != entry) {
+                    index.delete_node(id);
+                    removed.set(removed.get() + 1);
+                }
+            }));
+        });
+        let new_key = concurrency_vectors(6, 1).remove(0);
+        let result = index.insert(std::slice::from_ref(&new_key));
+        AFTER_NEIGHBOUR_SELECTION.with(|hook| *hook.borrow_mut() = None);
+
+        result.expect("insert must tolerate its chosen neighbours being deleted");
+        assert!(removed.get() > 0, "hook never removed a neighbour");
+
+        let new_id = get_node_id(new_key.as_slice());
+        let nodes = index.nodes.pin();
+        let node = nodes.get(&new_id).expect("new node must be stored");
+        let node_neighbours = node.neighbours.pin();
+        let layer_zero = node_neighbours
+            .get(&LayerIndex(0))
+            .expect("new node must have layer 0 edges");
+        let targets: Vec<NodeId> = layer_zero.snapshot().iter().copied().collect();
+        assert!(!targets.is_empty(), "new node was left without edges");
+        for target in targets {
+            let target_node = nodes.get(&target).expect("edge target must be stored");
+            let back = target_node.neighbours.pin();
+            let back_edges = back.get(&LayerIndex(0)).expect("target has layer 0 edges");
+            assert!(
+                back_edges.snapshot().iter().any(|id| *id == new_id),
+                "target does not link back to the new node"
+            );
+        }
+        assert_eq!(dangling_references(&index), vec![]);
+    }
+
+    #[test]
+    fn test_insert_survives_chosen_neighbours_being_deleted_hash_set() {
+        check_insert_survives_chosen_neighbours_being_deleted(Arc::new(
+            concurrency_hash_set_index(),
+        ));
+    }
+
+    #[test]
+    fn test_insert_survives_chosen_neighbours_being_deleted_compact() {
+        check_insert_survives_chosen_neighbours_being_deleted(
+            Arc::new(concurrency_compact_index()),
+        );
     }
 }
