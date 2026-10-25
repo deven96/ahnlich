@@ -1083,25 +1083,20 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             .collect())
     }
 
-    /// Pruning dropped an edge `from -> to`. `back_links` holds each linked pair in both
-    /// directions (`to.back_links` has `from` and `from.back_links` has `to`), and
-    /// `delete_node` relies on that to clean up after a deleted node. So the pair is only
-    /// forgotten once there is no edge between the two on any layer, in either direction.
+    /// Pruning dropped an edge `from -> to`. `to.back_links` lists the nodes that point at `to`,
+    /// so `from` leaves it, unless `from` still points at `to` on another layer.
     fn forget_backlink(&self, nodes: &NodesRef<'_, E>, from: &Node<E>, to: NodeId) {
         let Some(target) = nodes.get(&to) else {
             return;
         };
-        let linked = || self.has_edge_to(from, to) || self.has_edge_to(target, from.id);
-        if linked() {
+        if self.has_edge_to(from, to) {
             return;
         }
         target.back_links.pin().remove(&from.id);
-        from.back_links.pin().remove(&to);
-        // A writer may have linked the pair again between the check and the removals. Put the
-        // entries back then.
-        if linked() {
+        // A writer may have linked `from -> to` again between the check and the removal. Put
+        // the entry back then, because `delete_node` finds edges to clean through it.
+        if self.has_edge_to(from, to) {
             target.back_links.pin().insert(from.id);
-            from.back_links.pin().insert(to);
         }
     }
 
@@ -1124,6 +1119,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let graph = self.graph.pin();
 
         if let Some(node) = nodes.get(node_id) {
+            // Pruning can drop the edge back, so the nodes this one points at are not all in
+            // its back_links. Take it out of their back_links too.
+            for edges in node.neighbours.pin().values() {
+                for target in edges.snapshot().iter() {
+                    if let Some(target) = nodes.get(target) {
+                        target.back_links.pin().remove(node_id);
+                    }
+                }
+            }
             for backlink in &node.back_links.pin() {
                 let Some(related) = nodes.get(backlink) else {
                     skip_missing_node(backlink);

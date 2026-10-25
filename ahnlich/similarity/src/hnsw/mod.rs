@@ -72,7 +72,7 @@ pub struct NodeId(pub u64);
 /// - `id`: unique identifier
 /// - `value`: embedding vector
 /// - `neighbours`: map from layer to set of NodeIds of neighbours in that layer
-/// - `back_links`: set of NodeIds of nodes that consider us a neighbour.
+/// - `back_links`: set of NodeIds of nodes that have an edge to us.
 ///   Used to efficiently update the graph when deleting this node.
 ///
 /// Example of a node:

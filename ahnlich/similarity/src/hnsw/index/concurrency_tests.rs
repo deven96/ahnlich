@@ -527,16 +527,15 @@ fn test_writers_racing_into_an_empty_index_still_get_linked_compact() {
     check_writers_racing_into_an_empty_index_still_get_linked(Arc::new(compact_index()));
 }
 
-/// `(owner, other)` entries in `owner.back_links` where the two nodes have no edge between
-/// them in either direction.
+/// `(owner, other)` entries in `owner.back_links` where `other` has no edge to `owner`.
 fn stale_backlinks<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) -> Vec<(NodeId, NodeId)> {
     let nodes = index.nodes.pin();
     let mut stale = Vec::new();
     for (owner, node) in nodes.iter() {
         for other in node.back_links.pin().iter() {
-            let linked = nodes.get(other).is_some_and(|other_node| {
-                index.has_edge_to(other_node, *owner) || index.has_edge_to(node, *other)
-            });
+            let linked = nodes
+                .get(other)
+                .is_some_and(|other_node| index.has_edge_to(other_node, *owner));
             if !linked {
                 stale.push((*owner, *other));
             }
@@ -545,7 +544,7 @@ fn stale_backlinks<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) -> Vec<(Nod
     stale
 }
 
-/// `(from, to)` edges where either node is missing from the other's back_links.
+/// `(from, to)` edges where `to` does not list `from` in its back_links.
 /// `delete_node` finds the edges to clean through back_links, so a missing entry would leave a
 /// dangling edge.
 fn edges_without_backlink<E: EdgeStorage>(
@@ -556,9 +555,9 @@ fn edges_without_backlink<E: EdgeStorage>(
     for (from, node) in nodes.iter() {
         for edges in node.neighbours.pin().values() {
             for to in edges.snapshot().iter() {
-                let listed = nodes.get(to).is_some_and(|target| {
-                    target.back_links.pin().contains(from) && node.back_links.pin().contains(to)
-                });
+                let listed = nodes
+                    .get(to)
+                    .is_some_and(|target| target.back_links.pin().contains(from));
                 if !listed {
                     missing.push((*from, *to));
                 }
@@ -615,4 +614,28 @@ fn test_every_edge_keeps_its_backlink_under_concurrent_writers_compact() {
     for _ in 0..10 {
         check_every_edge_keeps_its_backlink_under_concurrent_writers(&compact_index());
     }
+}
+
+fn check_deleting_after_pruning_leaves_no_trace<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>) {
+    let data = vectors(30, 600);
+    for batch in data.chunks(50) {
+        index.insert(batch).unwrap();
+    }
+    // Pruned edges are one-directional, so deleting a node must also clean the nodes it points
+    // at, not only the ones that point at it.
+    let doomed: Vec<_> = data.iter().step_by(2).cloned().collect();
+    index.delete(&doomed).unwrap();
+    assert_eq!(dangling_references(index), vec![]);
+    assert_eq!(stale_backlinks(index), vec![]);
+    assert_eq!(edges_without_backlink(index), vec![]);
+}
+
+#[test]
+fn test_deleting_after_pruning_leaves_no_trace_hash_set() {
+    check_deleting_after_pruning_leaves_no_trace(&hash_set_index());
+}
+
+#[test]
+fn test_deleting_after_pruning_leaves_no_trace_compact() {
+    check_deleting_after_pruning_leaves_no_trace(&compact_index());
 }
