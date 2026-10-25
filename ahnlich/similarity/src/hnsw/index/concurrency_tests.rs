@@ -639,3 +639,33 @@ fn test_deleting_after_pruning_leaves_no_trace_hash_set() {
 fn test_deleting_after_pruning_leaves_no_trace_compact() {
     check_deleting_after_pruning_leaves_no_trace(&compact_index());
 }
+
+fn check_pruning_never_drops_a_nodes_last_in_edge<E: EdgeStorage>(
+    index: &HNSW<LinearAlgorithm, E>,
+) {
+    let mut rng = StdRng::seed_from_u64(99);
+    let data: Vec<EmbeddingKey> = (0..3_000)
+        .map(|_| EmbeddingKey::new((0..64).map(|_| rng.gen_range(-1.0f32..1.0)).collect()))
+        .collect();
+    for batch in data.chunks(100) {
+        index.insert(batch).unwrap();
+    }
+    // back_links is the exact set of nodes pointing at a node, so empty means unreachable.
+    let nodes = index.nodes.pin();
+    let orphans = nodes
+        .iter()
+        .filter(|(_, node)| node.back_links.pin().is_empty())
+        .count();
+    assert_eq!(orphans, 0, "nodes left without any in-edge");
+    assert_eq!(stale_backlinks(index), vec![]);
+}
+
+#[test]
+fn test_pruning_never_drops_a_nodes_last_in_edge_hash_set() {
+    check_pruning_never_drops_a_nodes_last_in_edge(&hash_set_index());
+}
+
+#[test]
+fn test_pruning_never_drops_a_nodes_last_in_edge_compact() {
+    check_pruning_never_drops_a_nodes_last_in_edge(&compact_index());
+}

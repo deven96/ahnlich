@@ -674,6 +674,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
                 value_backlinks_guard.insert(*neighbour_id);
                 neighbour_node.back_links.pin().insert(value.id);
+                // A prune may have dropped one of the two new edges before its entry was
+                // recorded, and it could not forget an entry that did not exist yet.
+                self.forget_backlink(nodes, neighbour_node, value.id);
+                self.forget_backlink(nodes, value, *neighbour_id);
             }
 
             graph
@@ -722,7 +726,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                                 )
                             })
                             .collect::<Vec<_>>();
-                        let selected = self.select_neighbours_heuristic(
+                        let mut selected = self.select_neighbours_heuristic(
                             neighbour_node,
                             &scored_connections,
                             maximum_connections,
@@ -731,7 +735,18 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                             false,
                         )?;
                         dropped.clear();
-                        dropped.extend(ids.iter().filter(|id| !selected.contains(id)));
+                        let removed: Vec<NodeId> = ids
+                            .iter()
+                            .copied()
+                            .filter(|id| !selected.contains(id))
+                            .collect();
+                        for id in removed {
+                            if self.only_pointed_at_by(nodes, &id, neighbour_node.id) {
+                                selected.push(id);
+                            } else {
+                                dropped.push(id);
+                            }
+                        }
                         Ok(selected)
                     },
                 )? {
@@ -1098,6 +1113,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         if self.has_edge_to(from, to) {
             target.back_links.pin().insert(from.id);
         }
+    }
+
+    /// Whether `from` is the only node with an edge to `id`. Pruning `from -> id` would leave
+    /// `id` unreachable by search, so the edge is kept, even if that leaves the list a little
+    /// over its maximum.
+    fn only_pointed_at_by(&self, nodes: &NodesRef<'_, E>, id: &NodeId, from: NodeId) -> bool {
+        nodes
+            .get(id)
+            .is_some_and(|node| node.back_links.pin().iter().all(|other| *other == from))
     }
 
     /// Whether `from` has an edge to `to` on any layer.

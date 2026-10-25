@@ -49,7 +49,9 @@ fn assert_shared(index: &HNSW<LinearAlgorithm>) {
             } else {
                 index.maximum_connections
             };
-            assert!(set.snapshot().len() <= maximum);
+            // Pruning keeps an edge that is the only way to reach its target, so a list can
+            // sit one over its maximum until the next prune.
+            assert!(set.snapshot().len() <= maximum + 1);
         }
     }
 }
