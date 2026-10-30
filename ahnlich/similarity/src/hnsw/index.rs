@@ -2,9 +2,9 @@
 // similarity function. It then navigates between these localised lists in DFS manner until it
 // gets the values it needs to
 
-#![allow(dead_code)]
 use crate::{DistanceFn, LinearAlgorithm, error::Error, hnsw::HNSWConfig};
 
+use super::lifecycle::NodeLease;
 use super::{
     CompactEdges, LayerIndex, NearestFirst, Node, NodeId, NodeIdHashSet, OrderedNode,
     edges::{EdgeSnapshot, EdgeStorage},
@@ -22,7 +22,7 @@ use std::{
     num::NonZeroUsize,
     sync::{
         Arc,
-        atomic::{AtomicU8, AtomicUsize, Ordering},
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -34,6 +34,9 @@ mod collector_sharing_tests;
 
 #[cfg(test)]
 mod compact_adjacency_tests;
+
+#[cfg(test)]
+mod concurrency_tests;
 
 /// Below this many accepted vectors, a filtered search scans the accepted set directly
 /// instead of traversing the graph. At this size an exact SIMD scan costs less than a
@@ -56,6 +59,80 @@ pub fn configure_node_counter_shards(shards: NonZeroUsize) {
 
 fn default_node_counter_shards() -> NonZeroUsize {
     NonZeroUsize::new(DEFAULT_NODE_COUNTER_SHARDS.load(Ordering::Relaxed)).unwrap()
+}
+
+/// A node ID can be reachable from an edge while the node itself is not (yet, or any
+/// longer) in `nodes`, because inserts and deletes publish and retract in separate steps.
+/// Callers skip such IDs and the debug log keeps genuine inconsistencies visible.
+#[track_caller]
+fn skip_missing_node(id: &NodeId) {
+    tracing::debug!(
+        ?id,
+        caller = %std::panic::Location::caller(),
+        "skipping node ID that is not in the index"
+    );
+}
+
+type NodesRef<'a, E> = papaya::HashMapRef<
+    'a,
+    NodeId,
+    Node<E>,
+    std::collections::hash_map::RandomState,
+    seize::LocalGuard<'a>,
+>;
+
+#[cfg(test)]
+type NeighbourSelectionHook = Box<dyn Fn(&[NodeId])>;
+
+#[cfg(test)]
+thread_local! {
+    /// This gives us a test only break point between neighbour selection and linking, so a
+    /// test can remove the chosen neighbours at exactly the point a concurrent delete would.
+    static AFTER_NEIGHBOUR_SELECTION: std::cell::RefCell<Option<NeighbourSelectionHook>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// This runs on the searching thread right after a search has loaded the entry
+    /// point, so a test can delete it at exactly the point a concurrent delete would.
+    static AFTER_SEARCH_ENTRY_LOAD: std::cell::RefCell<Option<Box<dyn Fn()>>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// This runs once, between reading the entry point and trying to replace it, so a test
+    /// can land a competing writer in exactly that gap.
+    static BEFORE_ENTRY_PROMOTION: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// Pause repair after it has leased a replacement but before its CAS.
+    static BEFORE_ENTRY_REPAIR: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// Pause after preparing a prune, before acquiring endpoint locks.
+    static BEFORE_PRUNE_LOCKS: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// Exercise the ordinary error path after live edges have been published.
+    static FAIL_AFTER_LINKING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// All edge writers acquire endpoint locks in the same order. Never acquire
+/// another edge lock while holding a set returned by this helper. The returned
+/// guards keep every lock held until the caller leaves its critical section.
+fn lock_edge_mutations<'a, E: EdgeStorage>(
+    nodes: &[&'a Node<E>],
+) -> Vec<parking_lot::MutexGuard<'a, ()>> {
+    let mut ordered = nodes.to_vec();
+    ordered.sort_unstable_by_key(|node| node.id);
+    ordered.dedup_by_key(|node| node.id);
+    ordered
+        .into_iter()
+        .map(|node| node.edge_mutation.lock())
+        .collect()
+}
+
+/// The entry point node(s) and the layer they sit on, published together.
+#[derive(Debug, Default)]
+struct EntryPoint {
+    ids: SmallVec<[NodeId; 1]>,
+    level: u8,
 }
 
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
@@ -81,17 +158,6 @@ fn new_hashmap_with_shared_collector<
                 .build()
         }))
         .expect("papaya HashMap initialization failed (allocation or assertion)"),
-    }
-}
-
-fn new_hashset_with_shared_collector<K: std::hash::Hash + Eq + Send + 'static>(
-    collector: Option<&Arc<Collector>>,
-) -> HashSet<K> {
-    match collector {
-        None => HashSet::new(),
-        Some(collector) => HashSet::builder()
-            .shared_collector(Arc::clone(collector))
-            .build(),
     }
 }
 
@@ -147,19 +213,6 @@ fn node_hashmap<K: std::hash::Hash + Eq + Send + 'static, V: Send + 'static>(
     }
 }
 
-fn node_hashset<K: std::hash::Hash + Eq + Send + 'static>(
-    collector: Option<&Arc<Collector>>,
-    shards: Option<NonZeroUsize>,
-) -> HashSet<K> {
-    match (collector, shards) {
-        (Some(collector), Some(shards)) => HashSet::builder()
-            .shared_collector(Arc::clone(collector))
-            .counter_shards(shards)
-            .build(),
-        _ => new_hashset_with_shared_collector(collector),
-    }
-}
-
 pub(super) fn node_hashset_from_iter<K: std::hash::Hash + Eq + Send + 'static>(
     values: impl IntoIterator<Item = K>,
     collector: Option<&Arc<Collector>>,
@@ -200,8 +253,8 @@ pub(super) fn node_hashset_from_iter<K: std::hash::Hash + Eq + Send + 'static>(
 /// and supports deletion operations.
 ///
 /// Uses papaya's concurrent HashMap for lock-free concurrent read access to nodes
-/// and graph layers. The enter_point is protected by a parking_lot RwLock, and
-/// top_most_layer uses an AtomicU8 for lock-free reads.
+/// and graph layers. The entry point and the top layer are held together in one ArcSwap,
+/// so readers get a consistent pair with a single lock-free load.
 ///
 /// Design rationale:
 /// 1. `nodes` is the single source of truth: all Node structs live here, keyed by NodeId.
@@ -234,9 +287,6 @@ pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: usize,
 
-    /// Top-most layer index in the graph (L)
-    top_most_layer: AtomicU8,
-
     /// Maximum number of connections per node (M)
     pub maximum_connections: usize,
 
@@ -262,22 +312,23 @@ pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
 
     /// Entry point node ID for search operations.
     ///
-    /// This is the node at the highest layer (top_most_layer) and serves as the
+    /// This is the node at the highest layer (the top layer) and serves as the
     /// starting point for all k-NN searches. Using the top-layer node ensures
     /// efficient hierarchical navigation through the graph.
     ///
     /// Updated whenever a new node is inserted at a higher layer than the current
-    /// top_most_layer. Protected by ArcSwap for lock-free concurrent access.
-    enter_point: ArcSwap<SmallVec<[NodeId; 1]>>,
+    /// top layer. Protected by ArcSwap for lock-free concurrent access. The node and
+    /// the top layer (L) live in one value, so a reader never sees one without the other.
+    enter_point: ArcSwap<EntryPoint>,
 
-    /// distance algorithm
+    /// Distance algorithm
     /// can be ec
     distance_algorithm: D,
 
     /// Keep pruned connections:
     keep_pruned_connections: bool,
 
-    /// extend candidates:
+    /// Extend candidates:
     extend_candidates: bool,
 }
 
@@ -300,164 +351,78 @@ impl<D: DistanceFn> HNSW<D> {
         Self::new_with_config(config, distance_algorithm)
     }
 
+    /// Every collection owns its own memory reclamation. This is the baseline the shared
+    /// collector variants are measured against.
     pub fn new_with_config(config: HNSWConfig, distance_algorithm: D) -> Self {
-        Self::new_with_config_for_edges(config, distance_algorithm)
+        Self::build(config, distance_algorithm, None, None)
     }
 
-    pub fn new_with_shared_collector(
-        distance_algorithm: D,
-        ef_construction: usize,
-        maximum_connections: usize,
-        maximum_connections_zero: usize,
-        extend_candidates: bool,
-        keep_pruned_connections: bool,
-    ) -> Self {
-        Self::new_with_config_and_shared_collector(
-            HNSWConfig {
-                ef_construction,
-                maximum_connections,
-                maximum_connections_zero,
-                extend_candidates,
-                keep_pruned_connections,
-            },
-            distance_algorithm,
-        )
-    }
-
+    /// One collector shared by the index and everything it owns, which cuts per-collection
+    /// overhead.
     pub fn new_with_config_and_shared_collector(config: HNSWConfig, distance_algorithm: D) -> Self {
-        Self::new_with_config_and_shared_collector_for_edges(config, distance_algorithm)
-    }
-
-    /// Shared collector with the startup counter policy (one shard unless configured).
-    pub fn new_with_shared_collector_and_counter_shards(
-        distance_algorithm: D,
-        ef_construction: usize,
-        maximum_connections: usize,
-        maximum_connections_zero: usize,
-        extend_candidates: bool,
-        keep_pruned_connections: bool,
-    ) -> Self {
-        Self::new_with_config_and_shared_collector_and_counter_shards(
-            HNSWConfig {
-                ef_construction,
-                maximum_connections,
-                maximum_connections_zero,
-                extend_candidates,
-                keep_pruned_connections,
-            },
+        Self::build(
+            config,
             distance_algorithm,
-            default_node_counter_shards(),
+            Some(Arc::new(Collector::new())),
+            None,
         )
     }
 
-    /// Select counter shards for per-node collections without changing index-wide maps.
+    /// Shared collector, with `shards` counter shards for the per-node collections. The
+    /// index-wide maps keep Papaya's default sharding.
     pub fn new_with_config_and_shared_collector_and_counter_shards(
         config: HNSWConfig,
         distance_algorithm: D,
         shards: NonZeroUsize,
     ) -> Self {
-        Self::new_with_config_and_shared_collector_and_counter_shards_for_edges(
+        Self::build(
             config,
             distance_algorithm,
-            shards,
+            Some(Arc::new(Collector::new())),
+            Some(shards),
         )
     }
-}
 
-impl<D: DistanceFn> HNSW<D, CompactEdges> {
-    /// Compact outgoing edges with a shared collector and the startup counter policy
-    /// for the remaining per-node hash collections (one shard unless configured).
-    pub fn new_with_compact_adjacency(
-        distance: D,
-        ef: usize,
-        m: usize,
-        m_zero: usize,
-        extend: bool,
-        keep: bool,
-    ) -> Self {
-        Self::new_with_config_and_shared_collector_and_counter_shards_for_edges(
-            HNSWConfig {
-                ef_construction: ef,
-                maximum_connections: m,
-                maximum_connections_zero: m_zero,
-                extend_candidates: extend,
-                keep_pruned_connections: keep,
-            },
-            distance,
+    /// Shared collector, with the process-wide shard count set by
+    /// [`configure_node_counter_shards`] (one shard unless configured). The DB builds its
+    /// indexes this way.
+    pub fn new_with_startup_counter_shards(config: HNSWConfig, distance_algorithm: D) -> Self {
+        Self::new_with_config_and_shared_collector_and_counter_shards(
+            config,
+            distance_algorithm,
             default_node_counter_shards(),
-        )
-    }
-    /// Compact outgoing edges with explicit counter shards for the remaining
-    /// per-node hash collections, without changing index-wide maps.
-    pub fn new_with_config_and_compact_adjacency(
-        config: HNSWConfig,
-        distance: D,
-        shards: NonZeroUsize,
-    ) -> Self {
-        Self::new_with_config_and_shared_collector_and_counter_shards_for_edges(
-            config, distance, shards,
         )
     }
 }
 
 impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
-    fn new_with_config_for_edges(config: HNSWConfig, distance_algorithm: D) -> Self {
-        assert!(config.maximum_connections > 1, "M must be > 1");
-
-        Self {
-            ef_construction: config.ef_construction,
-            top_most_layer: AtomicU8::new(0),
-            maximum_connections: config.maximum_connections,
-            maximum_connections_zero: config.maximum_connections_zero,
-            inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
-            collector: None,
-            node_counter_shards: None,
-            graph: new_hashmap(),
-            nodes: new_hashmap(),
-            enter_point: ArcSwap::new(SmallVec::new().into()),
-            distance_algorithm,
-            keep_pruned_connections: config.keep_pruned_connections,
-            extend_candidates: config.extend_candidates,
-        }
-    }
-
-    fn new_with_config_and_shared_collector_for_edges(
+    /// The one place an index is assembled. `collector: None` leaves each collection with its
+    /// own; `shards` only applies to the per-node collections.
+    fn build(
         config: HNSWConfig,
         distance_algorithm: D,
+        collector: Option<Arc<Collector>>,
+        shards: Option<NonZeroUsize>,
     ) -> Self {
         assert!(config.maximum_connections > 1, "M must be > 1");
-        let collector = Arc::new(Collector::new());
-        Self {
-            ef_construction: config.ef_construction,
-            top_most_layer: AtomicU8::new(0),
-            maximum_connections: config.maximum_connections,
-            maximum_connections_zero: config.maximum_connections_zero,
-            inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
-            graph: new_hashmap_with_shared_collector(Some(&collector)),
-            nodes: new_hashmap_with_shared_collector(Some(&collector)),
-            collector: Some(collector),
-            node_counter_shards: None,
-            enter_point: ArcSwap::new(SmallVec::new().into()),
-            distance_algorithm,
-            keep_pruned_connections: config.keep_pruned_connections,
-            extend_candidates: config.extend_candidates,
-        }
-    }
-
-    /// Select counter shards for per-node collections without changing index-wide maps.
-    fn new_with_config_and_shared_collector_and_counter_shards_for_edges(
-        config: HNSWConfig,
-        distance_algorithm: D,
-        shards: NonZeroUsize,
-    ) -> Self {
         assert!(
-            shards.get().is_power_of_two(),
+            shards.is_none_or(|shards| shards.get().is_power_of_two()),
             "counter shards must be a power of two"
         );
-        let mut index =
-            Self::new_with_config_and_shared_collector_for_edges(config, distance_algorithm);
-        index.node_counter_shards = Some(shards);
-        index
+        Self {
+            ef_construction: config.ef_construction,
+            maximum_connections: config.maximum_connections,
+            maximum_connections_zero: config.maximum_connections_zero,
+            inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
+            graph: new_hashmap_with_shared_collector(collector.as_ref()),
+            nodes: new_hashmap_with_shared_collector(collector.as_ref()),
+            collector,
+            node_counter_shards: shards,
+            enter_point: ArcSwap::from_pointee(EntryPoint::default()),
+            distance_algorithm,
+            keep_pruned_connections: config.keep_pruned_connections,
+            extend_candidates: config.extend_candidates,
+        }
     }
 
     /// Get the current configuration of this HNSW index
@@ -478,7 +443,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
     /// Get the current top-most layer index
     pub fn top_layer(&self) -> u8 {
-        self.top_most_layer.load(Ordering::Acquire)
+        self.enter_point.load().level
     }
 
     /// Batch insert new embeddings into the HNSW graph.
@@ -501,7 +466,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                     )
                 }
             };
-            self.insert_node_with_reused_distances(node)?;
+            self.insert_node(node)?;
         }
         Ok(())
     }
@@ -513,9 +478,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let mut deleted = 0;
         for key in items {
             let node_id = get_node_id(key.as_slice());
-            if self.nodes.pin().contains_key(&node_id) {
-                self.delete_node(&node_id);
-                deleted += 1;
+            let nodes = self.nodes.pin();
+            if let Some(node) = nodes.get(&node_id) {
+                deleted += usize::from(self.delete_node_instance(&nodes, node));
             }
         }
         Ok(deleted)
@@ -569,7 +534,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         // `k` is what the caller asked for. It is NOT derived from the size of the filter:
         // the filter is applied during traversal (see search_layer), so no over-search is
         // needed to compensate for post-filtering.
-        let result_ids = self.knn_search_reuse_distances(
+        let result_ids = self.knn_search(
             &query,
             n.get(),
             ef_search.map(NonZeroUsize::get),
@@ -636,9 +601,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// If a node with the same embedding is added, we silently skip as it doesn't make sense to do
     /// any work but also we shouldn't fail necessarily
     ///
+    /// The node is published in `nodes` before it is linked, so it takes part in pruning the
+    /// neighbours it links to, and other writers can never follow an edge to a node that is
+    /// not stored. If linking fails, the node is removed again.
     pub fn insert_node(&self, value: Node<E>) -> Result<(), Error> {
-        // Public callers may supply a Node created outside this index. Rebind its
-        // collections without changing its ID, vector, or existing connections.
         let value = match self.collector.as_ref() {
             Some(collector)
                 if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
@@ -652,243 +618,103 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             _ => value,
         };
         let nodes = self.nodes.pin();
-        let graph = self.graph.pin();
-        let top_layer = self.top_most_layer.load(Ordering::Acquire);
-
-        if nodes.contains_key(&value.id) {
+        let id = value.id;
+        // Reserve permission before publishing: deletion must never see an unleased
+        // insertion. The owned lease survives moving value into the map.
+        let insertion = value
+            .lifecycle
+            .try_enter()
+            .expect("unpublished node is live");
+        // Only one writer can claim an ID; a duplicate is silently skipped.
+        let Ok(stored) = nodes.try_insert(id, value) else {
             return Ok(());
-        }
-        // internally uses SEARCH-LAYER, SELECT-neighbourS
-        let inital_ef = 1;
+        };
 
-        let mut enter_point = self.enter_point.load().as_ref().clone();
-        let new_elements_lvl = value.level(self.maximum_connections);
-
-        // NOTE: think of this as finding the best hallway in different floors in a building with
-        // muiltiple hallways in a floor...
-        // We keep finding the best flow until we get to the `new_elements_lvl+1`
-        for level_current in (new_elements_lvl + 1..=top_layer).rev() {
-            let nearest_neighbours = self.search_layer(
-                &value,
-                &enter_point,
-                inital_ef,
-                &LayerIndex(level_current as u16),
-                None,
-            )?;
-
-            // NOTE: get the nearest element from W to q
-            let nearest_ele = NearestFirst::from_nodes(
-                nearest_neighbours
-                    .iter()
-                    .filter_map(|node_id| nodes.get(node_id)),
-                &value,
-                self.distance_algorithm,
-            )
-            .pop()
-            .map(|ele| ele.id)
-            .ok_or_else(|| Error::NotFoundError("nearest element not found".to_string()))?;
-
-            enter_point = smallvec![nearest_ele];
+        // Writers that start on an empty index must have something to link to, so the first
+        // node becomes the entry point as soon as it is published, not once it is linked.
+        if self.enter_point.load().ids.is_empty() {
+            self.promote_entry_point(stored, &insertion);
         }
 
-        // Deeper search
-        for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
-            let layer_index = LayerIndex(level_current as u16);
-
-            // NOTE: W = search-layer(q, ep, efConstruction, lc)
-            let nearest_neighbours = self.search_layer(
-                &value,
-                &enter_point,
-                self.ef_construction,
-                &layer_index,
-                None,
-            )?;
-
-            // Select M neighbors for the new node at this layer
-            // (Algorithm 1: neighbors = SELECT-NEIGHBORS(q, W, M, lc))
-            let neighbours = self.select_neighbours_heuristic(
-                &value,
-                &nearest_neighbours,
-                self.maximum_connections, // M not Mmax as the latter is for pruning connections.
-                &layer_index,
-                false,
-                false,
-            )?;
-
-            // NOTE: add bidirectional connections from neighbours to q at layer lc
-            let value_neighbours_guard = value.neighbours.pin();
-            let value_backlinks_guard = value.back_links.pin();
-            for neighbour_id in neighbours.iter() {
-                let neighbour_node = nodes
-                    .get(neighbour_id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
-
-                let n_guard = neighbour_node.neighbours.pin();
-                let edges = n_guard.get_or_insert_with(layer_index, || {
-                    E::from_ids(
-                        Vec::new(),
-                        self.collector.as_ref(),
-                        self.node_counter_shards,
-                    )
-                });
-                edges.insert_edge(value.id);
-
-                let edges = value_neighbours_guard.get_or_insert_with(layer_index, || {
-                    E::from_ids(
-                        Vec::new(),
-                        self.collector.as_ref(),
-                        self.node_counter_shards,
-                    )
-                });
-                edges.insert_edge(*neighbour_id);
-
-                // NOTE: invert for backlinks
-                value_backlinks_guard.insert(*neighbour_id);
-                neighbour_node.back_links.pin().insert(value.id);
-            }
-
-            graph
-                .get_or_insert_with(layer_index, || {
-                    hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref())
-                })
-                .pin()
-                .insert(value.id);
-
-            // NOTE: for each neighbours prune if each exceeds Mmax
-            for neighbour in neighbours.iter() {
-                // NOTE: if lc = 0, Mmax = Mmax0
-                let maximum_connections = if level_current == 0 {
-                    self.maximum_connections_zero
-                } else {
-                    self.maximum_connections
-                };
-
-                // TODO: shouldn't return here, we can handle this and move on with the loop,
-                // could be a node marked for deletion??
-                let neighbour_node = nodes
-                    .get(neighbour)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
-
-                let nn_guard = neighbour_node.neighbours.pin();
-                let e_conn = nn_guard
-                    .get(&layer_index)
-                    .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
-
-                if let Some(replacement) = e_conn.prune(
-                    maximum_connections,
-                    self.collector.as_ref(),
-                    self.node_counter_shards,
-                    |ids| {
-                        self.select_neighbours_heuristic(
-                            neighbour_node,
-                            ids,
-                            maximum_connections,
-                            &layer_index,
-                            false,
-                            false,
-                        )
-                    },
-                )? {
-                    nn_guard.insert(layer_index, replacement);
-                }
-            }
-
-            // NOTE: Find Best Enter Point
-            // Find nearest neighbor from this layer to use as entry point for next layer
-            // (Algorithm 1: ep = get_nearest_element_from_W_to_q)
-            enter_point = match self.find_best_entry_point(&value, &nearest_neighbours)? {
-                None => enter_point,
-                Some(new_enter_point) => smallvec![new_enter_point],
-            };
+        let result = self.link_node(&nodes, stored, &insertion);
+        if result.is_ok() {
+            self.promote_entry_point(stored, &insertion);
         }
-
-        let value_id = value.id;
-        nodes.insert(value.id, value);
-
-        // NOTE: given that we use u8 for topmost layer, we want that on first insertion we always
-        // set enterpoint else this would be a pain
-        //
-        // Update enter_point and top_most_layer atomically
-        {
-            let current_top = self.top_most_layer.load(Ordering::Acquire);
-            if new_elements_lvl > current_top || nodes.len() == 1 {
-                self.top_most_layer
-                    .store(new_elements_lvl, Ordering::Release);
-                self.enter_point.swap(smallvec![value_id].into());
-            }
+        // Cleanup can wait for leases, so it must not run while holding our own.
+        drop(insertion);
+        if result.is_err() {
+            // Target this instance, not a later reinsertion with the same ID.
+            self.delete_node_instance(&nodes, stored);
         }
-        Ok(())
+        result
     }
 
-    /// Insert a node while reusing query-to-node distances between layer search, neighbour
-    /// selection, and entry-point selection.
-    fn insert_node_with_reused_distances(&self, value: Node<E>) -> Result<(), Error> {
-        let value = match self.collector.as_ref() {
-            Some(collector)
-                if !std::ptr::eq(value.neighbours.guard().collector(), collector.as_ref()) =>
-            {
-                node_from_temp_with_counter_shards(
-                    TempNode::from(&value),
-                    Some(collector),
-                    self.node_counter_shards,
-                )
-            }
-            _ => value,
-        };
-        let nodes = self.nodes.pin();
+    /// Connect an already published node to the graph on every layer it belongs to.
+    ///
+    /// Distances computed during layer search are reused for neighbour selection and
+    /// entry-point selection.
+    fn link_node(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        value: &Node<E>,
+        insertion: &NodeLease,
+    ) -> Result<(), Error> {
+        debug_assert!(insertion.protects(&value.lifecycle));
         let graph = self.graph.pin();
-        let top_layer = self.top_most_layer.load(Ordering::Acquire);
-
-        if nodes.contains_key(&value.id) {
-            return Ok(());
-        }
         let initial_ef = 1;
 
-        let mut enter_point = self.enter_point.load().as_ref().clone();
+        let entry = self.enter_point.load();
+        let top_layer = entry.level;
+        let mut enter_point = entry.ids.clone();
         let new_elements_lvl = value.level(self.maximum_connections);
 
         for level_current in (new_elements_lvl + 1..=top_layer).rev() {
-            let nearest_neighbours = self.search_layer_reuse_distances(
-                &value,
+            enter_point = self.live_entry_points(nodes, enter_point);
+            let mut nearest_neighbours = self.search_layer(
+                value,
                 &enter_point,
                 initial_ef,
                 &LayerIndex(level_current as u16),
                 None,
             )?;
+            nearest_neighbours.retain(|nearest| nearest.id != value.id);
 
-            let nearest = nearest_neighbours
-                .into_iter()
-                .max()
-                .ok_or_else(|| Error::NotFoundError("nearest element not found".to_string()))?;
-            enter_point = smallvec![nearest.id];
+            if let Some(nearest) = nearest_neighbours.into_iter().max() {
+                enter_point = smallvec![nearest.id];
+            }
         }
 
         for level_current in (0..=min(top_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
-            let nearest_neighbours = self.search_layer_reuse_distances(
-                &value,
+            enter_point = self.live_entry_points(nodes, enter_point);
+            let mut nearest_neighbours = self.search_layer(
+                value,
                 &enter_point,
                 self.ef_construction,
                 &layer_index,
                 None,
             )?;
+            nearest_neighbours.retain(|nearest| nearest.id != value.id);
 
-            let neighbours = self.select_neighbours_heuristic_reuse_distances_candidate(
-                &value,
+            let neighbours = self.select_neighbours_heuristic(
+                value,
                 &nearest_neighbours,
                 self.maximum_connections,
                 &layer_index,
                 false,
                 false,
             )?;
+            let neighbours = self.live_link_targets(nodes, &neighbours, value.id);
 
             let value_neighbours_guard = value.neighbours.pin();
             let value_backlinks_guard = value.back_links.pin();
-            for neighbour_id in neighbours.iter() {
-                let neighbour_node = nodes
-                    .get(neighbour_id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+            for (neighbour_id, _lease) in &neighbours {
+                let Some(neighbour_node) = nodes.get(neighbour_id) else {
+                    skip_missing_node(neighbour_id);
+                    continue;
+                };
 
+                let _edges = lock_edge_mutations(&[value, neighbour_node]);
                 let n_guard = neighbour_node.neighbours.pin();
                 let edges = n_guard.get_or_insert_with(layer_index, || {
                     E::from_ids(
@@ -912,6 +738,11 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 neighbour_node.back_links.pin().insert(value.id);
             }
 
+            #[cfg(test)]
+            if FAIL_AFTER_LINKING.with(|fail| fail.replace(false)) {
+                return Err(Error::QueueEmpty);
+            }
+
             graph
                 .get_or_insert_with(layer_index, || {
                     hashset_from_iter_with_shared_collector([value.id], self.collector.as_ref())
@@ -919,52 +750,25 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 .pin()
                 .insert(value.id);
 
-            for neighbour in neighbours.iter() {
+            for (neighbour, lease) in &neighbours {
                 let maximum_connections = if level_current == 0 {
                     self.maximum_connections_zero
                 } else {
                     self.maximum_connections
                 };
 
-                let neighbour_node = nodes
-                    .get(neighbour)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
+                let Some(neighbour_node) = nodes.get(neighbour) else {
+                    skip_missing_node(neighbour);
+                    continue;
+                };
 
-                let nn_guard = neighbour_node.neighbours.pin();
-                let e_conn = nn_guard
-                    .get(&layer_index)
-                    .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
-
-                if let Some(replacement) = e_conn.prune(
+                self.prune_connections(
+                    nodes,
+                    neighbour_node,
+                    layer_index,
                     maximum_connections,
-                    self.collector.as_ref(),
-                    self.node_counter_shards,
-                    |ids| {
-                        let scored_connections = ids
-                            .iter()
-                            .filter_map(|id| nodes.get(id))
-                            .map(|node| {
-                                OrderedNode::new(
-                                    node.id,
-                                    self.distance_algorithm.closeness(
-                                        node.value.as_slice(),
-                                        neighbour_node.value.as_slice(),
-                                    ),
-                                )
-                            })
-                            .collect::<Vec<_>>();
-                        self.select_neighbours_heuristic_reuse_distances_candidate(
-                            neighbour_node,
-                            &scored_connections,
-                            maximum_connections,
-                            &layer_index,
-                            false,
-                            false,
-                        )
-                    },
-                )? {
-                    nn_guard.insert(layer_index, replacement);
-                }
+                    lease,
+                )?;
             }
 
             enter_point = match nearest_neighbours.into_iter().max() {
@@ -973,243 +777,101 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             };
         }
 
-        let value_id = value.id;
-        nodes.insert(value.id, value);
-
-        let current_top = self.top_most_layer.load(Ordering::Acquire);
-        if new_elements_lvl > current_top || nodes.len() == 1 {
-            self.top_most_layer
-                .store(new_elements_lvl, Ordering::Release);
-            self.enter_point.swap(smallvec![value_id].into());
-        }
         Ok(())
     }
 
-    /// Search for ef nearest neighbours in a specific layer
-    /// Corresponds to Algorithm 2 (SEARCH-LAYER)
-    ///
-    /// `accept_list`, when supplied, restricts which nodes may enter the result set `W`.
-    /// Rejected nodes are still traversed *through* (they stay in the candidate set `C`),
-    /// because the graph's navigability depends on them as stepping stones — dropping them
-    /// from `C` would disconnect the search. This is "in-filtering": the paper's Algorithm 2
-    /// is unchanged except for which nodes are admitted to `W`.
-    pub fn search_layer(
+    /// Make `id` the entry point if it sits on a higher layer than the current one, or if the
+    /// index has no entry point yet. A compare-and-swap loop means a writer that read a stale
+    /// entry point never overwrites a higher one that was installed in the meantime.
+    fn promote_entry_point(&self, node: &Node<E>, lease: &NodeLease) {
+        debug_assert!(lease.protects(&node.lifecycle));
+        let id = node.id;
+        let level = node.level(self.maximum_connections);
+        let mut current = self.enter_point.load();
+        loop {
+            if !current.ids.is_empty() && level <= current.level {
+                return;
+            }
+            #[cfg(test)]
+            if let Some(hook) = BEFORE_ENTRY_PROMOTION.with(|hook| hook.borrow_mut().take()) {
+                hook();
+            }
+            let next = Arc::new(EntryPoint {
+                ids: smallvec![id],
+                level,
+            });
+            let previous = self.enter_point.compare_and_swap(&current, next);
+            if Arc::ptr_eq(&current, &previous) {
+                return;
+            }
+            current = previous;
+        }
+    }
+
+    /// Keep the search start points if any is still stored; otherwise restart from the index
+    /// entry point, since a search seeded only with deleted nodes finds nothing.
+    fn live_entry_points(
         &self,
-        query: &Node<E>,
-        entry_points: &[NodeId],
-        ef: usize,
-        layer: &LayerIndex,
-        accept_list: Option<&std::collections::HashSet<u64>>,
-    ) -> Result<Vec<NodeId>, Error> {
-        let nodes = self.nodes.pin();
-
-        // Pre-allocate visited set to avoid reallocation during search.
-        // Typical HNSW search visits 2-5x ef nodes; 512 covers most cases
-        // without wasting too much memory
-        let mut visited_items: NodeIdHashSet =
-            NodeIdHashSet::with_capacity_and_hasher(512, Default::default());
-        visited_items.extend(entry_points.iter().copied());
-
-        let is_accepted = |id: &NodeId| accept_list.is_none_or(|accept| accept.contains(&id.0));
-
-        // C - candidates, closest first
-        let mut candidates = NearestFirst::from_nodes(
-            entry_points.iter().filter_map(|id| nodes.get(id)),
-            query,
-            self.distance_algorithm,
-        );
-
-        // W - keeps the ef closest; peek() is the furthest of those kept
-        let ef_nonzero = NonZeroUsize::new(ef).unwrap_or(NonZeroUsize::new(1).unwrap());
-        let mut nearest_neighbours: BoundedMaxHeap<OrderedNode> = BoundedMaxHeap::new(ef_nonzero);
-        for node in entry_points.iter().filter_map(|id| nodes.get(id)) {
-            // Entry points navigate regardless, but only enter W if they satisfy the filter.
-            if !is_accepted(&node.id) {
-                continue;
-            }
-            let closeness = self
-                .distance_algorithm
-                .closeness(node.value.as_slice(), query.value.as_slice());
-            nearest_neighbours.push(OrderedNode::new(node.id, closeness));
+        nodes: &NodesRef<'_, E>,
+        entry_points: SmallVec<[NodeId; 1]>,
+    ) -> SmallVec<[NodeId; 1]> {
+        if entry_points.iter().any(|id| nodes.contains_key(id)) {
+            return entry_points;
         }
+        self.enter_point.load().ids.clone()
+    }
 
-        while !candidates.is_empty() {
-            let nearest = candidates.pop().ok_or(Error::QueueEmpty)?;
-
-            // Stop only once W is FULL and the next candidate is worse than W's furthest.
-            // The `len() >= ef` guard matters: W holds only accepted nodes, so under a
-            // filter it fills slowly. Breaking while W is still under-full would abandon
-            // the search early and return fewer than `ef` results — the unfiltered path
-            // never noticed because W fills immediately when everything is accepted.
-            if nearest_neighbours.len() >= ef
-                && let Some(furthest) = nearest_neighbours.peek()
-                && nearest.closeness < furthest.closeness
-            {
-                break;
+    /// The chosen neighbours that are still stored. If every one has been deleted since it
+    /// was chosen, fall back to the entry point so the new node is not left without edges.
+    fn live_link_targets(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        chosen: &[NodeId],
+        new_id: NodeId,
+    ) -> Vec<(NodeId, NodeLease)> {
+        #[cfg(test)]
+        AFTER_NEIGHBOUR_SELECTION.with(|hook| {
+            if let Some(hook) = hook.borrow().as_ref() {
+                hook(chosen);
             }
+        });
 
-            let visited_node = nodes
-                .get(&nearest.id)
-                .ok_or_else(|| Error::NotFoundError("Node not found".to_string()))?;
-
-            // Explore neighbors
-            let vn_neighbours_guard = visited_node.neighbours.pin();
-            if let Some(visited_node_neighbours) = vn_neighbours_guard.get(layer) {
-                let edge_ids = visited_node_neighbours.snapshot();
-                for neighbour_id in edge_ids.iter() {
-                    // insert returns false if already present - combines contains + insert
-                    if !visited_items.insert(*neighbour_id) {
-                        continue;
-                    }
-
-                    let neighbour_node = nodes
-                        .get(neighbour_id)
-                        .ok_or_else(|| Error::NotFoundError("Neighbor not found".to_string()))?;
-
-                    let neighbour_closeness = self
-                        .distance_algorithm
-                        .closeness(neighbour_node.value.as_slice(), query.value.as_slice());
-
-                    // Explore if better than worst in W, OR if we haven't filled ef yet.
-                    // Note W only ever holds accepted nodes, so when a filter is active and
-                    // few nodes are accepted, W stays under ef and the search keeps widening
-                    // until it has found ef acceptable nodes or exhausted the candidates.
-                    let should_explore = match nearest_neighbours.peek() {
-                        Some(worst) => {
-                            neighbour_closeness > worst.closeness || nearest_neighbours.len() < ef
-                        }
-                        None => true,
-                    };
-
-                    if should_explore {
-                        // Always traverse through the node...
-                        candidates.push(neighbour_node);
-                        // ...but only return it if it satisfies the filter.
-                        if is_accepted(neighbour_id) {
-                            nearest_neighbours
-                                .push(OrderedNode::new(neighbour_node.id, neighbour_closeness));
-                        }
-                    }
-                }
+        let lease = |id: NodeId| {
+            if id == new_id {
+                return None;
             }
+            let node = nodes.get(&id)?;
+            Some((id, node.lifecycle.try_enter()?))
+        };
+        let live: Vec<_> = chosen.iter().copied().filter_map(lease).collect();
+        if !live.is_empty() {
+            return live;
         }
-
-        Ok(nearest_neighbours.iter().map(|node| node.id).collect())
+        let fallback: Vec<_> = self
+            .enter_point
+            .load()
+            .ids
+            .iter()
+            .copied()
+            .filter_map(lease)
+            .collect();
+        if !fallback.is_empty() {
+            return fallback;
+        }
+        // The entry point can itself be closing. Find another usable node rather
+        // than leaving an insertion disconnected from live nodes in the map.
+        nodes
+            .iter()
+            .find_map(|(id, _)| lease(*id))
+            .into_iter()
+            .collect()
     }
 
     /// Select M neighbours using heuristic for diversity and pruning
     /// Corresponds to Algorithm 4 (SELECT-neighbourS-HEURISTIC)
-    pub fn select_neighbours_heuristic(
-        &self,
-        query: &Node<E>,
-        candidates: &[NodeId],
-        m: usize,
-        layer: &LayerIndex,
-        extend_candidates: bool,
-        keep_pruned_connections: bool,
-    ) -> Result<Vec<NodeId>, Error> {
-        let nodes = self.nodes.pin();
-
-        let mut response =
-            NearestFirst::from_nodes(std::iter::empty(), query, self.distance_algorithm);
-
-        let mut working_queue = NearestFirst::from_nodes(
-            candidates.iter().filter_map(|id| nodes.get(id)),
-            query,
-            self.distance_algorithm,
-        );
-
-        if extend_candidates {
-            for candidate in candidates.iter() {
-                // TODO: loop error handling??
-
-                let candidate_node = nodes
-                    .get(candidate)
-                    .ok_or_else(|| Error::NotFoundError(" Node Ref not Found".to_string()))?;
-
-                let cn_guard = candidate_node.neighbours.pin();
-                let neighbours_at = cn_guard
-                    .get(layer)
-                    .ok_or_else(|| Error::NotFoundError(format!("{:?} not Found", layer)))?;
-
-                let edge_ids = neighbours_at.snapshot();
-                for neighbour_id in edge_ids.iter() {
-                    if !working_queue.contains(neighbour_id)
-                        && let Some(neighbour_node) = nodes.get(neighbour_id)
-                    {
-                        working_queue.push(neighbour_node);
-                    }
-                }
-            }
-        }
-
-        let mut discarded_candidates =
-            NearestFirst::from_nodes(std::iter::empty(), query, self.distance_algorithm);
-
-        // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
-        // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
-        // the argmin then it's assumed it's closer to q than any element in R)
-        while !working_queue.is_empty() && response.len() < m {
-            let candidate = working_queue.pop().ok_or(Error::QueueEmpty)?;
-
-            // NOTE: edge case
-            // TODO: loop error handling??
-            if response.is_empty() {
-                let node = nodes
-                    .get(&candidate.id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
-                response.push(node);
-                continue;
-            }
-
-            // Get the candidate node to compute distances to already-selected neighbors
-            let candidate_node = nodes
-                .get(&candidate.id)
-                .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
-            // Check if candidate is closer to query than to any already-selected neighbor
-            let mut is_diverse = true;
-            for selected in response.iter() {
-                let selected_node = nodes
-                    .get(&selected.id)
-                    .ok_or_else(|| Error::NotFoundError("Selected node not found".to_string()))?;
-
-                let closeness_to_selected = self.distance_algorithm.closeness(
-                    candidate_node.value.as_slice(),
-                    selected_node.value.as_slice(),
-                );
-
-                // If candidate is closer to this selected neighbour than to query then it means
-                // that candidate is clustered within the existing selections so reject it
-                if closeness_to_selected > candidate.closeness {
-                    is_diverse = false;
-                    break;
-                }
-            }
-
-            if is_diverse {
-                response.push(candidate_node);
-            } else {
-                discarded_candidates.push(candidate_node);
-            }
-        }
-
-        if keep_pruned_connections {
-            while !discarded_candidates.is_empty() && response.len() < m {
-                let nearest_from_wd_to_q = discarded_candidates.pop().ok_or(Error::QueueEmpty)?;
-
-                let node = nodes
-                    .get(&nearest_from_wd_to_q.id)
-                    .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
-                response.push(node);
-            }
-        }
-
-        Ok(response.iter().map(|node| node.id).collect::<Vec<NodeId>>())
-    }
-
-    /// Candidate neighbour-selection path that consumes query distances already calculated by
-    /// `search_layer_reuse_distances`.
-    fn select_neighbours_heuristic_reuse_distances_candidate(
+    ///
+    /// Candidates arrive already scored against `query`.
+    fn select_neighbours_heuristic(
         &self,
         query: &Node<E>,
         candidates: &[OrderedNode],
@@ -1220,10 +882,8 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
 
-        let mut response =
-            NearestFirst::from_scored(std::iter::empty(), query, self.distance_algorithm);
-        let mut working_queue =
-            NearestFirst::from_scored(candidates.iter().copied(), query, self.distance_algorithm);
+        let mut response = NearestFirst::new(std::iter::empty());
+        let mut working_queue = NearestFirst::new(candidates.iter().copied());
 
         if extend_candidates {
             for candidate in candidates {
@@ -1246,31 +906,32 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                             self.distance_algorithm
                                 .closeness(neighbour_node.value.as_slice(), query.value.as_slice()),
                         );
-                        working_queue.push_scored(scored);
+                        working_queue.push(scored);
                     }
                 }
             }
         }
 
-        let mut discarded_candidates =
-            NearestFirst::from_scored(std::iter::empty(), query, self.distance_algorithm);
+        let mut discarded_candidates = NearestFirst::new(std::iter::empty());
 
         while !working_queue.is_empty() && response.len() < m {
             let candidate = working_queue.pop().ok_or(Error::QueueEmpty)?;
 
             if response.is_empty() {
-                response.push_scored(candidate);
+                response.push(candidate);
                 continue;
             }
 
-            let candidate_node = nodes
-                .get(&candidate.id)
-                .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
+            let Some(candidate_node) = nodes.get(&candidate.id) else {
+                skip_missing_node(&candidate.id);
+                continue;
+            };
             let mut is_diverse = true;
             for selected in response.iter() {
-                let selected_node = nodes
-                    .get(&selected.id)
-                    .ok_or_else(|| Error::NotFoundError("Selected node not found".to_string()))?;
+                let Some(selected_node) = nodes.get(&selected.id) else {
+                    skip_missing_node(&selected.id);
+                    continue;
+                };
 
                 let closeness_to_selected = self.distance_algorithm.closeness(
                     candidate_node.value.as_slice(),
@@ -1283,90 +944,34 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             }
 
             if is_diverse {
-                response.push_scored(candidate);
+                response.push(candidate);
             } else {
-                discarded_candidates.push_scored(candidate);
+                discarded_candidates.push(candidate);
             }
         }
 
         if keep_pruned_connections {
             while !discarded_candidates.is_empty() && response.len() < m {
                 let nearest = discarded_candidates.pop().ok_or(Error::QueueEmpty)?;
-                response.push_scored(nearest);
+                response.push(nearest);
             }
         }
 
         Ok(response.iter().map(|node| node.id).collect())
     }
 
-    /// K-Nearest neighbour Search
-    /// Corresponds to Algorithm 5 (K-NN-SEARCH)
+    /// Search for ef nearest neighbours in a specific layer
+    /// Corresponds to Algorithm 2 (SEARCH-LAYER)
     ///
-    /// # Parameters
-    /// - `ef`: Optional search quality parameter. If None, defaults to max(k, 50).
-    ///   Higher values improve recall at cost of speed.
-    ///   Recommended range: k to 10*k depending on quality requirements.
-    pub fn knn_search(
-        &self,
-        query: &Node<E>,
-        k: usize,
-        ef: Option<usize>,
-        accept_list: Option<&std::collections::HashSet<u64>>,
-    ) -> Result<Vec<NodeId>, Error> {
-        let nodes = self.nodes.pin();
-        let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
-
-        let ef = ef.unwrap_or_else(|| k.max(50));
-        // Ensure ef >= k as per paper requirements
-        let ef = ef.max(k);
-
-        // Read enter_point and top_most_layer together
-        // to ensure a consistent snapshot
-        let (mut enter_point, ep_level) = {
-            let ep = self.enter_point.load();
-            (
-                ep.as_ref().clone(),
-                self.top_most_layer.load(Ordering::Acquire),
-            )
-        };
-
-        for level_current in (1..=ep_level).rev() {
-            let layer = LayerIndex(level_current as u16);
-
-            // Upper layers are navigation only (ef=1 greedy descent). Filtering here would
-            // strand the descent on a non-matching entry point, so it stays unfiltered.
-            let searched = self.search_layer(query, &enter_point, 1, &layer, None)?;
-
-            let ep = NearestFirst::from_nodes(
-                searched.iter().filter_map(|id| nodes.get(id)),
-                query,
-                self.distance_algorithm,
-            )
-            .peek()
-            .map(|node| node.id)
-            .ok_or(Error::QueueEmpty)?;
-            enter_point = smallvec![ep];
-        }
-
-        // Layer 0 is where results are collected, so this is the only layer that filters.
-        let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0), accept_list)?;
-        let mut current_nearest_elements = NearestFirst::from_nodes(
-            level_zero.iter().filter_map(|id| nodes.get(id)),
-            query,
-            self.distance_algorithm,
-        );
-
-        Ok(current_nearest_elements
-            .pop_n(valid_len)
-            .into_iter()
-            .map(|node| node.id)
-            .collect())
-    }
-
-    /// SEARCH-LAYER implementation that computes each query/node distance once.
+    /// `accept_list`, when supplied, restricts which nodes may enter the result set `W`.
+    /// Rejected nodes are still traversed *through* (they stay in the candidate set `C`),
+    /// because the graph's navigability depends on them as stepping stones — dropping them
+    /// from `C` would disconnect the search. This is "in-filtering": the paper's Algorithm 2
+    /// is unchanged except for which nodes are admitted to `W`.
     ///
-    /// This carries `OrderedNode` through traversal so both C and W can reuse the same score.
-    pub(crate) fn search_layer_reuse_distances(
+    /// Each query/node distance is computed once and carried as an `OrderedNode`, so the
+    /// candidate and result queues share the same score.
+    pub(crate) fn search_layer(
         &self,
         query: &Node<E>,
         entry_points: &[NodeId],
@@ -1392,11 +997,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             })
             .collect();
 
-        let mut candidates = NearestFirst::from_scored(
-            scored_entry_points.iter().copied(),
-            query,
-            self.distance_algorithm,
-        );
+        let mut candidates = NearestFirst::new(scored_entry_points.iter().copied());
         let ef_nonzero = NonZeroUsize::new(ef).unwrap_or(NonZeroUsize::new(1).unwrap());
         let mut nearest_neighbours: BoundedMaxHeap<OrderedNode> = BoundedMaxHeap::new(ef_nonzero);
         for scored in scored_entry_points {
@@ -1414,9 +1015,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 break;
             }
 
-            let visited_node = nodes
-                .get(&nearest.id)
-                .ok_or_else(|| Error::NotFoundError("Node not found".to_string()))?;
+            let Some(visited_node) = nodes.get(&nearest.id) else {
+                skip_missing_node(&nearest.id);
+                continue;
+            };
             let neighbours = visited_node.neighbours.pin();
             if let Some(layer_neighbours) = neighbours.get(layer) {
                 let edge_ids = layer_neighbours.snapshot();
@@ -1425,9 +1027,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                         continue;
                     }
 
-                    let neighbour_node = nodes
-                        .get(neighbour_id)
-                        .ok_or_else(|| Error::NotFoundError("Neighbor not found".to_string()))?;
+                    let Some(neighbour_node) = nodes.get(neighbour_id) else {
+                        skip_missing_node(neighbour_id);
+                        continue;
+                    };
                     let scored = OrderedNode::new(
                         neighbour_node.id,
                         self.distance_algorithm
@@ -1441,7 +1044,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                     };
 
                     if should_explore {
-                        candidates.push_scored(scored);
+                        candidates.push(scored);
                         if is_accepted(neighbour_id) {
                             nearest_neighbours.push(scored);
                         }
@@ -1453,51 +1056,56 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         Ok(nearest_neighbours.iter().copied().collect())
     }
 
-    /// K-NN search that preserves SEARCH-LAYER scores between HNSW layers and through
-    /// final top-k selection.
-    fn knn_search_reuse_distances_scored(
+    /// `knn_search` that keeps each match's score, so callers need not recompute it.
+    fn knn_search_scored(
         &self,
         query: &Node<E>,
         k: usize,
         ef: Option<usize>,
         accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<OrderedNode>, Error> {
+        let nodes = self.nodes.pin();
         let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
         let ef = ef.unwrap_or_else(|| k.max(50)).max(k);
         let (mut enter_point, ep_level) = {
-            let ep = self.enter_point.load();
-            (
-                ep.as_ref().clone(),
-                self.top_most_layer.load(Ordering::Acquire),
-            )
+            let entry = self.enter_point.load();
+            (entry.ids.clone(), entry.level)
         };
+        #[cfg(test)]
+        AFTER_SEARCH_ENTRY_LOAD.with(|hook| {
+            if let Some(hook) = hook.borrow().as_ref() {
+                hook();
+            }
+        });
 
         for level_current in (1..=ep_level).rev() {
-            let searched = self.search_layer_reuse_distances(
+            enter_point = self.live_entry_points(&nodes, enter_point);
+            let searched = self.search_layer(
                 query,
                 &enter_point,
                 1,
                 &LayerIndex(level_current as u16),
                 None,
             )?;
-            let nearest = searched.into_iter().max().ok_or(Error::QueueEmpty)?;
-            enter_point = smallvec![nearest.id];
+            if let Some(nearest) = searched.into_iter().max() {
+                enter_point = smallvec![nearest.id];
+            }
         }
 
-        let level_zero = self.search_layer_reuse_distances(
-            query,
-            &enter_point,
-            ef,
-            &LayerIndex(0),
-            accept_list,
-        )?;
-        let mut current_nearest_elements =
-            NearestFirst::from_scored(level_zero.into_iter(), query, self.distance_algorithm);
+        enter_point = self.live_entry_points(&nodes, enter_point);
+        let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0), accept_list)?;
+        let mut current_nearest_elements = NearestFirst::new(level_zero.into_iter());
         Ok(current_nearest_elements.pop_n(valid_len))
     }
 
-    /// Distance-reusing search with the same result type as `knn_search`.
-    pub fn knn_search_reuse_distances(
+    /// K-Nearest neighbour Search
+    /// Corresponds to Algorithm 5 (K-NN-SEARCH)
+    ///
+    /// # Parameters
+    /// - `ef`: Optional search quality parameter. If None, defaults to max(k, 50).
+    ///   Higher values improve recall at cost of speed.
+    ///   Recommended range: k to 10*k depending on quality requirements.
+    pub fn knn_search(
         &self,
         query: &Node<E>,
         k: usize,
@@ -1505,63 +1113,239 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<NodeId>, Error> {
         Ok(self
-            .knn_search_reuse_distances_scored(query, k, ef, accept_list)?
+            .knn_search_scored(query, k, ef, accept_list)?
             .into_iter()
             .map(|node| node.id)
             .collect())
     }
 
-    /// Delete a single element from the HNSW graph by NodeId.
-    pub fn delete_node(&self, node_id: &NodeId) {
-        let nodes = self.nodes.pin();
-        let graph = self.graph.pin();
-
-        if let Some(node) = nodes.get(node_id) {
-            for backlink in &node.back_links.pin() {
-                let related = nodes.get(backlink).unwrap();
-
-                let guard = related.neighbours.pin();
-                let neighbour_keys_inner = guard.keys();
-
-                for layer_index in neighbour_keys_inner {
-                    if let Some(edges) = guard.get(layer_index) {
-                        edges.remove_edge(*node_id);
-                    };
-
-                    if let Some(layer_set) = graph.get(layer_index) {
-                        layer_set.pin().remove(node_id);
-                    }
-                }
-                related.back_links.pin().remove(node_id);
+    /// Prepare selection without edge locks, then validate and commit under locks
+    /// for the source and every affected target. The incoming-edge check and the
+    /// backlink update are one critical section, shared with all edge writers.
+    fn prune_connections(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        source: &Node<E>,
+        layer: LayerIndex,
+        maximum: usize,
+        source_lease: &NodeLease,
+    ) -> Result<(), Error> {
+        debug_assert!(source_lease.protects(&source.lifecycle));
+        loop {
+            let adjacency = source.neighbours.pin();
+            let Some(edges) = adjacency.get(&layer) else {
+                return Ok(());
+            };
+            let mut observed: Vec<_> = edges.snapshot().iter().copied().collect();
+            if observed.len() <= maximum {
+                return Ok(());
             }
+            observed.sort_unstable();
 
-            nodes.remove(node_id);
+            let mut participants = vec![source];
+            let mut leases = Vec::new();
+            let mut live = NodeIdHashSet::default();
+            let mut scored = Vec::new();
+            for id in &observed {
+                let Some(target) = nodes.get(id) else {
+                    continue;
+                };
+                // Even closing targets participate in edge locking. They cannot
+                // be retained, but deletion must coordinate their edge removal.
+                participants.push(target);
+                if let Some(lease) = target.lifecycle.try_enter() {
+                    leases.push(lease);
+                    live.insert(*id);
+                    scored.push(OrderedNode::new(
+                        *id,
+                        self.distance_algorithm
+                            .closeness(target.value.as_slice(), source.value.as_slice()),
+                    ));
+                }
+            }
+            let mut selected =
+                self.select_neighbours_heuristic(source, &scored, maximum, &layer, false, false)?;
+            #[cfg(test)]
+            if let Some(hook) = BEFORE_PRUNE_LOCKS.with(|hook| hook.borrow_mut().take()) {
+                hook();
+            }
+            let _edges = lock_edge_mutations(&participants);
+            // Reacquire the layer: hash-set pruning can replace its storage.
+            let adjacency = source.neighbours.pin();
+            let Some(edges) = adjacency.get(&layer) else {
+                continue;
+            };
+            let mut current: Vec<_> = edges.snapshot().iter().copied().collect();
+            current.sort_unstable();
+            if current != observed
+                || participants.iter().any(|node| {
+                    !nodes
+                        .get(&node.id)
+                        .is_some_and(|current| std::ptr::eq(current, *node))
+                })
+            {
+                continue;
+            }
+            let mut dropped = Vec::new();
+            for id in &observed {
+                if selected.contains(id) {
+                    continue;
+                }
+                if live.contains(id) && self.only_pointed_at_by(nodes, id, source.id) {
+                    selected.push(*id);
+                } else {
+                    dropped.push(*id);
+                }
+            }
+            if let Some(replacement) = edges.prune(
+                maximum,
+                self.collector.as_ref(),
+                self.node_counter_shards,
+                |_| Ok(selected.clone()),
+            )? {
+                adjacency.insert(layer, replacement);
+            }
+            for id in dropped {
+                if let Some(target) = participants.iter().find(|target| target.id == id)
+                    && !self.has_edge_to(source, id)
+                {
+                    target.back_links.pin().remove(&source.id);
+                }
+            }
+            return Ok(());
         }
     }
 
-    // finds the best entry point from candidates
-    fn find_best_entry_point(
-        &self,
-        query: &Node<E>,
-        candidates: &[NodeId],
-    ) -> Result<Option<NodeId>, Error> {
+    /// Called with the target's edge lock held. Every writer changing an edge
+    /// into it takes that same lock, so incoming sources remain stable here.
+    /// Verify actual edges: stale backlinks must not justify dropping the last one.
+    fn only_pointed_at_by(&self, nodes: &NodesRef<'_, E>, id: &NodeId, from: NodeId) -> bool {
+        nodes.get(id).is_some_and(|target| {
+            !target.back_links.pin().iter().any(|other| {
+                *other != from
+                    && nodes
+                        .get(other)
+                        .is_some_and(|source| self.has_edge_to(source, *id))
+            })
+        })
+    }
+
+    /// Whether `from` has an edge to `to` on any layer.
+    fn has_edge_to(&self, from: &Node<E>, to: NodeId) -> bool {
+        from.neighbours
+            .pin()
+            .values()
+            .any(|edges| edges.snapshot().iter().any(|id| *id == to))
+    }
+
+    /// Delete a single element from the HNSW graph by NodeId.
+    ///
+    /// Close mutation permission, wait for active publishers, then remove edges,
+    /// layer membership, and finally the node. Searches never acquire this gate.
+    pub fn delete_node(&self, node_id: &NodeId) {
         let nodes = self.nodes.pin();
+        if let Some(node) = nodes.get(node_id) {
+            self.delete_node_instance(&nodes, node);
+        }
+    }
 
-        if candidates.is_empty() {
-            // Edge case: no neighbors found at this layer (shouldn't happen in practice)
-            // Keep current entry point
-            Ok(None)
-        } else {
-            let enter_point = NearestFirst::from_nodes(
-                candidates.iter().filter_map(|node_id| nodes.get(node_id)),
-                query,
-                self.distance_algorithm,
-            )
-            .pop()
-            .map(|node| node.id)
-            .ok_or_else(|| Error::NotFoundError("Nearest Element Not Found".to_string()))?;
+    /// Cleanup owns this closed instance, even if a later insertion reuses its ID.
+    /// Drain lifecycle leases before acquiring any edge locks for cleanup.
+    fn delete_node_instance(&self, nodes: &NodesRef<'_, E>, node: &Node<E>) -> bool {
+        if !node.lifecycle.close_and_wait() {
+            return false;
+        }
+        let node_id = node.id;
+        // Closing/draining happens before taking any edge locks. No insertion
+        // can now add a reference to this instance. Concurrent deletions can only
+        // remove references, so this snapshot covers all cleanup participants.
+        let mut participants = vec![node];
+        for edges in node.neighbours.pin().values() {
+            for id in edges.snapshot().iter() {
+                if let Some(target) = nodes.get(id) {
+                    participants.push(target);
+                }
+            }
+        }
+        for id in node.back_links.pin().iter() {
+            if let Some(source) = nodes.get(id) {
+                participants.push(source);
+            }
+        }
+        let edge_guards = lock_edge_mutations(&participants);
+        for edges in node.neighbours.pin().values() {
+            for target in edges.snapshot().iter() {
+                if let Some(target) = nodes.get(target) {
+                    target.back_links.pin().remove(&node_id);
+                }
+            }
+        }
+        for backlink in &node.back_links.pin() {
+            let Some(related) = nodes.get(backlink) else {
+                skip_missing_node(backlink);
+                continue;
+            };
+            for edges in related.neighbours.pin().values() {
+                edges.remove_edge(node_id);
+            }
+            related.back_links.pin().remove(&node_id);
+        }
+        // Layer membership must be removed even if there were no incoming edges.
+        for layer in self.graph.pin().values() {
+            layer.pin().remove(&node_id);
+        }
+        // New linking is excluded and all earlier users have finished. Remove last
+        // so a new instance cannot be inserted while old cleanup is still running.
+        let removed = matches!(
+            nodes.remove_if(&node_id, |_, current| std::ptr::eq(current, node)),
+            Ok(Some(_))
+        );
+        drop(edge_guards);
+        self.repair_entry_point(nodes, &node_id);
+        removed
+    }
 
-            Ok(Some(enter_point))
+    /// If `deleted` was the index entry point, move it to the highest-level node that remains
+    /// (and lower the top layer to match), so searches and inserts do not start from a
+    /// node that no longer exists. This scans every node, but only when the entry point itself
+    /// is deleted.
+    fn repair_entry_point(&self, nodes: &NodesRef<'_, E>, deleted: &NodeId) {
+        loop {
+            let current = self.enter_point.load_full();
+            if !current.ids.contains(deleted) {
+                return;
+            }
+            // Keep a replacement present through CAS. Closing nodes are skipped
+            // without waiting, so repairs/deletions never wait on each other's leases.
+            let published = {
+                let mut replacement: Option<(NodeId, u8, NodeLease)> = None;
+                for (id, node) in nodes.iter() {
+                    let level = node.level(self.maximum_connections);
+                    let better = replacement.as_ref().is_none_or(|(best_id, best_level, _)| {
+                        level > *best_level || (level == *best_level && id < best_id)
+                    });
+                    if better && let Some(lease) = node.lifecycle.try_enter() {
+                        replacement = Some((*id, level, lease));
+                    }
+                }
+                let next = match &replacement {
+                    Some((id, level, _lease)) => EntryPoint {
+                        ids: smallvec![*id],
+                        level: *level,
+                    },
+                    None => EntryPoint::default(),
+                };
+                #[cfg(test)]
+                if let Some(hook) = BEFORE_ENTRY_REPAIR.with(|hook| hook.borrow_mut().take()) {
+                    hook();
+                }
+                let previous = self.enter_point.compare_and_swap(&current, Arc::new(next));
+                Arc::ptr_eq(&current, &previous)
+                // replacement's lease drops here on success AND on a failed CAS.
+            };
+            if published {
+                return;
+            }
         }
     }
 
@@ -1592,27 +1376,7 @@ impl<D: DistanceFn, E: EdgeStorage> Drop for HNSW<D, E> {
 
 impl Default for HNSW<LinearAlgorithm> {
     fn default() -> Self {
-        let config = HNSWConfig::default();
-        let inv_log_m = 1.0 / f64::ln(config.maximum_connections as f64);
-
-        let distance_algorithm = LinearAlgorithm::EuclideanDistance;
-
-        Self {
-            ef_construction: config.ef_construction,
-            top_most_layer: AtomicU8::new(0),
-            maximum_connections: config.maximum_connections,
-            maximum_connections_zero: config.maximum_connections_zero,
-            inv_log_m, // ln(1/M)
-            collector: None,
-            node_counter_shards: None,
-            graph: new_hashmap(),
-            nodes: new_hashmap(),
-            enter_point: ArcSwap::new(SmallVec::new().into()),
-            distance_algorithm,
-
-            extend_candidates: config.extend_candidates,
-            keep_pruned_connections: config.keep_pruned_connections,
-        }
+        Self::new_with_config(HNSWConfig::default(), LinearAlgorithm::EuclideanDistance)
     }
 }
 
@@ -1671,6 +1435,8 @@ fn node_from_temp_with_shared_collector<E: EdgeStorage>(
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links,
+        lifecycle: Arc::default(),
+        edge_mutation: parking_lot::Mutex::new(()),
     }
 }
 
@@ -1694,6 +1460,8 @@ fn node_from_temp_with_counter_shards<E: EdgeStorage>(
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links: node_hashset_from_iter(temp.back_links, collector, shards),
+        lifecycle: Arc::default(),
+        edge_mutation: parking_lot::Mutex::new(()),
     }
 }
 
@@ -1728,11 +1496,12 @@ impl<D: DistanceFn, E: EdgeStorage> From<&HNSW<D, E>> for TempHNSW<D> {
             nodes.insert(*node_id, TempNode::from(node));
         }
 
-        let enter_point: Vec<NodeId> = hnsw.enter_point.load().iter().copied().collect();
+        let entry = hnsw.enter_point.load();
+        let enter_point: Vec<NodeId> = entry.ids.iter().copied().collect();
 
         TempHNSW {
             ef_construction: hnsw.ef_construction,
-            top_most_layer: hnsw.top_most_layer.load(Ordering::Acquire),
+            top_most_layer: entry.level,
             maximum_connections: hnsw.maximum_connections,
             maximum_connections_zero: hnsw.maximum_connections_zero,
             inv_log_m: hnsw.inv_log_m,
@@ -1774,19 +1543,21 @@ impl<D: DistanceFn, E: EdgeStorage> From<TempHNSW<D>> for HNSW<D, E> {
             }
         }
 
-        let enter_point: SmallVec<[NodeId; 1]> = temp.enter_point.into_iter().collect();
+        let enter_point = EntryPoint {
+            ids: temp.enter_point.into_iter().collect(),
+            level: temp.top_most_layer,
+        };
 
         HNSW {
             collector,
             node_counter_shards,
             ef_construction: temp.ef_construction,
-            top_most_layer: AtomicU8::new(temp.top_most_layer),
             maximum_connections: temp.maximum_connections,
             maximum_connections_zero: temp.maximum_connections_zero,
             inv_log_m: temp.inv_log_m,
             graph,
             nodes,
-            enter_point: ArcSwap::new(enter_point.into()),
+            enter_point: ArcSwap::from_pointee(enter_point),
             distance_algorithm: temp.distance_algorithm,
             keep_pruned_connections: temp.keep_pruned_connections,
             extend_candidates: temp.extend_candidates,
@@ -1869,14 +1640,18 @@ mod tests {
                 value: EmbeddingKey::new(vec![value]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
+                lifecycle: Arc::default(),
+                edge_mutation: parking_lot::Mutex::new(()),
             };
             node.neighbours
                 .pin()
                 .insert(LayerIndex(0), ArcSwap::from_pointee(neighbours));
             hnsw.nodes.pin().insert(NodeId(id), node);
         }
-        hnsw.enter_point
-            .store(std::sync::Arc::new(smallvec::smallvec![NodeId(1)]));
+        hnsw.enter_point.store(std::sync::Arc::new(EntryPoint {
+            ids: smallvec::smallvec![NodeId(1)],
+            level: 0,
+        }));
         let n = NonZeroUsize::new(1).unwrap();
         let narrow = hnsw
             .n_nearest_with_ef(&[0.0], n, None, NonZeroUsize::new(1))
@@ -1977,6 +1752,8 @@ mod tests {
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
+                lifecycle: Arc::default(),
+                edge_mutation: parking_lot::Mutex::new(()),
             })
             .unwrap();
         }
@@ -2024,6 +1801,8 @@ mod tests {
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -2032,6 +1811,8 @@ mod tests {
             value: EmbeddingKey::new(vec![10.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -2041,6 +1822,8 @@ mod tests {
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         };
 
         let res = hnsw.knn_search(&query_node, 1, Some(10), None).unwrap();
@@ -2059,6 +1842,8 @@ mod tests {
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -2067,6 +1852,8 @@ mod tests {
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -2097,6 +1884,8 @@ mod tests {
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
+                lifecycle: Arc::default(),
+                edge_mutation: parking_lot::Mutex::new(()),
             })
             .unwrap();
         }
@@ -2118,47 +1907,6 @@ mod tests {
                     .all(|(_, s)| !s.load().contains(target))
             );
             assert!(!node.back_links.pin().contains(target));
-        }
-    }
-
-    fn assert_hnsw_invariants<D: DistanceFn>(hnsw: &HNSW<D>) {
-        let nodes = hnsw.nodes.pin();
-        let graph = hnsw.graph.pin();
-        let all_ids: Vec<NodeId> = {
-            // Collect all IDs from the graph layers
-            let mut ids = std::collections::HashSet::new();
-            for (_, layer_nodes) in graph.iter() {
-                for id in layer_nodes.pin().iter() {
-                    ids.insert(*id);
-                }
-            }
-            ids.into_iter().collect()
-        };
-
-        for id in &all_ids {
-            if let Some(node) = nodes.get(id) {
-                // neighbours must exist
-                let neighbours_guard = node.neighbours.pin();
-                for (_, neighbours) in neighbours_guard.iter() {
-                    for n in neighbours.snapshot().iter() {
-                        assert!(nodes.contains_key(n));
-                    }
-                }
-
-                // Back-links must exist
-                for b in node.back_links.pin().iter() {
-                    assert!(nodes.contains_key(b));
-                }
-
-                // Bidirectional consistency
-                for (lc, neighbours) in neighbours_guard.iter() {
-                    assert!(graph.get(lc).unwrap().pin().contains(id));
-                    for n in neighbours.snapshot().iter() {
-                        let other = nodes.get(n).unwrap();
-                        assert!(other.back_links.pin().contains(id));
-                    }
-                }
-            }
         }
     }
 

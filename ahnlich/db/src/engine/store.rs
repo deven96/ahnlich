@@ -596,7 +596,7 @@ impl StoreHandler {
                     Some(accept_list),
                     closest_n,
                     ef_search,
-                )
+                )?
             }
 
             // Linear WITH predicates: Adaptive parallel/sequential decision
@@ -724,7 +724,7 @@ impl StoreHandler {
                     None,
                     closest_n,
                     ef_search,
-                )
+                )?
             }
 
             // Linear WITHOUT predicates: Adaptive parallel/sequential decision
@@ -876,7 +876,7 @@ impl StoreHandler {
                     Some(accept_list),
                     closest_n,
                     None,
-                )
+                )?
             }
 
             // Linear WITH predicates: Adaptive parallel/sequential decision
@@ -960,7 +960,7 @@ impl StoreHandler {
                     None,
                     closest_n,
                     None,
-                )
+                )?
             }
 
             // Linear WITHOUT predicates: Adaptive parallel/sequential decision

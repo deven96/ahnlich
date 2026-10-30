@@ -49,7 +49,7 @@ fn measure(variant: &str, entries: usize) -> [i64; 5] {
             (index.compact_adjacency_bench_counts(), memory())
         }
         "candidate" => {
-            let index = HNSW::new_with_config_and_compact_adjacency(
+            let index = HNSW::new_with_config_and_shared_collector_and_counter_shards(
                 CONFIG,
                 LinearAlgorithm::CosineSimilarity,
                 std::num::NonZeroUsize::new(1).unwrap(),

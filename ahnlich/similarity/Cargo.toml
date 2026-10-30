@@ -16,6 +16,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 arc-swap.workspace = true
+parking_lot.workspace = true
 crossbeam = "0.8.4"
 papaya.workspace = true
 seize.workspace = true
@@ -50,12 +51,6 @@ name = "hnsw_bench"
 harness = false
 
 [[bench]]
-name = "hnsw_distance_reuse"
-path = "benches/experiments/hnsw_distance_reuse.rs"
-harness = false
-required-features = ["bench-experiments"]
-
-[[bench]]
 name = "hnsw_collector_sharing"
 path = "benches/experiments/hnsw_collector_sharing.rs"
 harness = false
@@ -70,12 +65,6 @@ required-features = ["bench-experiments"]
 [[bench]]
 name = "hnsw_counter_shards_memory"
 path = "benches/memory/hnsw_counter_shards_memory.rs"
-harness = false
-required-features = ["bench-experiments"]
-
-[[bench]]
-name = "hnsw_insert_distance_reuse"
-path = "benches/experiments/hnsw_insert_distance_reuse.rs"
 harness = false
 required-features = ["bench-experiments"]
 

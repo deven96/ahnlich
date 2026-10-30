@@ -1,13 +1,12 @@
-#![allow(dead_code)]
-
 pub mod edges;
 pub mod index;
+mod lifecycle;
 pub mod utils;
 
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
-use crate::{Closeness, DistanceFn, EmbeddingKey};
+use crate::{Closeness, EmbeddingKey};
 pub use edges::CompactEdges;
 use edges::{EdgeSnapshot, EdgeStorage};
 use papaya::{HashMap, HashSet};
@@ -74,7 +73,7 @@ pub struct NodeId(pub u64);
 /// - `id`: unique identifier
 /// - `value`: embedding vector
 /// - `neighbours`: map from layer to set of NodeIds of neighbours in that layer
-/// - `back_links`: set of NodeIds of nodes that consider us a neighbour.
+/// - `back_links`: set of NodeIds of nodes that have an edge to us.
 ///   Used to efficiently update the graph when deleting this node.
 ///
 /// Example of a node:
@@ -98,6 +97,11 @@ pub struct Node<E: EdgeStorage = CompactEdges> {
     value: EmbeddingKey,
     neighbours: HashMap<LayerIndex, E>,
     back_links: HashSet<NodeId>,
+    // Runtime-only, independent for clones/restored nodes. Not serialized.
+    lifecycle: Arc<lifecycle::NodeGate>,
+    // Runtime-only. Lock both endpoints when changing edges or backlinks.
+    // Searches never acquire this lock.
+    edge_mutation: parking_lot::Mutex<()>,
 }
 
 impl<E: EdgeStorage> Clone for Node<E> {
@@ -124,6 +128,8 @@ impl<E: EdgeStorage> Clone for Node<E> {
             value: self.value.clone(),
             neighbours,
             back_links,
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 }
@@ -172,6 +178,8 @@ impl<E: EdgeStorage> Node<E> {
             value,
             neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 
@@ -190,6 +198,8 @@ impl<E: EdgeStorage> Node<E> {
                 .capacity(1)
                 .shared_collector(Arc::clone(collector))
                 .build(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 
@@ -211,6 +221,8 @@ impl<E: EdgeStorage> Node<E> {
                 .shared_collector(Arc::clone(collector))
                 .counter_shards(shards)
                 .build(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 
@@ -224,14 +236,16 @@ impl<E: EdgeStorage> Node<E> {
         &self.value
     }
 
-    /// Optional helper: add a neighbour at a specific layer
+    /// Build an unpublished node: add a neighbour at a specific layer.
+    /// Stored-node mutations must use the index endpoint-locking protocol.
     pub fn add_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
         let guard = self.neighbours.pin();
         let edges = guard.get_or_insert_with(layer, || E::from_ids(Vec::new(), None, None));
         edges.insert_edge(neighbour);
     }
 
-    /// Optional helper: remove a neighbour at a specific layer
+    /// Build an unpublished node: remove a neighbour at a specific layer.
+    /// Stored-node mutations must use the index endpoint-locking protocol.
     pub fn remove_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
         let guard = self.neighbours.pin();
         if let Some(edges) = guard.get(&layer) {
@@ -275,70 +289,19 @@ impl Ord for OrderedNode {
 ///
 /// A plain max-heap: `OrderedNode` orders by closeness, so the closest is always the
 /// greatest, whichever metric is in use. There is no min/max variant to pick.
-pub(crate) struct NearestFirst<F>
-where
-    F: DistanceFn,
-{
+pub(crate) struct NearestFirst {
     heap: BinaryHeap<OrderedNode>,
-    distance_algorithm: F,
-    /// Query embedding - stored as EmbeddingKey for cheap cloning (Arc pointer bump)
-    query: EmbeddingKey,
 }
 
-impl<F: DistanceFn> NearestFirst<F> {
-    pub(crate) fn from_nodes<'a, E: EdgeStorage>(
-        nodes: impl Iterator<Item = &'a Node<E>>,
-        query: &Node<E>,
-        distance_algorithm: F,
-    ) -> Self {
-        let heap = nodes
-            .map(|node| {
-                let closeness =
-                    distance_algorithm.closeness(node.value.as_slice(), query.value.as_slice());
-                OrderedNode::new(node.id, closeness)
-            })
-            .collect::<BinaryHeap<_>>();
-        Self {
-            heap,
-            distance_algorithm,
-            query: query.value.clone(),
-        }
-    }
-
-    pub(crate) fn push<E: EdgeStorage>(&mut self, node: &Node<E>) {
-        let closeness = self
-            .distance_algorithm
-            .closeness(node.value.as_slice(), self.query.as_slice());
-        self.heap.push(OrderedNode::new(node.id, closeness))
-    }
-
-    /// Build a candidate queue from distances already computed by the caller.
-    pub(crate) fn from_scored<E: EdgeStorage>(
-        nodes: impl Iterator<Item = OrderedNode>,
-        query: &Node<E>,
-        distance_algorithm: F,
-    ) -> Self {
-        Self::from_scored_with_embedding(nodes, query.value.clone(), distance_algorithm)
-    }
-
-    /// Build a scored queue without constructing a graph node for the query.
-    ///
-    /// Candidate representations may not use [`Node`] for their stored graph
-    /// nodes, but retain the same score queue and distance semantics.
-    pub(crate) fn from_scored_with_embedding(
-        nodes: impl Iterator<Item = OrderedNode>,
-        query: EmbeddingKey,
-        distance_algorithm: F,
-    ) -> Self {
+impl NearestFirst {
+    /// Build a queue from nodes whose query distance the caller has already computed.
+    pub(crate) fn new(nodes: impl Iterator<Item = OrderedNode>) -> Self {
         Self {
             heap: nodes.collect(),
-            distance_algorithm,
-            query,
         }
     }
 
-    /// Admit a node without repeating its query-distance calculation.
-    pub(crate) fn push_scored(&mut self, node: OrderedNode) {
+    pub(crate) fn push(&mut self, node: OrderedNode) {
         self.heap.push(node);
     }
 
@@ -352,10 +315,6 @@ impl<F: DistanceFn> NearestFirst<F> {
 
     pub(crate) fn len(&self) -> usize {
         self.heap.len()
-    }
-
-    pub(crate) fn peek(&self) -> Option<&OrderedNode> {
-        self.heap.peek()
     }
 
     pub(crate) fn iter(&self) -> impl Iterator<Item = &OrderedNode> {

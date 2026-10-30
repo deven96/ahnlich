@@ -4,6 +4,7 @@ use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
+use ahnlich_similarity::hnsw::HNSWConfig;
 use ahnlich_similarity::hnsw::index::HNSW;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_types::algorithm::algorithms::DistanceMetric;
@@ -37,13 +38,15 @@ impl NonLinearAlgorithmWithIndex {
             ),
             NonLinearAlgorithmIndexConf::Hnsw(conf) => {
                 let hnsw_conf: DbHnswConfig = conf.into();
-                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new_with_compact_adjacency(
+                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new_with_startup_counter_shards(
+                    HNSWConfig {
+                        ef_construction: hnsw_conf.ef_construction,
+                        maximum_connections: hnsw_conf.maximum_connections,
+                        maximum_connections_zero: hnsw_conf.maximum_connections_zero,
+                        extend_candidates: hnsw_conf.extend_candidates,
+                        keep_pruned_connections: hnsw_conf.keep_pruned_connections,
+                    },
                     hnsw_conf.distance_algorithm,
-                    hnsw_conf.ef_construction,
-                    hnsw_conf.maximum_connections,
-                    hnsw_conf.maximum_connections_zero,
-                    hnsw_conf.extend_candidates,
-                    hnsw_conf.keep_pruned_connections,
                 )))
             }
         }
@@ -127,7 +130,7 @@ impl NonLinearAlgorithmWithIndex {
         accept_list: Option<std::collections::HashSet<u64>>,
         n: NonZeroUsize,
         ef_search: Option<NonZeroUsize>,
-    ) -> Vec<(StoreKeyId, f32)> {
+    ) -> Result<Vec<(StoreKeyId, f32)>, ServerError> {
         let raw_result = match &self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
@@ -141,12 +144,12 @@ impl NonLinearAlgorithmWithIndex {
                 hnsw.n_nearest_with_ef(search_vector.as_slice(), n, accept_list, ef_search)
             }
         }
-        .expect("Index does not have the same size as reference_point");
+        .map_err(|err| ServerError::InternalError(format!("index search failed: {err:?}")))?;
 
-        raw_result
+        Ok(raw_result
             .into_iter()
             .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
-            .collect()
+            .collect())
     }
 }
 
@@ -248,5 +251,29 @@ impl NonLinearAlgorithmIndices {
     pub fn non_linear_index_configs(&self) -> Vec<nonlinear::NonLinearIndex> {
         let pinned = self.algorithm_to_index.pin();
         pinned.iter().map(|(_, v)| v.to_proto_index()).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failed_index_search_is_an_error_not_a_panic() {
+        let index = NonLinearAlgorithmWithIndex::create(
+            NonLinearAlgorithmIndexConf::Kdtree(KdTreeConfig {}),
+            NonZeroUsize::new(4).unwrap(),
+        );
+        index.insert(&[EmbeddingKey::new(vec![1.0, 2.0, 3.0, 4.0])]);
+
+        let wrong_dimension = EmbeddingKey::new(vec![1.0, 2.0, 3.0]);
+        let result = index.find_similar_n_with_ids(
+            &wrong_dimension,
+            None,
+            NonZeroUsize::new(1).unwrap(),
+            None,
+        );
+
+        assert!(matches!(result, Err(ServerError::InternalError(_))));
     }
 }
