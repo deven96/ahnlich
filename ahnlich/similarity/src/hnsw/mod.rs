@@ -1,5 +1,6 @@
 pub mod edges;
 pub mod index;
+mod lifecycle;
 pub mod utils;
 
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
@@ -96,6 +97,11 @@ pub struct Node<E: EdgeStorage = CompactEdges> {
     value: EmbeddingKey,
     neighbours: HashMap<LayerIndex, E>,
     back_links: HashSet<NodeId>,
+    // Runtime-only, independent for clones/restored nodes. Not serialized.
+    lifecycle: Arc<lifecycle::NodeGate>,
+    // Runtime-only. Lock both endpoints when changing edges or backlinks.
+    // Searches never acquire this lock.
+    edge_mutation: parking_lot::Mutex<()>,
 }
 
 impl<E: EdgeStorage> Clone for Node<E> {
@@ -122,6 +128,8 @@ impl<E: EdgeStorage> Clone for Node<E> {
             value: self.value.clone(),
             neighbours,
             back_links,
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 }
@@ -170,6 +178,8 @@ impl<E: EdgeStorage> Node<E> {
             value,
             neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 
@@ -188,6 +198,8 @@ impl<E: EdgeStorage> Node<E> {
                 .capacity(1)
                 .shared_collector(Arc::clone(collector))
                 .build(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 
@@ -209,6 +221,8 @@ impl<E: EdgeStorage> Node<E> {
                 .shared_collector(Arc::clone(collector))
                 .counter_shards(shards)
                 .build(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         }
     }
 
@@ -222,14 +236,16 @@ impl<E: EdgeStorage> Node<E> {
         &self.value
     }
 
-    /// Optional helper: add a neighbour at a specific layer
+    /// Build an unpublished node: add a neighbour at a specific layer.
+    /// Stored-node mutations must use the index endpoint-locking protocol.
     pub fn add_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
         let guard = self.neighbours.pin();
         let edges = guard.get_or_insert_with(layer, || E::from_ids(Vec::new(), None, None));
         edges.insert_edge(neighbour);
     }
 
-    /// Optional helper: remove a neighbour at a specific layer
+    /// Build an unpublished node: remove a neighbour at a specific layer.
+    /// Stored-node mutations must use the index endpoint-locking protocol.
     pub fn remove_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
         let guard = self.neighbours.pin();
         if let Some(edges) = guard.get(&layer) {

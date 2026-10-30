@@ -4,6 +4,7 @@
 
 use crate::{DistanceFn, LinearAlgorithm, error::Error, hnsw::HNSWConfig};
 
+use super::lifecycle::NodeLease;
 use super::{
     CompactEdges, LayerIndex, NearestFirst, Node, NodeId, NodeIdHashSet, OrderedNode,
     edges::{EdgeSnapshot, EdgeStorage},
@@ -99,6 +100,32 @@ thread_local! {
     /// can land a competing writer in exactly that gap.
     static BEFORE_ENTRY_PROMOTION: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
         const { std::cell::RefCell::new(None) };
+
+    /// Pause repair after it has leased a replacement but before its CAS.
+    static BEFORE_ENTRY_REPAIR: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// Pause after preparing a prune, before acquiring endpoint locks.
+    static BEFORE_PRUNE_LOCKS: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+
+    /// Exercise the ordinary error path after live edges have been published.
+    static FAIL_AFTER_LINKING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// All edge writers acquire endpoint locks in the same order. Never acquire
+/// another edge lock while holding a set returned by this helper. The returned
+/// guards keep every lock held until the caller leaves its critical section.
+fn lock_edge_mutations<'a, E: EdgeStorage>(
+    nodes: &[&'a Node<E>],
+) -> Vec<parking_lot::MutexGuard<'a, ()>> {
+    let mut ordered = nodes.to_vec();
+    ordered.sort_unstable_by_key(|node| node.id);
+    ordered.dedup_by_key(|node| node.id);
+    ordered
+        .into_iter()
+        .map(|node| node.edge_mutation.lock())
+        .collect()
 }
 
 /// The entry point node(s) and the layer they sit on, published together.
@@ -294,18 +321,36 @@ pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
     /// the top layer (L) live in one value, so a reader never sees one without the other.
     enter_point: ArcSwap<EntryPoint>,
 
-    /// distance algorithm
+    /// Distance algorithm
     /// can be ec
     distance_algorithm: D,
 
     /// Keep pruned connections:
     keep_pruned_connections: bool,
 
-    /// extend candidates:
+    /// Extend candidates:
     extend_candidates: bool,
 }
 
 impl<D: DistanceFn> HNSW<D> {
+    pub fn new(
+        distance_algorithm: D,
+        ef_construction: usize,
+        maximum_connections: usize,
+        maximum_connections_zero: usize,
+        extend_candidates: bool,
+        keep_pruned_connections: bool,
+    ) -> Self {
+        let config = HNSWConfig {
+            ef_construction,
+            maximum_connections,
+            maximum_connections_zero,
+            extend_candidates,
+            keep_pruned_connections,
+        };
+        Self::new_with_config(config, distance_algorithm)
+    }
+
     /// Every collection owns its own memory reclamation. This is the baseline the shared
     /// collector variants are measured against.
     pub fn new_with_config(config: HNSWConfig, distance_algorithm: D) -> Self {
@@ -433,9 +478,9 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let mut deleted = 0;
         for key in items {
             let node_id = get_node_id(key.as_slice());
-            if self.nodes.pin().contains_key(&node_id) {
-                self.delete_node(&node_id);
-                deleted += 1;
+            let nodes = self.nodes.pin();
+            if let Some(node) = nodes.get(&node_id) {
+                deleted += usize::from(self.delete_node_instance(&nodes, node));
             }
         }
         Ok(deleted)
@@ -574,31 +619,47 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         };
         let nodes = self.nodes.pin();
         let id = value.id;
+        // Reserve permission before publishing: deletion must never see an unleased
+        // insertion. The owned lease survives moving value into the map.
+        let insertion = value
+            .lifecycle
+            .try_enter()
+            .expect("unpublished node is live");
         // Only one writer can claim an ID; a duplicate is silently skipped.
         let Ok(stored) = nodes.try_insert(id, value) else {
             return Ok(());
         };
 
-        let level = stored.level(self.maximum_connections);
         // Writers that start on an empty index must have something to link to, so the first
         // node becomes the entry point as soon as it is published, not once it is linked.
         if self.enter_point.load().ids.is_empty() {
-            self.promote_entry_point(id, level);
+            self.promote_entry_point(stored, &insertion);
         }
 
-        if let Err(err) = self.link_node(&nodes, stored) {
-            self.delete_node(&id);
-            return Err(err);
+        let result = self.link_node(&nodes, stored, &insertion);
+        if result.is_ok() {
+            self.promote_entry_point(stored, &insertion);
         }
-        self.promote_entry_point(id, level);
-        Ok(())
+        // Cleanup can wait for leases, so it must not run while holding our own.
+        drop(insertion);
+        if result.is_err() {
+            // Target this instance, not a later reinsertion with the same ID.
+            self.delete_node_instance(&nodes, stored);
+        }
+        result
     }
 
     /// Connect an already published node to the graph on every layer it belongs to.
     ///
     /// Distances computed during layer search are reused for neighbour selection and
     /// entry-point selection.
-    fn link_node(&self, nodes: &NodesRef<'_, E>, value: &Node<E>) -> Result<(), Error> {
+    fn link_node(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        value: &Node<E>,
+        insertion: &NodeLease,
+    ) -> Result<(), Error> {
+        debug_assert!(insertion.protects(&value.lifecycle));
         let graph = self.graph.pin();
         let initial_ef = 1;
 
@@ -647,12 +708,13 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
             let value_neighbours_guard = value.neighbours.pin();
             let value_backlinks_guard = value.back_links.pin();
-            for neighbour_id in neighbours.iter() {
+            for (neighbour_id, _lease) in &neighbours {
                 let Some(neighbour_node) = nodes.get(neighbour_id) else {
                     skip_missing_node(neighbour_id);
                     continue;
                 };
 
+                let _edges = lock_edge_mutations(&[value, neighbour_node]);
                 let n_guard = neighbour_node.neighbours.pin();
                 let edges = n_guard.get_or_insert_with(layer_index, || {
                     E::from_ids(
@@ -674,10 +736,11 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
                 value_backlinks_guard.insert(*neighbour_id);
                 neighbour_node.back_links.pin().insert(value.id);
-                // A prune may have dropped one of the two new edges before its entry was
-                // recorded, and it could not forget an entry that did not exist yet.
-                self.forget_backlink(nodes, neighbour_node, value.id);
-                self.forget_backlink(nodes, value, *neighbour_id);
+            }
+
+            #[cfg(test)]
+            if FAIL_AFTER_LINKING.with(|fail| fail.replace(false)) {
+                return Err(Error::QueueEmpty);
             }
 
             graph
@@ -687,7 +750,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 .pin()
                 .insert(value.id);
 
-            for neighbour in neighbours.iter() {
+            for (neighbour, lease) in &neighbours {
                 let maximum_connections = if level_current == 0 {
                     self.maximum_connections_zero
                 } else {
@@ -699,62 +762,13 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                     continue;
                 };
 
-                let nn_guard = neighbour_node.neighbours.pin();
-                let Some(e_conn) = nn_guard.get(&layer_index) else {
-                    skip_missing_node(neighbour);
-                    continue;
-                };
-
-                // The compact prune may run the selection again after a lost compare-and-swap,
-                // so this holds the drops of the last attempt only.
-                let mut dropped: Vec<NodeId> = Vec::new();
-                if let Some(replacement) = e_conn.prune(
+                self.prune_connections(
+                    nodes,
+                    neighbour_node,
+                    layer_index,
                     maximum_connections,
-                    self.collector.as_ref(),
-                    self.node_counter_shards,
-                    |ids| {
-                        let scored_connections = ids
-                            .iter()
-                            .filter_map(|id| nodes.get(id))
-                            .map(|node| {
-                                OrderedNode::new(
-                                    node.id,
-                                    self.distance_algorithm.closeness(
-                                        node.value.as_slice(),
-                                        neighbour_node.value.as_slice(),
-                                    ),
-                                )
-                            })
-                            .collect::<Vec<_>>();
-                        let mut selected = self.select_neighbours_heuristic(
-                            neighbour_node,
-                            &scored_connections,
-                            maximum_connections,
-                            &layer_index,
-                            false,
-                            false,
-                        )?;
-                        dropped.clear();
-                        let removed: Vec<NodeId> = ids
-                            .iter()
-                            .copied()
-                            .filter(|id| !selected.contains(id))
-                            .collect();
-                        for id in removed {
-                            if self.only_pointed_at_by(nodes, &id, neighbour_node.id) {
-                                selected.push(id);
-                            } else {
-                                dropped.push(id);
-                            }
-                        }
-                        Ok(selected)
-                    },
-                )? {
-                    nn_guard.insert(layer_index, replacement);
-                }
-                for target in dropped {
-                    self.forget_backlink(nodes, neighbour_node, target);
-                }
+                    lease,
+                )?;
             }
 
             enter_point = match nearest_neighbours.into_iter().max() {
@@ -769,7 +783,10 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// Make `id` the entry point if it sits on a higher layer than the current one, or if the
     /// index has no entry point yet. A compare-and-swap loop means a writer that read a stale
     /// entry point never overwrites a higher one that was installed in the meantime.
-    fn promote_entry_point(&self, id: NodeId, level: u8) {
+    fn promote_entry_point(&self, node: &Node<E>, lease: &NodeLease) {
+        debug_assert!(lease.protects(&node.lifecycle));
+        let id = node.id;
+        let level = node.level(self.maximum_connections);
         let mut current = self.enter_point.load();
         loop {
             if !current.ids.is_empty() && level <= current.level {
@@ -811,7 +828,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         nodes: &NodesRef<'_, E>,
         chosen: &[NodeId],
         new_id: NodeId,
-    ) -> Vec<NodeId> {
+    ) -> Vec<(NodeId, NodeLease)> {
         #[cfg(test)]
         AFTER_NEIGHBOUR_SELECTION.with(|hook| {
             if let Some(hook) = hook.borrow().as_ref() {
@@ -819,30 +836,34 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             }
         });
 
-        if chosen.is_empty() {
-            return Vec::new();
-        }
-
-        let live: Vec<NodeId> = chosen
-            .iter()
-            .copied()
-            .filter(|id| {
-                let present = nodes.contains_key(id);
-                if !present {
-                    skip_missing_node(id);
-                }
-                present
-            })
-            .collect();
+        let lease = |id: NodeId| {
+            if id == new_id {
+                return None;
+            }
+            let node = nodes.get(&id)?;
+            Some((id, node.lifecycle.try_enter()?))
+        };
+        let live: Vec<_> = chosen.iter().copied().filter_map(lease).collect();
         if !live.is_empty() {
             return live;
         }
-        self.enter_point
+        let fallback: Vec<_> = self
+            .enter_point
             .load()
             .ids
             .iter()
             .copied()
-            .filter(|id| *id != new_id && nodes.contains_key(id))
+            .filter_map(lease)
+            .collect();
+        if !fallback.is_empty() {
+            return fallback;
+        }
+        // The entry point can itself be closing. Find another usable node rather
+        // than leaving an insertion disconnected from live nodes in the map.
+        nodes
+            .iter()
+            .find_map(|(id, _)| lease(*id))
+            .into_iter()
             .collect()
     }
 
@@ -1098,30 +1119,115 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             .collect())
     }
 
-    /// Pruning dropped an edge `from -> to`. `to.back_links` lists the nodes that point at `to`,
-    /// so `from` leaves it, unless `from` still points at `to` on another layer.
-    fn forget_backlink(&self, nodes: &NodesRef<'_, E>, from: &Node<E>, to: NodeId) {
-        let Some(target) = nodes.get(&to) else {
-            return;
-        };
-        if self.has_edge_to(from, to) {
-            return;
-        }
-        target.back_links.pin().remove(&from.id);
-        // A writer may have linked `from -> to` again between the check and the removal. Put
-        // the entry back then, because `delete_node` finds edges to clean through it.
-        if self.has_edge_to(from, to) {
-            target.back_links.pin().insert(from.id);
+    /// Prepare selection without edge locks, then validate and commit under locks
+    /// for the source and every affected target. The incoming-edge check and the
+    /// backlink update are one critical section, shared with all edge writers.
+    fn prune_connections(
+        &self,
+        nodes: &NodesRef<'_, E>,
+        source: &Node<E>,
+        layer: LayerIndex,
+        maximum: usize,
+        source_lease: &NodeLease,
+    ) -> Result<(), Error> {
+        debug_assert!(source_lease.protects(&source.lifecycle));
+        loop {
+            let adjacency = source.neighbours.pin();
+            let Some(edges) = adjacency.get(&layer) else {
+                return Ok(());
+            };
+            let mut observed: Vec<_> = edges.snapshot().iter().copied().collect();
+            if observed.len() <= maximum {
+                return Ok(());
+            }
+            observed.sort_unstable();
+
+            let mut participants = vec![source];
+            let mut leases = Vec::new();
+            let mut live = NodeIdHashSet::default();
+            let mut scored = Vec::new();
+            for id in &observed {
+                let Some(target) = nodes.get(id) else {
+                    continue;
+                };
+                // Even closing targets participate in edge locking. They cannot
+                // be retained, but deletion must coordinate their edge removal.
+                participants.push(target);
+                if let Some(lease) = target.lifecycle.try_enter() {
+                    leases.push(lease);
+                    live.insert(*id);
+                    scored.push(OrderedNode::new(
+                        *id,
+                        self.distance_algorithm
+                            .closeness(target.value.as_slice(), source.value.as_slice()),
+                    ));
+                }
+            }
+            let mut selected =
+                self.select_neighbours_heuristic(source, &scored, maximum, &layer, false, false)?;
+            #[cfg(test)]
+            if let Some(hook) = BEFORE_PRUNE_LOCKS.with(|hook| hook.borrow_mut().take()) {
+                hook();
+            }
+            let _edges = lock_edge_mutations(&participants);
+            // Reacquire the layer: hash-set pruning can replace its storage.
+            let adjacency = source.neighbours.pin();
+            let Some(edges) = adjacency.get(&layer) else {
+                continue;
+            };
+            let mut current: Vec<_> = edges.snapshot().iter().copied().collect();
+            current.sort_unstable();
+            if current != observed
+                || participants.iter().any(|node| {
+                    !nodes
+                        .get(&node.id)
+                        .is_some_and(|current| std::ptr::eq(current, *node))
+                })
+            {
+                continue;
+            }
+            let mut dropped = Vec::new();
+            for id in &observed {
+                if selected.contains(id) {
+                    continue;
+                }
+                if live.contains(id) && self.only_pointed_at_by(nodes, id, source.id) {
+                    selected.push(*id);
+                } else {
+                    dropped.push(*id);
+                }
+            }
+            if let Some(replacement) = edges.prune(
+                maximum,
+                self.collector.as_ref(),
+                self.node_counter_shards,
+                |_| Ok(selected.clone()),
+            )? {
+                adjacency.insert(layer, replacement);
+            }
+            for id in dropped {
+                if let Some(target) = participants.iter().find(|target| target.id == id)
+                    && !self.has_edge_to(source, id)
+                {
+                    target.back_links.pin().remove(&source.id);
+                }
+            }
+            return Ok(());
         }
     }
 
-    /// Whether `from` is the only node with an edge to `id`. Pruning `from -> id` would leave
-    /// `id` unreachable by search, so the edge is kept, even if that leaves the list a little
-    /// over its maximum.
+    /// Called with the target's edge lock held. Every writer changing an edge
+    /// into it takes that same lock, so incoming sources remain stable here.
+    /// Verify actual edges: stale backlinks must not justify dropping the last one.
     fn only_pointed_at_by(&self, nodes: &NodesRef<'_, E>, id: &NodeId, from: NodeId) -> bool {
-        nodes
-            .get(id)
-            .is_some_and(|node| node.back_links.pin().iter().all(|other| *other == from))
+        nodes.get(id).is_some_and(|target| {
+            !target.back_links.pin().iter().any(|other| {
+                *other != from
+                    && nodes
+                        .get(other)
+                        .is_some_and(|source| self.has_edge_to(source, *id))
+            })
+        })
     }
 
     /// Whether `from` has an edge to `to` on any layer.
@@ -1134,48 +1240,69 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
     /// Delete a single element from the HNSW graph by NodeId.
     ///
-    /// Known worry: the node is only taken out of the `graph` layer sets while we walk its
-    /// backlinks, so a node with no backlinks can leave a stale entry behind in `graph`. Search
-    /// never reads `graph` (it is only written on insert and saved in snapshots), so this "should"
-    /// only waste a little memory and snapshot size. I've honestly not confirmed how often it happens.
+    /// Close mutation permission, wait for active publishers, then remove edges,
+    /// layer membership, and finally the node. Searches never acquire this gate.
     pub fn delete_node(&self, node_id: &NodeId) {
         let nodes = self.nodes.pin();
-        let graph = self.graph.pin();
-
         if let Some(node) = nodes.get(node_id) {
-            // Pruning can drop the edge back, so the nodes this one points at are not all in
-            // its back_links. Take it out of their back_links too.
-            for edges in node.neighbours.pin().values() {
-                for target in edges.snapshot().iter() {
-                    if let Some(target) = nodes.get(target) {
-                        target.back_links.pin().remove(node_id);
-                    }
-                }
-            }
-            for backlink in &node.back_links.pin() {
-                let Some(related) = nodes.get(backlink) else {
-                    skip_missing_node(backlink);
-                    continue;
-                };
-
-                let guard = related.neighbours.pin();
-                let neighbour_keys_inner = guard.keys();
-
-                for layer_index in neighbour_keys_inner {
-                    if let Some(edges) = guard.get(layer_index) {
-                        edges.remove_edge(*node_id);
-                    };
-
-                    if let Some(layer_set) = graph.get(layer_index) {
-                        layer_set.pin().remove(node_id);
-                    }
-                }
-                related.back_links.pin().remove(node_id);
-            }
-
-            nodes.remove(node_id);
-            self.repair_entry_point(&nodes, node_id);
+            self.delete_node_instance(&nodes, node);
         }
+    }
+
+    /// Cleanup owns this closed instance, even if a later insertion reuses its ID.
+    /// Drain lifecycle leases before acquiring any edge locks for cleanup.
+    fn delete_node_instance(&self, nodes: &NodesRef<'_, E>, node: &Node<E>) -> bool {
+        if !node.lifecycle.close_and_wait() {
+            return false;
+        }
+        let node_id = node.id;
+        // Closing/draining happens before taking any edge locks. No insertion
+        // can now add a reference to this instance. Concurrent deletions can only
+        // remove references, so this snapshot covers all cleanup participants.
+        let mut participants = vec![node];
+        for edges in node.neighbours.pin().values() {
+            for id in edges.snapshot().iter() {
+                if let Some(target) = nodes.get(id) {
+                    participants.push(target);
+                }
+            }
+        }
+        for id in node.back_links.pin().iter() {
+            if let Some(source) = nodes.get(id) {
+                participants.push(source);
+            }
+        }
+        let edge_guards = lock_edge_mutations(&participants);
+        for edges in node.neighbours.pin().values() {
+            for target in edges.snapshot().iter() {
+                if let Some(target) = nodes.get(target) {
+                    target.back_links.pin().remove(&node_id);
+                }
+            }
+        }
+        for backlink in &node.back_links.pin() {
+            let Some(related) = nodes.get(backlink) else {
+                skip_missing_node(backlink);
+                continue;
+            };
+            for edges in related.neighbours.pin().values() {
+                edges.remove_edge(node_id);
+            }
+            related.back_links.pin().remove(&node_id);
+        }
+        // Layer membership must be removed even if there were no incoming edges.
+        for layer in self.graph.pin().values() {
+            layer.pin().remove(&node_id);
+        }
+        // New linking is excluded and all earlier users have finished. Remove last
+        // so a new instance cannot be inserted while old cleanup is still running.
+        let removed = matches!(
+            nodes.remove_if(&node_id, |_, current| std::ptr::eq(current, node)),
+            Ok(Some(_))
+        );
+        drop(edge_guards);
+        self.repair_entry_point(nodes, &node_id);
+        removed
     }
 
     /// If `deleted` was the index entry point, move it to the highest-level node that remains
@@ -1183,27 +1310,43 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     /// node that no longer exists. This scans every node, but only when the entry point itself
     /// is deleted.
     fn repair_entry_point(&self, nodes: &NodesRef<'_, E>, deleted: &NodeId) {
-        let current = self.enter_point.load();
-        if !current.ids.contains(deleted) {
-            return;
+        loop {
+            let current = self.enter_point.load_full();
+            if !current.ids.contains(deleted) {
+                return;
+            }
+            // Keep a replacement present through CAS. Closing nodes are skipped
+            // without waiting, so repairs/deletions never wait on each other's leases.
+            let published = {
+                let mut replacement: Option<(NodeId, u8, NodeLease)> = None;
+                for (id, node) in nodes.iter() {
+                    let level = node.level(self.maximum_connections);
+                    let better = replacement.as_ref().is_none_or(|(best_id, best_level, _)| {
+                        level > *best_level || (level == *best_level && id < best_id)
+                    });
+                    if better && let Some(lease) = node.lifecycle.try_enter() {
+                        replacement = Some((*id, level, lease));
+                    }
+                }
+                let next = match &replacement {
+                    Some((id, level, _lease)) => EntryPoint {
+                        ids: smallvec![*id],
+                        level: *level,
+                    },
+                    None => EntryPoint::default(),
+                };
+                #[cfg(test)]
+                if let Some(hook) = BEFORE_ENTRY_REPAIR.with(|hook| hook.borrow_mut().take()) {
+                    hook();
+                }
+                let previous = self.enter_point.compare_and_swap(&current, Arc::new(next));
+                Arc::ptr_eq(&current, &previous)
+                // replacement's lease drops here on success AND on a failed CAS.
+            };
+            if published {
+                return;
+            }
         }
-        // Ties go to the smallest ID: map iteration order differs between processes, and
-        // replicas applying the same deletes must agree on the entry point.
-        let replacement = nodes
-            .iter()
-            .map(|(id, node)| (*id, node.level(self.maximum_connections)))
-            .max_by(|(a_id, a_level), (b_id, b_level)| {
-                a_level.cmp(b_level).then(b_id.0.cmp(&a_id.0))
-            });
-        let next = match replacement {
-            Some((id, level)) => EntryPoint {
-                ids: smallvec![id],
-                level,
-            },
-            None => EntryPoint::default(),
-        };
-        // If another writer changed the entry point meanwhile, leave theirs in place.
-        self.enter_point.compare_and_swap(&current, Arc::new(next));
     }
 
     #[cfg(test)]
@@ -1292,6 +1435,8 @@ fn node_from_temp_with_shared_collector<E: EdgeStorage>(
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links,
+        lifecycle: Arc::default(),
+        edge_mutation: parking_lot::Mutex::new(()),
     }
 }
 
@@ -1315,6 +1460,8 @@ fn node_from_temp_with_counter_shards<E: EdgeStorage>(
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links: node_hashset_from_iter(temp.back_links, collector, shards),
+        lifecycle: Arc::default(),
+        edge_mutation: parking_lot::Mutex::new(()),
     }
 }
 
@@ -1493,6 +1640,8 @@ mod tests {
                 value: EmbeddingKey::new(vec![value]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
+                lifecycle: Arc::default(),
+                edge_mutation: parking_lot::Mutex::new(()),
             };
             node.neighbours
                 .pin()
@@ -1603,6 +1752,8 @@ mod tests {
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
+                lifecycle: Arc::default(),
+                edge_mutation: parking_lot::Mutex::new(()),
             })
             .unwrap();
         }
@@ -1650,6 +1801,8 @@ mod tests {
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -1658,6 +1811,8 @@ mod tests {
             value: EmbeddingKey::new(vec![10.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -1667,6 +1822,8 @@ mod tests {
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         };
 
         let res = hnsw.knn_search(&query_node, 1, Some(10), None).unwrap();
@@ -1685,6 +1842,8 @@ mod tests {
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -1693,6 +1852,8 @@ mod tests {
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
+            lifecycle: Arc::default(),
+            edge_mutation: parking_lot::Mutex::new(()),
         })
         .unwrap();
 
@@ -1723,6 +1884,8 @@ mod tests {
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
+                lifecycle: Arc::default(),
+                edge_mutation: parking_lot::Mutex::new(()),
             })
             .unwrap();
         }

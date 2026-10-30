@@ -669,3 +669,390 @@ fn test_pruning_never_drops_a_nodes_last_in_edge_hash_set() {
 fn test_pruning_never_drops_a_nodes_last_in_edge_compact() {
     check_pruning_never_drops_a_nodes_last_in_edge(&compact_index());
 }
+
+fn wait_for_closing(gate: &Arc<crate::hnsw::lifecycle::NodeGate>) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !gate.is_closing() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "deleter never closed the node gate"
+        );
+        std::thread::yield_now();
+    }
+}
+
+fn higher_key<E: EdgeStorage>(index: &HNSW<LinearAlgorithm, E>, seed: u64) -> EmbeddingKey {
+    (seed..seed + 100_000)
+        .find_map(|seed| {
+            let key = vectors(seed, 1).remove(0);
+            (Node::<E>::new_with_edges(key.clone()).level(index.maximum_connections)
+                > index.top_layer())
+            .then_some(key)
+        })
+        .expect("fixture needs a higher-level node")
+}
+
+fn check_delete_waits_for_linking<E: EdgeStorage>(index: Arc<HNSW<LinearAlgorithm, E>>) {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    index.insert(&vectors(6001, 100)).unwrap();
+    let key = higher_key(&index, 6002);
+    let id = get_node_id(key.as_slice());
+    std::thread::scope(|scope| {
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let (resume_tx, resume_rx) = mpsc::channel();
+        let (deleted_tx, deleted_rx) = mpsc::channel();
+        let writer_index = Arc::clone(&index);
+        let writer = scope.spawn(move || {
+            AFTER_NEIGHBOUR_SELECTION.with(|hook| {
+                let resume_rx = std::cell::RefCell::new(Some(resume_rx));
+                *hook.borrow_mut() = Some(Box::new(move |_| {
+                    if let Some(resume) = resume_rx.borrow_mut().take() {
+                        ready_tx.send(()).unwrap();
+                        resume.recv_timeout(Duration::from_secs(5)).unwrap();
+                    }
+                }));
+            });
+            let result = writer_index.insert(std::slice::from_ref(&key));
+            AFTER_NEIGHBOUR_SELECTION.with(|hook| *hook.borrow_mut() = None);
+            result.unwrap();
+        });
+        ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let gate = Arc::clone(&index.nodes.pin().get(&id).unwrap().lifecycle);
+        let delete_index = Arc::clone(&index);
+        let deleter = scope.spawn(move || {
+            delete_index.delete_node(&id);
+            deleted_tx.send(()).unwrap();
+        });
+        wait_for_closing(&gate);
+        assert!(matches!(
+            deleted_rx.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
+        // An unrelated insertion progresses while the first node is being deleted.
+        let other = vectors(6003, 1).remove(0);
+        index.insert(std::slice::from_ref(&other)).unwrap();
+        assert!(
+            index
+                .nodes
+                .pin()
+                .contains_key(&get_node_id(other.as_slice()))
+        );
+        resume_tx.send(()).unwrap();
+        writer.join().unwrap();
+        deleter.join().unwrap();
+    });
+    assert!(!index.nodes.pin().contains_key(&id));
+    assert_eq!(dangling_references(&index), vec![]);
+    assert!(
+        index
+            .enter_point
+            .load()
+            .ids
+            .iter()
+            .all(|id| index.nodes.pin().contains_key(id))
+    );
+}
+
+#[test]
+fn deleting_a_linking_node_waits_without_blocking_other_writers_compact() {
+    check_delete_waits_for_linking(Arc::new(compact_index()));
+}
+
+#[test]
+fn deleting_a_linking_node_waits_without_blocking_other_writers_hash_set() {
+    check_delete_waits_for_linking(Arc::new(hash_set_index()));
+}
+
+fn check_repair_protects_replacement<E: EdgeStorage>(
+    index: Arc<HNSW<LinearAlgorithm, E>>,
+    fail_cas: bool,
+) {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    index.insert(&vectors(6004, 100)).unwrap();
+    let current = index.enter_point.load().ids[0];
+    let replacement = index
+        .nodes
+        .pin()
+        .iter()
+        .filter(|(id, _)| **id != current)
+        .map(|(id, node)| (*id, node.level(index.maximum_connections)))
+        .max_by(|(a, al), (b, bl)| al.cmp(bl).then(b.0.cmp(&a.0)))
+        .unwrap()
+        .0;
+    let gate = Arc::clone(&index.nodes.pin().get(&replacement).unwrap().lifecycle);
+    let competing = fail_cas.then(|| higher_key(&index, 6005));
+    std::thread::scope(|scope| {
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let (resume_tx, resume_rx) = mpsc::channel();
+        let (deleted_tx, deleted_rx) = mpsc::channel();
+        let repair_index = Arc::clone(&index);
+        let repair = scope.spawn(move || {
+            BEFORE_ENTRY_REPAIR.with(|hook| {
+                *hook.borrow_mut() = Some(Box::new(move || {
+                    ready_tx.send(()).unwrap();
+                    resume_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+                }));
+            });
+            repair_index.delete_node(&current);
+        });
+        ready_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        let delete_index = Arc::clone(&index);
+        let deleter = scope.spawn(move || {
+            delete_index.delete_node(&replacement);
+            deleted_tx.send(()).unwrap();
+        });
+        wait_for_closing(&gate);
+        assert!(matches!(
+            deleted_rx.try_recv(),
+            Err(mpsc::TryRecvError::Empty)
+        ));
+        if let Some(key) = &competing {
+            // Force repair's CAS to lose. Its replacement lease must still drop.
+            index.insert(std::slice::from_ref(key)).unwrap();
+        }
+        resume_tx.send(()).unwrap();
+        repair.join().unwrap();
+        deleter.join().unwrap();
+    });
+    let nodes = index.nodes.pin();
+    assert!(!nodes.contains_key(&current));
+    assert!(!nodes.contains_key(&replacement));
+    let entry = index.enter_point.load();
+    assert!(!entry.ids.is_empty());
+    assert!(entry.ids.iter().all(|id| nodes.contains_key(id)));
+    if let Some(key) = competing {
+        assert_eq!(entry.ids[0], get_node_id(key.as_slice()));
+    }
+    assert_eq!(dangling_references(&index), vec![]);
+}
+
+#[test]
+fn entry_replacement_cannot_be_deleted_before_publication_compact() {
+    check_repair_protects_replacement(Arc::new(compact_index()), false);
+}
+
+#[test]
+fn entry_replacement_cannot_be_deleted_before_publication_hash_set() {
+    check_repair_protects_replacement(Arc::new(hash_set_index()), false);
+}
+
+#[test]
+fn failed_entry_repair_cas_releases_replacement_lease_compact() {
+    check_repair_protects_replacement(Arc::new(compact_index()), true);
+}
+
+#[test]
+fn failed_entry_repair_cas_releases_replacement_lease_hash_set() {
+    check_repair_protects_replacement(Arc::new(hash_set_index()), true);
+}
+
+#[test]
+fn insertion_error_releases_its_lease_before_cleanup() {
+    let index = compact_index();
+    index.insert(&vectors(6006, 100)).unwrap();
+    let key = vectors(6007, 1).remove(0);
+    let id = get_node_id(key.as_slice());
+    FAIL_AFTER_LINKING.with(|fail| fail.set(true));
+    assert!(index.insert(std::slice::from_ref(&key)).is_err());
+    assert!(!index.nodes.pin().contains_key(&id));
+    assert_eq!(dangling_references(&index), vec![]);
+}
+
+#[test]
+fn old_cleanup_does_not_delete_a_reinserted_node() {
+    let index = compact_index();
+    let key = vectors(6008, 1).remove(0);
+    let id = get_node_id(key.as_slice());
+    index.insert(std::slice::from_ref(&key)).unwrap();
+    let nodes = index.nodes.pin();
+    let old = nodes.get(&id).unwrap();
+    index.delete_node(&id);
+    index.insert(std::slice::from_ref(&key)).unwrap();
+    assert!(!index.delete_node_instance(&nodes, old));
+    assert!(nodes.contains_key(&id));
+    assert_eq!(dangling_references(&index), vec![]);
+}
+
+/// Both writers prepare to drop their edge to T before either enters the commit
+/// section. The shared target lock must make the second writer preserve its edge.
+fn check_double_prune_preserves_last_incoming_edge<E: EdgeStorage>(
+    index: &HNSW<LinearAlgorithm, E>,
+) {
+    let nodes = index.nodes.pin();
+    let layer = LayerIndex(0);
+    let a = NodeId(10);
+    let b = NodeId(20);
+    let target = NodeId(30);
+    let x = NodeId(40);
+    let y = NodeId(50);
+    for (id, value, outgoing, incoming) in [
+        (a, 0.0, vec![target, x], vec![]),
+        (b, 0.1, vec![target, y], vec![]),
+        (target, 10.0, vec![], vec![a, b]),
+        (x, 1.0, vec![], vec![a]),
+        (y, 1.1, vec![], vec![b]),
+    ] {
+        let mut node = Node::<E>::new_with_edges(EmbeddingKey::new(vec![value]));
+        node.id = id;
+        node.neighbours
+            .pin()
+            .insert(layer, E::from_ids(outgoing, None, None));
+        for id in incoming {
+            node.back_links.pin().insert(id);
+        }
+        nodes.insert(id, node);
+    }
+    let ready = Arc::new(Barrier::new(2));
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = [a, b]
+            .into_iter()
+            .map(|id| {
+                let ready = Arc::clone(&ready);
+                scope.spawn(move || {
+                    BEFORE_PRUNE_LOCKS.with(|hook| {
+                        *hook.borrow_mut() = Some(Box::new(move || {
+                            ready.wait();
+                        }));
+                    });
+                    let nodes = index.nodes.pin();
+                    let source = nodes.get(&id).unwrap();
+                    let lease = source.lifecycle.try_enter().unwrap();
+                    index
+                        .prune_connections(&nodes, source, layer, 1, &lease)
+                        .unwrap();
+                })
+            })
+            .collect();
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    });
+    let actual: Vec<_> = [a, b]
+        .into_iter()
+        .filter(|id| index.has_edge_to(nodes.get(id).unwrap(), target))
+        .collect();
+    assert_eq!(
+        actual.len(),
+        1,
+        "one pruner must preserve the last incoming edge"
+    );
+    let mut recorded: Vec<_> = nodes
+        .get(&target)
+        .unwrap()
+        .back_links
+        .pin()
+        .iter()
+        .copied()
+        .collect();
+    recorded.sort_unstable();
+    assert_eq!(recorded, actual);
+    assert!(stale_backlinks(index).is_empty());
+}
+
+#[test]
+fn double_prune_preserves_last_incoming_edge_compact() {
+    check_double_prune_preserves_last_incoming_edge(&compact_index());
+}
+
+#[test]
+fn double_prune_preserves_last_incoming_edge_hash_set() {
+    check_double_prune_preserves_last_incoming_edge(&hash_set_index());
+}
+
+fn check_stale_backlink_cannot_justify_last_edge_removal<E: EdgeStorage>(
+    index: &HNSW<LinearAlgorithm, E>,
+) {
+    let nodes = index.nodes.pin();
+    let source = Node::<E>::new_with_edges(EmbeddingKey::new(vec![0.0]));
+    let target = Node::<E>::new_with_edges(EmbeddingKey::new(vec![10.0]));
+    let closer = Node::<E>::new_with_edges(EmbeddingKey::new(vec![1.0]));
+    let stale = Node::<E>::new_with_edges(EmbeddingKey::new(vec![2.0]));
+    let id = source.id;
+    let target_id = target.id;
+    source.neighbours.pin().insert(
+        LayerIndex(0),
+        E::from_ids(vec![target.id, closer.id], None, None),
+    );
+    target.back_links.pin().insert(source.id);
+    target.back_links.pin().insert(stale.id);
+    closer.back_links.pin().insert(source.id);
+    for node in [source, target, closer, stale] {
+        nodes.insert(node.id, node);
+    }
+    let source = nodes.get(&id).unwrap();
+    let lease = source.lifecycle.try_enter().unwrap();
+    index
+        .prune_connections(&nodes, source, LayerIndex(0), 1, &lease)
+        .unwrap();
+    assert!(index.has_edge_to(source, target_id));
+}
+
+#[test]
+fn stale_backlink_cannot_justify_last_edge_removal_compact() {
+    check_stale_backlink_cannot_justify_last_edge_removal(&compact_index());
+}
+
+#[test]
+fn stale_backlink_cannot_justify_last_edge_removal_hash_set() {
+    check_stale_backlink_cannot_justify_last_edge_removal(&hash_set_index());
+}
+
+fn check_prune_retries_after_adjacency_changes<E: EdgeStorage>(
+    index: Arc<HNSW<LinearAlgorithm, E>>,
+) {
+    let source = Node::<E>::new_with_edges(EmbeddingKey::new(vec![0.0]));
+    let distant = Node::<E>::new_with_edges(EmbeddingKey::new(vec![10.0]));
+    let closer = Node::<E>::new_with_edges(EmbeddingKey::new(vec![1.0]));
+    let added = Node::<E>::new_with_edges(EmbeddingKey::new(vec![-1.0]));
+    let source_id = source.id;
+    let added_id = added.id;
+    let layer = LayerIndex(0);
+    source
+        .neighbours
+        .pin()
+        .insert(layer, E::from_ids(vec![distant.id, closer.id], None, None));
+    distant.back_links.pin().insert(source_id);
+    closer.back_links.pin().insert(source_id);
+    for node in [source, distant, closer, added] {
+        index.nodes.pin().insert(node.id, node);
+    }
+
+    // Publish an edge in the preparation/commit gap. Committing the old plan
+    // would erase this new connection and leave its backlink behind.
+    BEFORE_PRUNE_LOCKS.with(|hook| {
+        let index = Arc::clone(&index);
+        *hook.borrow_mut() = Some(Box::new(move || {
+            let nodes = index.nodes.pin();
+            let source = nodes.get(&source_id).unwrap();
+            let added = nodes.get(&added_id).unwrap();
+            let _edges = lock_edge_mutations(&[source, added]);
+            source
+                .neighbours
+                .pin()
+                .get(&layer)
+                .unwrap()
+                .insert_edge(added_id);
+            added.back_links.pin().insert(source_id);
+        }));
+    });
+    let nodes = index.nodes.pin();
+    let source = nodes.get(&source_id).unwrap();
+    let lease = source.lifecycle.try_enter().unwrap();
+    index
+        .prune_connections(&nodes, source, layer, 1, &lease)
+        .unwrap();
+    assert!(index.has_edge_to(source, added_id));
+    assert!(stale_backlinks(&index).is_empty());
+}
+
+#[test]
+fn prune_retries_after_adjacency_changes_compact() {
+    check_prune_retries_after_adjacency_changes(Arc::new(compact_index()));
+}
+
+#[test]
+fn prune_retries_after_adjacency_changes_hash_set() {
+    check_prune_retries_after_adjacency_changes(Arc::new(hash_set_index()));
+}

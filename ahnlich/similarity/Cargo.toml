@@ -16,6 +16,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 arc-swap.workspace = true
+parking_lot.workspace = true
 crossbeam = "0.8.4"
 papaya.workspace = true
 seize.workspace = true
