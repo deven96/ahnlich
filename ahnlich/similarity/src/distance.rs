@@ -212,6 +212,74 @@ pub fn cosine_similarity(first: &[f32], second: &[f32]) -> Similarity {
     Similarity(get_arch().dispatch(CosineSimilarityKernel { first, second }))
 }
 
+#[cfg(feature = "bench-experiments")]
+struct CosineNorm<'a>(&'a [f32]);
+
+#[cfg(feature = "bench-experiments")]
+impl WithSimd for CosineNorm<'_> {
+    type Output = f32;
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> f32 {
+        let (head, tail) = S::as_simd_f32s(self.0);
+        let mut squared = simd.splat_f32s(0.0);
+        for &chunk in head {
+            squared = simd.mul_add_f32s(chunk, chunk, squared);
+        }
+        let mut sum = simd.reduce_sum_f32s(squared);
+        for &x in tail {
+            sum += x * x;
+        }
+        sum.sqrt()
+    }
+}
+
+#[cfg(feature = "bench-experiments")]
+pub(crate) fn cosine_norm(vector: &[f32]) -> f32 {
+    get_arch().dispatch(CosineNorm(vector))
+}
+
+#[cfg(feature = "bench-experiments")]
+struct CachedCosineDot<'a>(&'a [f32], &'a [f32]);
+
+#[cfg(feature = "bench-experiments")]
+impl WithSimd for CachedCosineDot<'_> {
+    type Output = f32;
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> f32 {
+        let (first, first_tail) = S::as_simd_f32s(self.0);
+        let (second, second_tail) = S::as_simd_f32s(self.1);
+        let mut dot = simd.splat_f32s(0.0);
+        for (&a, &b) in first.iter().zip(second) {
+            dot = simd.mul_add_f32s(a, b, dot);
+        }
+        let mut sum = simd.reduce_sum_f32s(dot);
+        // Match the fused cosine kernel's accumulation order, including the tail.
+        for (&x, &y) in first_tail.iter().zip(second_tail) {
+            sum += x * y;
+        }
+        sum
+    }
+}
+
+#[cfg(feature = "bench-experiments")]
+#[inline]
+pub(crate) fn cosine_similarity_with_norms(
+    first: &[f32],
+    second: &[f32],
+    first_norm: f32,
+    second_norm: f32,
+) -> Similarity {
+    debug_assert_eq!(first.len(), second.len());
+    let denominator = first_norm * second_norm;
+    if denominator == 0.0 || !denominator.is_finite() {
+        // Keep control semantics for zero norms, non-finite inputs and overflow.
+        return cosine_similarity(first, second);
+    }
+    Similarity(get_arch().dispatch(CachedCosineDot(first, second)) / denominator)
+}
+
 ///
 /// DOT PRODUCT
 /// The dot product or scalar product is an algebraic operation that takes two equal-length

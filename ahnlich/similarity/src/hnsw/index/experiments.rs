@@ -143,3 +143,98 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         (lists, edges)
     }
 }
+
+#[cfg(feature = "bench-experiments")]
+impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
+    /// Score cosine queries with cached norms while traversing this same graph.
+    /// Index construction and selective-filter scans still use the control scorer.
+    pub fn n_nearest_cached_cosine_with_ef(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        if self.distance_algorithm != LinearAlgorithm::CosineSimilarity {
+            return self.n_nearest_with_ef(reference_point, n, accept_list, ef_search);
+        }
+        let score = |first: &Node<E>, second: &Node<E>| {
+            crate::distance::cosine_similarity_with_norms(
+                first.value.as_slice(),
+                second.value.as_slice(),
+                first.cosine_norm,
+                second.cosine_norm,
+            )
+        };
+        self.n_nearest_with_ef_by(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            |node, query| score(node, query).into(),
+            |query, node| score(query, node).value(),
+        )
+    }
+}
+
+#[cfg(all(test, feature = "bench-experiments"))]
+mod cached_cosine_tests {
+    use super::*;
+    use crate::distance::{cosine_norm, cosine_similarity, cosine_similarity_with_norms};
+    use rand::{Rng, SeedableRng, rngs::StdRng};
+
+    #[test]
+    fn cached_cosine_matches_fused_scores_with_and_without_simd_tails() {
+        let mut rng = StdRng::seed_from_u64(16);
+        for dimension in [1, 7, 8, 15, 16, 17, 31, 768, 769] {
+            for _ in 0..32 {
+                let a: Vec<f32> = (0..dimension).map(|_| rng.gen_range(-1.0..1.0)).collect();
+                let b: Vec<f32> = (0..dimension).map(|_| rng.gen_range(-1.0..1.0)).collect();
+                let control = cosine_similarity(&a, &b).value();
+                let cached =
+                    cosine_similarity_with_norms(&a, &b, cosine_norm(&a), cosine_norm(&b)).value();
+                assert_eq!(cached.to_bits(), control.to_bits(), "dimension {dimension}");
+            }
+        }
+        for a in [[0.0; 8], [f32::INFINITY; 8], [f32::NAN; 8], [f32::MAX; 8]] {
+            let b = [1.0; 8];
+            let control = cosine_similarity(&a, &b).value();
+            let cached =
+                cosine_similarity_with_norms(&a, &b, cosine_norm(&a), cosine_norm(&b)).value();
+            assert_eq!(cached.to_bits(), control.to_bits());
+        }
+    }
+
+    #[test]
+    fn cached_cosine_returns_the_same_ids_and_scores_before_and_after_restore() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let data: Vec<_> = (0..128)
+            .map(|_| EmbeddingKey::new((0..17).map(|_| rng.gen_range(-1.0..1.0)).collect()))
+            .collect();
+        let index = HNSW::new_with_startup_counter_shards(
+            HNSWConfig::default(),
+            LinearAlgorithm::CosineSimilarity,
+        );
+        index.insert(&data).unwrap();
+        let restored: HNSW<LinearAlgorithm> =
+            serde_json::from_slice(&serde_json::to_vec(&index).unwrap()).unwrap();
+        assert_eq!(index.topology_snapshot(), restored.topology_snapshot());
+        let k = NonZeroUsize::new(10).unwrap();
+        let ef = NonZeroUsize::new(40);
+        for _ in 0..12 {
+            let query: Vec<f32> = (0..17).map(|_| rng.gen_range(-1.0..1.0)).collect();
+            let control = index.n_nearest_with_ef(&query, k, None, ef).unwrap();
+            assert_eq!(control.len(), k.get());
+            for graph in [&index, &restored] {
+                let actual = graph
+                    .n_nearest_cached_cosine_with_ef(&query, k, None, ef)
+                    .unwrap();
+                assert_eq!(control.len(), actual.len());
+                for ((a, a_score), (b, b_score)) in control.iter().zip(&actual) {
+                    assert_eq!(get_node_id(a.as_slice()), get_node_id(b.as_slice()));
+                    assert_eq!(a_score.to_bits(), b_score.to_bits());
+                }
+            }
+        }
+    }
+}
