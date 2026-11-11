@@ -212,10 +212,8 @@ pub fn cosine_similarity(first: &[f32], second: &[f32]) -> Similarity {
     Similarity(get_arch().dispatch(CosineSimilarityKernel { first, second }))
 }
 
-#[cfg(feature = "bench-experiments")]
 struct CosineNorm<'a>(&'a [f32]);
 
-#[cfg(feature = "bench-experiments")]
 impl WithSimd for CosineNorm<'_> {
     type Output = f32;
 
@@ -234,15 +232,12 @@ impl WithSimd for CosineNorm<'_> {
     }
 }
 
-#[cfg(feature = "bench-experiments")]
 pub(crate) fn cosine_norm(vector: &[f32]) -> f32 {
     get_arch().dispatch(CosineNorm(vector))
 }
 
-#[cfg(feature = "bench-experiments")]
 struct CachedCosineDot<'a>(&'a [f32], &'a [f32]);
 
-#[cfg(feature = "bench-experiments")]
 impl WithSimd for CachedCosineDot<'_> {
     type Output = f32;
 
@@ -263,7 +258,6 @@ impl WithSimd for CachedCosineDot<'_> {
     }
 }
 
-#[cfg(feature = "bench-experiments")]
 #[inline]
 pub(crate) fn cosine_similarity_with_norms(
     first: &[f32],

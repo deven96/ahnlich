@@ -1417,6 +1417,38 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     }
 }
 
+impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
+    /// Search with cached vector norms for cosine similarity.
+    /// Index construction and highly selective filter scans use the standard scorer.
+    pub fn n_nearest_cached_cosine_with_ef(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        if self.distance_algorithm != LinearAlgorithm::CosineSimilarity {
+            return self.n_nearest_with_ef(reference_point, n, accept_list, ef_search);
+        }
+        let score = |first: &Node<E>, second: &Node<E>| {
+            crate::distance::cosine_similarity_with_norms(
+                first.value.as_slice(),
+                second.value.as_slice(),
+                first.cosine_norm,
+                second.cosine_norm,
+            )
+        };
+        self.n_nearest_with_ef_by(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            |node, query| score(node, query).into(),
+            |query, node| score(query, node).value(),
+        )
+    }
+}
+
 impl<D: DistanceFn, E: EdgeStorage> Drop for HNSW<D, E> {
     fn drop(&mut self) {
         if let Some(collector) = self.collector.as_ref() {
@@ -1492,7 +1524,6 @@ fn node_from_temp_with_shared_collector<E: EdgeStorage>(
 
     Node {
         id: temp.id,
-        #[cfg(feature = "bench-experiments")]
         cosine_norm: crate::distance::cosine_norm(&temp.value),
         value: EmbeddingKey::new(temp.value),
         neighbours,
@@ -1519,7 +1550,6 @@ fn node_from_temp_with_counter_shards<E: EdgeStorage>(
     }
     Node {
         id: temp.id,
-        #[cfg(feature = "bench-experiments")]
         cosine_norm: crate::distance::cosine_norm(&temp.value),
         value: EmbeddingKey::new(temp.value),
         neighbours,
@@ -1700,7 +1730,6 @@ mod tests {
             (3, 0.0, vec![NodeId(2)]),
         ] {
             let node = Node {
-                #[cfg(feature = "bench-experiments")]
                 cosine_norm: f32::NAN,
                 id: NodeId(id),
                 value: EmbeddingKey::new(vec![value]),
@@ -1814,7 +1843,6 @@ mod tests {
 
         for id in &ids {
             hnsw.insert_node(Node {
-                #[cfg(feature = "bench-experiments")]
                 cosine_norm: f32::NAN,
                 id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
@@ -1865,7 +1893,6 @@ mod tests {
         let b = NodeId(20);
 
         hnsw.insert_node(Node {
-            #[cfg(feature = "bench-experiments")]
             cosine_norm: f32::NAN,
             id: a,
             value: EmbeddingKey::new(vec![0.0]),
@@ -1877,7 +1904,6 @@ mod tests {
         .unwrap();
 
         hnsw.insert_node(Node {
-            #[cfg(feature = "bench-experiments")]
             cosine_norm: f32::NAN,
             id: b,
             value: EmbeddingKey::new(vec![10.0]),
@@ -1890,7 +1916,6 @@ mod tests {
 
         let node_id = NodeId(99);
         let query_node = Node {
-            #[cfg(feature = "bench-experiments")]
             cosine_norm: f32::NAN,
             id: node_id,
             value: EmbeddingKey::new(vec![1.0]),
@@ -1912,7 +1937,6 @@ mod tests {
         let b = NodeId(20);
 
         hnsw.insert_node(Node {
-            #[cfg(feature = "bench-experiments")]
             cosine_norm: f32::NAN,
             id: a,
             value: EmbeddingKey::new(vec![0.0]),
@@ -1924,7 +1948,6 @@ mod tests {
         .unwrap();
 
         hnsw.insert_node(Node {
-            #[cfg(feature = "bench-experiments")]
             cosine_norm: f32::NAN,
             id: b,
             value: EmbeddingKey::new(vec![1.0]),
@@ -1958,7 +1981,6 @@ mod tests {
 
         for id in &ids {
             hnsw.insert_node(Node {
-                #[cfg(feature = "bench-experiments")]
                 cosine_norm: f32::NAN,
                 id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
