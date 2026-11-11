@@ -140,9 +140,12 @@ impl NonLinearAlgorithmWithIndex {
                     accept_list,
                 )
             }
-            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                hnsw.n_nearest_with_ef(search_vector.as_slice(), n, accept_list, ef_search)
-            }
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => hnsw.n_nearest_cached_cosine_with_ef(
+                search_vector.as_slice(),
+                n,
+                accept_list,
+                ef_search,
+            ),
         }
         .map_err(|err| ServerError::InternalError(format!("index search failed: {err:?}")))?;
 

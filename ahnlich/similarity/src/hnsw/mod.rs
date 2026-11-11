@@ -95,6 +95,8 @@ pub struct NodeId(pub u64);
 pub struct Node<E: EdgeStorage = CompactEdges> {
     id: NodeId,
     value: EmbeddingKey,
+    // Derived from the immutable embedding. Recomputed on snapshot restore.
+    cosine_norm: f32,
     neighbours: HashMap<LayerIndex, E>,
     back_links: HashSet<NodeId>,
     // Runtime-only, independent for clones/restored nodes. Not serialized.
@@ -126,6 +128,7 @@ impl<E: EdgeStorage> Clone for Node<E> {
         Self {
             id: self.id,
             value: self.value.clone(),
+            cosine_norm: self.cosine_norm,
             neighbours,
             back_links,
             lifecycle: Arc::default(),
@@ -175,6 +178,7 @@ impl<E: EdgeStorage> Node<E> {
         let id = get_node_id(&value.0);
         Self {
             id,
+            cosine_norm: crate::distance::cosine_norm(value.as_slice()),
             value,
             neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
@@ -189,6 +193,7 @@ impl<E: EdgeStorage> Node<E> {
     ) -> Self {
         Self {
             id: get_node_id(&value.0),
+            cosine_norm: crate::distance::cosine_norm(value.as_slice()),
             value,
             neighbours: HashMap::builder()
                 .capacity(1)
@@ -210,6 +215,7 @@ impl<E: EdgeStorage> Node<E> {
     ) -> Self {
         Self {
             id: get_node_id(&value.0),
+            cosine_norm: crate::distance::cosine_norm(value.as_slice()),
             value,
             neighbours: HashMap::builder()
                 .capacity(1)

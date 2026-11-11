@@ -15,7 +15,8 @@ env:
 
 jobs:
   run-benchmark-test:
-    runs-on: ubuntu-latest
+    # Keep both benchmark builds on the runner compatible with bundled RocksDB.
+    runs-on: ubuntu-24.04
     
     steps:
     - uses: actions/checkout@v4

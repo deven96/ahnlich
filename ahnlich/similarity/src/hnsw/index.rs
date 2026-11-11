@@ -2,7 +2,7 @@
 // similarity function. It then navigates between these localised lists in DFS manner until it
 // gets the values it needs to
 
-use crate::{DistanceFn, LinearAlgorithm, error::Error, hnsw::HNSWConfig};
+use crate::{Closeness, DistanceFn, LinearAlgorithm, error::Error, hnsw::HNSWConfig};
 
 use super::lifecycle::NodeLease;
 use super::{
@@ -516,6 +516,31 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         accept_list: Option<std::collections::HashSet<u64>>,
         ef_search: Option<NonZeroUsize>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        self.n_nearest_with_ef_by(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            |node, query| {
+                self.distance_algorithm
+                    .closeness(node.value.as_slice(), query.value.as_slice())
+            },
+            |query, node| {
+                self.distance_algorithm
+                    .value(query.value.as_slice(), node.value.as_slice())
+            },
+        )
+    }
+
+    fn n_nearest_with_ef_by(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+        closeness: impl Fn(&Node<E>, &Node<E>) -> Closeness + Copy,
+        score: impl Fn(&Node<E>, &Node<E>) -> f32,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
             return Ok(vec![]);
         }
@@ -534,11 +559,12 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         // `k` is what the caller asked for. It is NOT derived from the size of the filter:
         // the filter is applied during traversal (see search_layer), so no over-search is
         // needed to compensate for post-filtering.
-        let result_ids = self.knn_search(
+        let result_ids = self.knn_search_by(
             &query,
             n.get(),
             ef_search.map(NonZeroUsize::get),
             accept_list.as_ref(),
+            closeness,
         )?;
 
         let nodes_guard = self.nodes.pin();
@@ -549,9 +575,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             }
             if let Some(node) = nodes_guard.get(&node_id) {
                 let key = node.value.clone();
-                let score = self
-                    .distance_algorithm
-                    .value(reference_point, key.as_slice());
+                let score = score(&query, node);
                 results.push((key, score));
             }
         }
@@ -979,6 +1003,28 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         layer: &LayerIndex,
         accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<OrderedNode>, Error> {
+        self.search_layer_by(
+            query,
+            entry_points,
+            ef,
+            layer,
+            accept_list,
+            |node, query| {
+                self.distance_algorithm
+                    .closeness(node.value.as_slice(), query.value.as_slice())
+            },
+        )
+    }
+
+    fn search_layer_by(
+        &self,
+        query: &Node<E>,
+        entry_points: &[NodeId],
+        ef: usize,
+        layer: &LayerIndex,
+        accept_list: Option<&std::collections::HashSet<u64>>,
+        closeness: impl Fn(&Node<E>, &Node<E>) -> Closeness,
+    ) -> Result<Vec<OrderedNode>, Error> {
         let nodes = self.nodes.pin();
 
         let mut visited_items = NodeIdHashSet::with_capacity_and_hasher(512, Default::default());
@@ -988,13 +1034,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         let scored_entry_points: Vec<_> = entry_points
             .iter()
             .filter_map(|id| nodes.get(id))
-            .map(|node| {
-                OrderedNode::new(
-                    node.id,
-                    self.distance_algorithm
-                        .closeness(node.value.as_slice(), query.value.as_slice()),
-                )
-            })
+            .map(|node| OrderedNode::new(node.id, closeness(node, query)))
             .collect();
 
         let mut candidates = NearestFirst::new(scored_entry_points.iter().copied());
@@ -1031,11 +1071,8 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                         skip_missing_node(neighbour_id);
                         continue;
                     };
-                    let scored = OrderedNode::new(
-                        neighbour_node.id,
-                        self.distance_algorithm
-                            .closeness(neighbour_node.value.as_slice(), query.value.as_slice()),
-                    );
+                    let scored =
+                        OrderedNode::new(neighbour_node.id, closeness(neighbour_node, query));
                     let should_explore = match nearest_neighbours.peek() {
                         Some(worst) => {
                             scored.closeness > worst.closeness || nearest_neighbours.len() < ef
@@ -1057,12 +1094,13 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     }
 
     /// `knn_search` that keeps each match's score, so callers need not recompute it.
-    fn knn_search_scored(
+    fn knn_search_scored_by(
         &self,
         query: &Node<E>,
         k: usize,
         ef: Option<usize>,
         accept_list: Option<&std::collections::HashSet<u64>>,
+        closeness: impl Fn(&Node<E>, &Node<E>) -> Closeness + Copy,
     ) -> Result<Vec<OrderedNode>, Error> {
         let nodes = self.nodes.pin();
         let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
@@ -1080,12 +1118,13 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
         for level_current in (1..=ep_level).rev() {
             enter_point = self.live_entry_points(&nodes, enter_point);
-            let searched = self.search_layer(
+            let searched = self.search_layer_by(
                 query,
                 &enter_point,
                 1,
                 &LayerIndex(level_current as u16),
                 None,
+                closeness,
             )?;
             if let Some(nearest) = searched.into_iter().max() {
                 enter_point = smallvec![nearest.id];
@@ -1093,7 +1132,14 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         }
 
         enter_point = self.live_entry_points(&nodes, enter_point);
-        let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0), accept_list)?;
+        let level_zero = self.search_layer_by(
+            query,
+            &enter_point,
+            ef,
+            &LayerIndex(0),
+            accept_list,
+            closeness,
+        )?;
         let mut current_nearest_elements = NearestFirst::new(level_zero.into_iter());
         Ok(current_nearest_elements.pop_n(valid_len))
     }
@@ -1112,8 +1158,22 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         ef: Option<usize>,
         accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<NodeId>, Error> {
+        self.knn_search_by(query, k, ef, accept_list, |node, query| {
+            self.distance_algorithm
+                .closeness(node.value.as_slice(), query.value.as_slice())
+        })
+    }
+
+    fn knn_search_by(
+        &self,
+        query: &Node<E>,
+        k: usize,
+        ef: Option<usize>,
+        accept_list: Option<&std::collections::HashSet<u64>>,
+        closeness: impl Fn(&Node<E>, &Node<E>) -> Closeness + Copy,
+    ) -> Result<Vec<NodeId>, Error> {
         Ok(self
-            .knn_search_scored(query, k, ef, accept_list)?
+            .knn_search_scored_by(query, k, ef, accept_list, closeness)?
             .into_iter()
             .map(|node| node.id)
             .collect())
@@ -1357,6 +1417,38 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
     }
 }
 
+impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
+    /// Search with cached vector norms for cosine similarity.
+    /// Index construction and highly selective filter scans use the standard scorer.
+    pub fn n_nearest_cached_cosine_with_ef(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        if self.distance_algorithm != LinearAlgorithm::CosineSimilarity {
+            return self.n_nearest_with_ef(reference_point, n, accept_list, ef_search);
+        }
+        let score = |first: &Node<E>, second: &Node<E>| {
+            crate::distance::cosine_similarity_with_norms(
+                first.value.as_slice(),
+                second.value.as_slice(),
+                first.cosine_norm,
+                second.cosine_norm,
+            )
+        };
+        self.n_nearest_with_ef_by(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            |node, query| score(node, query).into(),
+            |query, node| score(query, node).value(),
+        )
+    }
+}
+
 impl<D: DistanceFn, E: EdgeStorage> Drop for HNSW<D, E> {
     fn drop(&mut self) {
         if let Some(collector) = self.collector.as_ref() {
@@ -1432,6 +1524,7 @@ fn node_from_temp_with_shared_collector<E: EdgeStorage>(
 
     Node {
         id: temp.id,
+        cosine_norm: crate::distance::cosine_norm(&temp.value),
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links,
@@ -1457,6 +1550,7 @@ fn node_from_temp_with_counter_shards<E: EdgeStorage>(
     }
     Node {
         id: temp.id,
+        cosine_norm: crate::distance::cosine_norm(&temp.value),
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links: node_hashset_from_iter(temp.back_links, collector, shards),
@@ -1636,6 +1730,7 @@ mod tests {
             (3, 0.0, vec![NodeId(2)]),
         ] {
             let node = Node {
+                cosine_norm: f32::NAN,
                 id: NodeId(id),
                 value: EmbeddingKey::new(vec![value]),
                 neighbours: HashMap::new(),
@@ -1748,6 +1843,7 @@ mod tests {
 
         for id in &ids {
             hnsw.insert_node(Node {
+                cosine_norm: f32::NAN,
                 id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
@@ -1797,6 +1893,7 @@ mod tests {
         let b = NodeId(20);
 
         hnsw.insert_node(Node {
+            cosine_norm: f32::NAN,
             id: a,
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
@@ -1807,6 +1904,7 @@ mod tests {
         .unwrap();
 
         hnsw.insert_node(Node {
+            cosine_norm: f32::NAN,
             id: b,
             value: EmbeddingKey::new(vec![10.0]),
             neighbours: HashMap::new(),
@@ -1818,6 +1916,7 @@ mod tests {
 
         let node_id = NodeId(99);
         let query_node = Node {
+            cosine_norm: f32::NAN,
             id: node_id,
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
@@ -1838,6 +1937,7 @@ mod tests {
         let b = NodeId(20);
 
         hnsw.insert_node(Node {
+            cosine_norm: f32::NAN,
             id: a,
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
@@ -1848,6 +1948,7 @@ mod tests {
         .unwrap();
 
         hnsw.insert_node(Node {
+            cosine_norm: f32::NAN,
             id: b,
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
@@ -1880,6 +1981,7 @@ mod tests {
 
         for id in &ids {
             hnsw.insert_node(Node {
+                cosine_norm: f32::NAN,
                 id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
