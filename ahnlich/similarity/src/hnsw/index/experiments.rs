@@ -173,6 +173,43 @@ mod cached_cosine_tests {
     }
 
     #[test]
+    fn batched_cosine_matches_single_scores_with_tails_and_fallbacks() {
+        use crate::distance::batched_cosine_similarity;
+
+        let mut rng = StdRng::seed_from_u64(19);
+        for dimension in [1, 7, 8, 15, 16, 17, 128, 768, 769] {
+            let query: Vec<f32> = (0..dimension).map(|_| rng.gen_range(-1.0..1.0)).collect();
+            let query_norm = cosine_norm(&query);
+            let vectors: [Vec<f32>; 4] =
+                std::array::from_fn(|_| (0..dimension).map(|_| rng.gen_range(-1.0..1.0)).collect());
+            let candidates = vectors
+                .each_ref()
+                .map(|vector| (vector.as_slice(), cosine_norm(vector)));
+            let control = candidates.map(|(vector, norm)| {
+                cosine_similarity_with_norms(vector, &query, norm, query_norm)
+                    .value()
+                    .to_bits()
+            });
+            let batch = batched_cosine_similarity(&query, query_norm, candidates);
+            assert_eq!(batch.map(|score| score.value().to_bits()), control);
+        }
+
+        let query = [1.0; 8];
+        let query_norm = cosine_norm(&query);
+        for special in [[0.0; 8], [f32::INFINITY; 8], [f32::NAN; 8], [f32::MAX; 8]] {
+            let mut candidates = [(query.as_slice(), query_norm); 4];
+            candidates[0] = (special.as_slice(), cosine_norm(&special));
+            let control = candidates.map(|(vector, norm)| {
+                cosine_similarity_with_norms(vector, &query, norm, query_norm)
+                    .value()
+                    .to_bits()
+            });
+            let batch = batched_cosine_similarity(&query, query_norm, candidates);
+            assert_eq!(batch.map(|score| score.value().to_bits()), control);
+        }
+    }
+
+    #[test]
     fn cached_cosine_returns_the_same_ids_and_scores_before_and_after_restore() {
         let mut rng = StdRng::seed_from_u64(42);
         let data: Vec<_> = (0..128)
@@ -196,6 +233,16 @@ mod cached_cosine_tests {
                 let actual = graph
                     .n_nearest_cached_cosine_with_ef(&query, k, None, ef)
                     .unwrap();
+                {
+                    let batched = graph
+                        .n_nearest_batched_cosine_with_ef(&query, k, None, ef)
+                        .unwrap();
+                    assert_eq!(actual.len(), batched.len());
+                    for ((a, a_score), (b, b_score)) in actual.iter().zip(&batched) {
+                        assert_eq!(a.as_slice(), b.as_slice());
+                        assert_eq!(a_score.to_bits(), b_score.to_bits());
+                    }
+                }
                 assert_eq!(control.len(), actual.len());
                 for ((a, a_score), (b, b_score)) in control.iter().zip(&actual) {
                     assert_eq!(get_node_id(a.as_slice()), get_node_id(b.as_slice()));

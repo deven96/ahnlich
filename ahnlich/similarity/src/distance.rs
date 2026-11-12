@@ -274,6 +274,59 @@ pub(crate) fn cosine_similarity_with_norms(
     Similarity(get_arch().dispatch(CachedCosineDot(first, second)) / denominator)
 }
 
+struct CachedCosineBatchDot<'a> {
+    query: &'a [f32],
+    candidates: [&'a [f32]; 4],
+}
+
+impl WithSimd for CachedCosineBatchDot<'_> {
+    type Output = [f32; 4];
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
+        let (query, query_tail) = S::as_simd_f32s(self.query);
+        let candidates = self.candidates.map(S::as_simd_f32s);
+        let mut dots = [simd.splat_f32s(0.0); 4];
+        for (index, &query_chunk) in query.iter().enumerate() {
+            for (dot, (head, _)) in dots.iter_mut().zip(&candidates) {
+                *dot = simd.mul_add_f32s(head[index], query_chunk, *dot);
+            }
+        }
+        std::array::from_fn(|index| {
+            let mut sum = simd.reduce_sum_f32s(dots[index]);
+            for (&x, &y) in candidates[index].1.iter().zip(query_tail) {
+                sum += x * y;
+            }
+            sum
+        })
+    }
+}
+
+pub(crate) fn batched_cosine_similarity(
+    query: &[f32],
+    query_norm: f32,
+    candidates: [(&[f32], f32); 4],
+) -> [Similarity; 4] {
+    debug_assert!(
+        candidates
+            .iter()
+            .all(|(vector, _)| vector.len() == query.len())
+    );
+    let denominators = candidates.map(|(_, norm)| norm * query_norm);
+    if denominators
+        .iter()
+        .any(|&value| value == 0.0 || !value.is_finite())
+    {
+        return candidates
+            .map(|(vector, norm)| cosine_similarity_with_norms(vector, query, norm, query_norm));
+    }
+    let dots = get_arch().dispatch(CachedCosineBatchDot {
+        query,
+        candidates: candidates.map(|(vector, _)| vector),
+    });
+    std::array::from_fn(|index| Similarity(dots[index] / denominators[index]))
+}
+
 ///
 /// DOT PRODUCT
 /// The dot product or scalar product is an algebraic operation that takes two equal-length
