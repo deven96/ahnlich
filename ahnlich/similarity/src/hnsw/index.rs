@@ -1491,6 +1491,67 @@ impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
     }
 }
 
+#[derive(Clone, Copy)]
+struct BatchedCosineScorer;
+
+impl BatchedCosineScorer {
+    #[inline]
+    fn score<E: EdgeStorage>(first: &Node<E>, second: &Node<E>) -> crate::Similarity {
+        crate::distance::cosine_similarity_with_norms(
+            first.value.as_slice(),
+            second.value.as_slice(),
+            first.cosine_norm,
+            second.cosine_norm,
+        )
+    }
+}
+
+impl<E: EdgeStorage> SearchScorer<E, 4> for BatchedCosineScorer {
+    #[inline]
+    fn single(self, node: &Node<E>, query: &Node<E>) -> Closeness {
+        Self::score(node, query).into()
+    }
+
+    #[inline]
+    fn batch(self, nodes: [&Node<E>; 4], query: &Node<E>) -> [Closeness; 4] {
+        crate::distance::batched_cosine_similarity(
+            query.value.as_slice(),
+            query.cosine_norm,
+            nodes.map(|node| (node.value.as_slice(), node.cosine_norm)),
+        )
+        .map(Into::into)
+    }
+}
+
+impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
+    /// Score cosine neighbors in groups of four during graph traversal.
+    /// Incomplete groups use the single-neighbor scorer.
+    pub fn n_nearest_batched_cosine_with_ef(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        if self.distance_algorithm != LinearAlgorithm::CosineSimilarity {
+            return self.n_nearest_cached_cosine_with_ef(
+                reference_point,
+                n,
+                accept_list,
+                ef_search,
+            );
+        }
+        self.n_nearest_with_ef_by::<4>(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            BatchedCosineScorer,
+            |query, node| BatchedCosineScorer::score(query, node).value(),
+        )
+    }
+}
+
 impl<D: DistanceFn, E: EdgeStorage> Drop for HNSW<D, E> {
     fn drop(&mut self) {
         if let Some(collector) = self.collector.as_ref() {

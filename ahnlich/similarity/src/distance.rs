@@ -274,13 +274,11 @@ pub(crate) fn cosine_similarity_with_norms(
     Similarity(get_arch().dispatch(CachedCosineDot(first, second)) / denominator)
 }
 
-#[cfg(feature = "bench-experiments")]
 struct CachedCosineBatchDot<'a> {
     query: &'a [f32],
     candidates: [&'a [f32]; 4],
 }
 
-#[cfg(feature = "bench-experiments")]
 impl WithSimd for CachedCosineBatchDot<'_> {
     type Output = [f32; 4];
 
@@ -304,7 +302,6 @@ impl WithSimd for CachedCosineBatchDot<'_> {
     }
 }
 
-#[cfg(feature = "bench-experiments")]
 pub(crate) fn batched_cosine_similarity(
     query: &[f32],
     query_norm: f32,

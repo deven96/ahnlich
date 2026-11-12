@@ -140,7 +140,7 @@ impl NonLinearAlgorithmWithIndex {
                     accept_list,
                 )
             }
-            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => hnsw.n_nearest_cached_cosine_with_ef(
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => hnsw.n_nearest_batched_cosine_with_ef(
                 search_vector.as_slice(),
                 n,
                 accept_list,
