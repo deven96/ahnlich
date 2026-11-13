@@ -252,3 +252,76 @@ mod cached_cosine_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod stored_id_tests {
+    use super::*;
+    use rand::{Rng, SeedableRng, rngs::StdRng};
+
+    #[test]
+    fn stored_ids_match_rehashed_results_before_and_after_restore() {
+        let mut rng = StdRng::seed_from_u64(71);
+        let data: Vec<_> = (0..128)
+            .map(|_| EmbeddingKey::new((0..17).map(|_| rng.gen_range(-1.0..1.0)).collect()))
+            .collect();
+        let k = NonZeroUsize::new(10).unwrap();
+        let ef = NonZeroUsize::new(40);
+        let exact: std::collections::HashSet<_> = data
+            .iter()
+            .step_by(2)
+            .map(|key| get_node_id(key.as_slice()).0)
+            .collect();
+        let graph_filter = exact.iter().copied().chain(0..4500).collect();
+        let filters = [
+            None,
+            Some(std::collections::HashSet::new()),
+            Some(exact),
+            Some(graph_filter),
+        ];
+
+        for algorithm in [
+            LinearAlgorithm::CosineSimilarity,
+            LinearAlgorithm::DotProductSimilarity,
+            LinearAlgorithm::EuclideanDistance,
+        ] {
+            let index = HNSW::new_with_startup_counter_shards(HNSWConfig::default(), algorithm);
+            index.insert(&data).unwrap();
+            let restored = serde_json::from_slice(&serde_json::to_vec(&index).unwrap()).unwrap();
+
+            for graph in [&index, &restored] {
+                for query in data.iter().step_by(23) {
+                    for accept in &filters {
+                        let control = graph
+                            .n_nearest_batched_cosine_with_ef(
+                                query.as_slice(),
+                                k,
+                                accept.clone(),
+                                ef,
+                            )
+                            .unwrap();
+                        let direct = graph
+                            .n_nearest_ids_with_ef(query.as_slice(), k, accept.clone(), ef)
+                            .unwrap();
+                        let control: Vec<_> = control
+                            .iter()
+                            .map(|(key, score)| (get_node_id(key.as_slice()), score.to_bits()))
+                            .collect();
+                        let direct: Vec<_> = direct
+                            .iter()
+                            .map(|(id, score)| (*id, score.to_bits()))
+                            .collect();
+                        assert_eq!(direct, control);
+                        assert_eq!(
+                            direct.len(),
+                            if accept.as_ref().is_some_and(|ids| ids.is_empty()) {
+                                0
+                            } else {
+                                k.get()
+                            }
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

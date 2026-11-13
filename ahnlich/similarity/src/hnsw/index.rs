@@ -537,6 +537,19 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         accept_list: Option<std::collections::HashSet<u64>>,
         ef_search: Option<NonZeroUsize>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        self.n_nearest_with_ef_key(reference_point, n, accept_list, ef_search, |node| {
+            node.value.clone()
+        })
+    }
+
+    fn n_nearest_with_ef_key<K>(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+        key: impl Fn(&Node<E>) -> K,
+    ) -> Result<Vec<(K, f32)>, Error> {
         self.n_nearest_with_ef_by(
             reference_point,
             n,
@@ -546,22 +559,26 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 self.distance_algorithm
                     .closeness(node.value.as_slice(), query.value.as_slice())
             },
-            |query, node| {
-                self.distance_algorithm
-                    .value(query.value.as_slice(), node.value.as_slice())
-            },
+            (
+                |query, node| {
+                    self.distance_algorithm
+                        .value(query.value.as_slice(), node.value.as_slice())
+                },
+                key,
+            ),
         )
     }
 
-    fn n_nearest_with_ef_by<const WIDTH: usize>(
+    fn n_nearest_with_ef_by<const WIDTH: usize, K>(
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
         accept_list: Option<std::collections::HashSet<u64>>,
         ef_search: Option<NonZeroUsize>,
         scorer: impl SearchScorer<E, WIDTH>,
-        score: impl Fn(&Node<E>, &Node<E>) -> f32,
-    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        result: (impl Fn(&Node<E>, &Node<E>) -> f32, impl Fn(&Node<E>) -> K),
+    ) -> Result<Vec<(K, f32)>, Error> {
+        let (score, key) = result;
         if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
             return Ok(vec![]);
         }
@@ -573,7 +590,7 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         if let Some(ref accept) = accept_list
             && accept.len() <= BRUTE_FORCE_ACCEPT_LIST_THRESHOLD
         {
-            return Ok(self.brute_force_accept_list(reference_point, n, accept));
+            return Ok(self.brute_force_accept_list(reference_point, n, accept, key));
         }
 
         let query = Node::<E>::new_with_edges(EmbeddingKey::new(reference_point.to_vec()));
@@ -589,15 +606,15 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
         )?;
 
         let nodes_guard = self.nodes.pin();
-        let mut results: Vec<(EmbeddingKey, f32)> = Vec::with_capacity(n.get());
+        let mut results = Vec::with_capacity(n.get());
         for node_id in result_ids {
             if results.len() >= n.get() {
                 break;
             }
             if let Some(node) = nodes_guard.get(&node_id) {
-                let key = node.value.clone();
+                let result_key = key(node);
                 let score = score(&query, node);
-                results.push((key, score));
+                results.push((result_key, score));
             }
         }
 
@@ -606,24 +623,25 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
 
     /// Exact nearest-neighbour scan restricted to `accept`, used when the predicate is
     /// selective enough that touching the graph is not worth it.
-    fn brute_force_accept_list(
+    fn brute_force_accept_list<K>(
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
         accept: &std::collections::HashSet<u64>,
-    ) -> Vec<(EmbeddingKey, f32)> {
+        key: impl Fn(&Node<E>) -> K,
+    ) -> Vec<(K, f32)> {
         let nodes_guard = self.nodes.pin();
-        let mut scored: Vec<(OrderedNode, EmbeddingKey, f32)> = accept
+        let mut scored: Vec<_> = accept
             .iter()
             .filter_map(|id| nodes_guard.get(&NodeId(*id)))
             .map(|node| {
-                let key = node.value.clone();
+                let result_key = key(node);
                 let score = self
                     .distance_algorithm
-                    .score(reference_point, key.as_slice());
+                    .score(reference_point, node.value.as_slice());
                 (
                     OrderedNode::new(node.id, score.closeness()),
-                    key,
+                    result_key,
                     score.value(),
                 )
             })
@@ -1486,7 +1504,10 @@ impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
             accept_list,
             ef_search,
             |node: &Node<E>, query: &Node<E>| score(node, query).into(),
-            |query, node| score(query, node).value(),
+            (
+                |query, node| score(query, node).value(),
+                |node| node.value.clone(),
+            ),
         )
     }
 }
@@ -1533,21 +1554,53 @@ impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
         accept_list: Option<std::collections::HashSet<u64>>,
         ef_search: Option<NonZeroUsize>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        self.n_nearest_batched_cosine_with_ef_key(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            |node| node.value.clone(),
+        )
+    }
+
+    /// Return the stored node IDs alongside the same scores as the embedding-returning path.
+    pub fn n_nearest_ids_with_ef(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+    ) -> Result<Vec<(NodeId, f32)>, Error> {
+        self.n_nearest_batched_cosine_with_ef_key(
+            reference_point,
+            n,
+            accept_list,
+            ef_search,
+            |node| node.id,
+        )
+    }
+
+    fn n_nearest_batched_cosine_with_ef_key<K>(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        ef_search: Option<NonZeroUsize>,
+        key: impl Fn(&Node<E>) -> K,
+    ) -> Result<Vec<(K, f32)>, Error> {
         if self.distance_algorithm != LinearAlgorithm::CosineSimilarity {
-            return self.n_nearest_cached_cosine_with_ef(
-                reference_point,
-                n,
-                accept_list,
-                ef_search,
-            );
+            return self.n_nearest_with_ef_key(reference_point, n, accept_list, ef_search, key);
         }
-        self.n_nearest_with_ef_by::<4>(
+        self.n_nearest_with_ef_by::<4, K>(
             reference_point,
             n,
             accept_list,
             ef_search,
             BatchedCosineScorer,
-            |query, node| BatchedCosineScorer::score(query, node).value(),
+            (
+                |query, node| BatchedCosineScorer::score(query, node).value(),
+                key,
+            ),
         )
     }
 }

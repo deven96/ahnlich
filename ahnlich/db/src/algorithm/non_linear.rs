@@ -131,28 +131,29 @@ impl NonLinearAlgorithmWithIndex {
         n: NonZeroUsize,
         ef_search: Option<NonZeroUsize>,
     ) -> Result<Vec<(StoreKeyId, f32)>, ServerError> {
-        let raw_result = match &self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
-                    kdtree,
-                    search_vector.as_slice(),
-                    n,
-                    accept_list,
-                )
-            }
-            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => hnsw.n_nearest_batched_cosine_with_ef(
+        match self {
+            Self::KDTree(kdtree) => <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
+                kdtree,
                 search_vector.as_slice(),
                 n,
                 accept_list,
-                ef_search,
-            ),
+            )
+            .map(|results| {
+                results
+                    .into_iter()
+                    .map(|(key, score)| (embedding_key_to_id(&key), score))
+                    .collect()
+            }),
+            Self::Hnsw(hnsw) => hnsw
+                .n_nearest_ids_with_ef(search_vector.as_slice(), n, accept_list, ef_search)
+                .map(|results| {
+                    results
+                        .into_iter()
+                        .map(|(id, score)| (StoreKeyId(id.0), score))
+                        .collect()
+                }),
         }
-        .map_err(|err| ServerError::InternalError(format!("index search failed: {err:?}")))?;
-
-        Ok(raw_result
-            .into_iter()
-            .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
-            .collect())
+        .map_err(|err| ServerError::InternalError(format!("index search failed: {err:?}")))
     }
 }
 
