@@ -253,27 +253,7 @@ mod cached_cosine_tests {
     }
 }
 
-#[cfg(feature = "bench-experiments")]
-impl<E: EdgeStorage> HNSW<LinearAlgorithm, E> {
-    /// Return the stored node IDs alongside the same scores as the embedding-returning path.
-    pub fn n_nearest_ids_with_ef(
-        &self,
-        reference_point: &[f32],
-        n: NonZeroUsize,
-        accept_list: Option<std::collections::HashSet<u64>>,
-        ef_search: Option<NonZeroUsize>,
-    ) -> Result<Vec<(NodeId, f32)>, Error> {
-        self.n_nearest_batched_cosine_with_ef_key(
-            reference_point,
-            n,
-            accept_list,
-            ef_search,
-            |node| node.id,
-        )
-    }
-}
-
-#[cfg(all(test, feature = "bench-experiments"))]
+#[cfg(test)]
 mod stored_id_tests {
     use super::*;
     use rand::{Rng, SeedableRng, rngs::StdRng};
