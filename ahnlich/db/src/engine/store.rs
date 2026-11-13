@@ -1697,8 +1697,12 @@ impl Store {
                     .filter(|id| cursor.is_none_or(|cursor| *id > cursor))
                     .collect::<Vec<_>>();
 
+                // Partition out the smallest `page_size` IDs so only those get sorted.
+                if ids.len() > page_size {
+                    let _ = ids.select_nth_unstable(page_size - 1);
+                    ids.truncate(page_size);
+                }
                 ids.sort_unstable();
-                ids.truncate(page_size);
                 ids
             }
             matching_ids => self.ordered_key_index.page_after(cursor, page_size, |id| {

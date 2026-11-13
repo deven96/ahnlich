@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460" role="img" aria-labelledby="title desc">
+  <title id="title">The faster filtering strategy changes near one percent selectivity</title>
+  <desc id="desc">On one million entries with a page size of 100, sorting matching IDs is faster for sparse filters. Scanning the ordered index is faster for broad filters. The measured lines cross near one percent selectivity.</desc>
+  <rect width="900" height="460" fill="#f5f5f5"/>
+
+  <text x="48" y="46" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="700" fill="#0a0a0a">The faster strategy changes near 1%</text>
+  <text x="48" y="72" font-family="Inter, system-ui, sans-serif" font-size="14" fill="#737373">Median latency (µs, log scale) · lower is faster</text>
+
+  <g stroke="#cccccc" stroke-width="1">
+    <line x1="112" y1="360" x2="780" y2="360"/>
+    <line x1="112" y1="315" x2="780" y2="315"/>
+    <line x1="112" y1="270" x2="780" y2="270"/>
+    <line x1="112" y1="225" x2="780" y2="225"/>
+    <line x1="112" y1="180" x2="780" y2="180"/>
+    <line x1="112" y1="135" x2="780" y2="135"/>
+    <line x1="112" y1="90" x2="780" y2="90"/>
+  </g>
+
+  <g font-family="Inter, system-ui, sans-serif" font-size="12" fill="#737373" text-anchor="end">
+    <text x="98" y="364">0.1</text>
+    <text x="98" y="319">1</text>
+    <text x="98" y="274">10</text>
+    <text x="98" y="229">100</text>
+    <text x="98" y="184">1k</text>
+    <text x="98" y="139">10k</text>
+    <text x="98" y="94">100k</text>
+  </g>
+  <line x1="450" y1="90" x2="450" y2="360" stroke="#cc9200" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.7"/>
+  <text x="461" y="104" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="600" fill="#8f6700">crossover</text>
+
+  <polyline points="120,323 285,275 450,218 615,166 730,133 780,118" fill="none" stroke="#cc9200" stroke-width="4" stroke-linejoin="round"/>
+  <polyline points="120,136 285,174 450,215 615,258 730,288 780,297" fill="none" stroke="#525252" stroke-width="4" stroke-linejoin="round"/>
+
+  <g fill="#cc9200">
+    <circle cx="120" cy="323" r="5"/>
+    <circle cx="285" cy="275" r="5"/>
+    <circle cx="450" cy="218" r="5"/>
+    <circle cx="615" cy="166" r="5"/>
+    <circle cx="730" cy="133" r="5"/>
+    <circle cx="780" cy="118" r="5"/>
+  </g>
+  <g fill="#525252">
+    <rect x="115" y="131" width="10" height="10"/>
+    <rect x="280" y="169" width="10" height="10"/>
+    <rect x="445" y="210" width="10" height="10"/>
+    <rect x="610" y="253" width="10" height="10"/>
+    <rect x="725" y="283" width="10" height="10"/>
+    <rect x="775" y="292" width="10" height="10"/>
+  </g>
+
+  <text x="792" y="122" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#8f6700">Sort matches</text>
+  <text x="792" y="301" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#525252">Scan index</text>
+
+  <g font-family="Inter, system-ui, sans-serif" font-size="12" fill="#737373" text-anchor="middle">
+    <text x="120" y="387">0.01%</text>
+    <text x="285" y="387">0.1%</text>
+    <text x="450" y="387">1%</text>
+    <text x="615" y="387">10%</text>
+    <text x="780" y="387">100%</text>
+  </g>
+  <text x="450" y="435" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" fill="#737373">Entries matching the filter (log scale)</text>
+</svg>

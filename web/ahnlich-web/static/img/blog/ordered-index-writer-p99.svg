@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="450" viewBox="0 0 900 450" role="img" aria-labelledby="title desc">
+  <title id="title">Writer p99 latency with four writers</title>
+  <desc id="desc">As readers increase from 1 to 32, BTreeSet writer p99 rises from 68.458 to 3725.177 microseconds. SkipSet rises from 4.934 to 81.844 microseconds.</desc>
+  <rect width="900" height="450" fill="#f5f5f5"/>
+
+  <text x="48" y="46" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="700" fill="#0a0a0a">Four writers: p99 latency</text>
+  <text x="48" y="72" font-family="Inter, system-ui, sans-serif" font-size="14" fill="#737373">Lower is faster · logarithmic scale</text>
+
+  <g stroke="#cccccc" stroke-width="1">
+    <line x1="104" y1="330" x2="756" y2="330"/>
+    <line x1="104" y1="270" x2="756" y2="270"/>
+    <line x1="104" y1="210" x2="756" y2="210"/>
+    <line x1="104" y1="150" x2="756" y2="150"/>
+    <line x1="104" y1="90" x2="756" y2="90"/>
+  </g>
+
+  <g font-family="Inter, system-ui, sans-serif" font-size="12" fill="#737373" text-anchor="end">
+    <text x="92" y="334">1</text>
+    <text x="92" y="274">10</text>
+    <text x="92" y="214">100</text>
+    <text x="92" y="154">1k</text>
+    <text x="92" y="94">10k µs</text>
+  </g>
+
+  <polyline points="150,220 350,206 550,180 750,116" fill="none" stroke="#cc9200" stroke-width="4" stroke-linejoin="round"/>
+  <polyline points="150,288 350,271 550,234 750,215" fill="none" stroke="#525252" stroke-width="4" stroke-linejoin="round"/>
+
+  <g fill="#cc9200">
+    <circle cx="150" cy="220" r="5"/>
+    <circle cx="350" cy="206" r="5"/>
+    <circle cx="550" cy="180" r="5"/>
+    <circle cx="750" cy="116" r="5"/>
+  </g>
+  <g fill="#525252">
+    <rect x="145" y="283" width="10" height="10"/>
+    <rect x="345" y="266" width="10" height="10"/>
+    <rect x="545" y="229" width="10" height="10"/>
+    <rect x="745" y="210" width="10" height="10"/>
+  </g>
+
+  <text x="766" y="120" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#8f6700">BTreeSet</text>
+  <text x="766" y="219" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#525252">SkipSet</text>
+
+  <g font-family="Inter, system-ui, sans-serif" font-size="13" fill="#737373" text-anchor="middle">
+    <text x="150" y="357">1</text>
+    <text x="350" y="357">4</text>
+    <text x="550" y="357">16</text>
+    <text x="750" y="357">32</text>
+  </g>
+  <text x="450" y="390" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" fill="#737373">Readers</text>
+</svg>
