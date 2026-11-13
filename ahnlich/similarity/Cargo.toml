@@ -91,3 +91,9 @@ name = "hnsw_batched_cosine"
 path = "benches/experiments/hnsw_batched_cosine.rs"
 harness = false
 required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_stored_result_ids"
+path = "benches/experiments/hnsw_stored_result_ids.rs"
+harness = false
+required-features = ["bench-experiments"]
