@@ -1182,7 +1182,7 @@ impl BlockingTask for Server {
     ) {
         let listener_stream = if let ListenerStreamOrAddress::ListenerStream(stream) = self.listener
         {
-            stream
+            stream.with_tcp_nodelay()
         } else {
             log::error!("listener must be of type listener stream");
             panic!("listener must be of type listener stream")

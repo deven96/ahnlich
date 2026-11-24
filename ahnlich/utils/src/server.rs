@@ -110,6 +110,7 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
 pub struct CustomTcpListenerStream {
     inner: TcpListener,
     client_handler: Arc<ClientHandler>,
+    tcp_nodelay: bool,
 }
 
 impl CustomTcpListenerStream {
@@ -117,7 +118,14 @@ impl CustomTcpListenerStream {
         Self {
             inner: listener,
             client_handler,
+            tcp_nodelay: false,
         }
+    }
+
+    /// Enable TCP_NODELAY on each socket accepted by this listener.
+    pub fn with_tcp_nodelay(mut self) -> Self {
+        self.tcp_nodelay = true;
+        self
     }
 }
 
@@ -192,6 +200,11 @@ impl Stream for CustomTcpListenerStream {
                     Err(e) => return Poll::Ready(Some(Err(e))),
                 };
                 if let Some(connected_client) = self.client_handler.connect(peer_addr) {
+                    if self.tcp_nodelay
+                        && let Err(error) = stream.set_nodelay(true)
+                    {
+                        log::warn!("Failed to enable TCP_NODELAY: {error}");
+                    }
                     Poll::Ready(Some(Ok(CustomTcpStream {
                         inner: stream,
                         client_handler: self.client_handler.clone(),
@@ -237,5 +250,24 @@ impl ListenerStreamOrAddress {
             Self::ListenerStream(stream) => stream.as_ref().local_addr(),
             Self::Address(addr) => Ok(*addr),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::StreamExt;
+
+    #[tokio::test]
+    async fn tcp_nodelay_is_enabled_on_accepted_socket() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut incoming = CustomTcpListenerStream::new(listener, Arc::new(ClientHandler::new(1)))
+            .with_tcp_nodelay();
+
+        let _client = TcpStream::connect(addr).await.unwrap();
+        let accepted = incoming.next().await.unwrap().unwrap();
+
+        assert!(accepted.inner.nodelay().unwrap());
     }
 }
