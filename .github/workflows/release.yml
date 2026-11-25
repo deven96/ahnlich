@@ -194,7 +194,6 @@ jobs:
                 AHNLICH_BIN=${{ needs.prebuild_preparation.outputs.bin_name}}
                 DEFAULT_PORT=${{env.DEFAULT_PORT}}
                 RUST_VERSION=${{ needs.prebuild_preparation.outputs.rust_version }}
-                ORT_VER=${{ needs.prebuild_preparation.outputs.ort_version }}
 
           - name: Smoke test Docker image
             run: |
@@ -230,7 +229,6 @@ jobs:
                 AHNLICH_BIN=${{ needs.prebuild_preparation.outputs.bin_name}}
                 DEFAULT_PORT=${{env.DEFAULT_PORT}}
                 RUST_VERSION=${{ needs.prebuild_preparation.outputs.rust_version }}
-                ORT_VER=${{ needs.prebuild_preparation.outputs.ort_version }}
 
           - name: Generate artifact attestation
             uses: actions/attest-build-provenance@v1
