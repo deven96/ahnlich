@@ -97,6 +97,9 @@ pub struct Node<E: EdgeStorage = CompactEdges> {
     value: EmbeddingKey,
     // Derived from the immutable embedding. Recomputed on snapshot restore.
     cosine_norm: f32,
+    // Derived from the immutable embedding for the INT8 search experiment.
+    #[cfg(feature = "bench-experiments")]
+    int8_cosine: Option<Box<crate::distance::int8_cosine::Int8CosineVector>>,
     neighbours: HashMap<LayerIndex, E>,
     back_links: HashSet<NodeId>,
     // Runtime-only, independent for clones/restored nodes. Not serialized.
@@ -129,6 +132,8 @@ impl<E: EdgeStorage> Clone for Node<E> {
             id: self.id,
             value: self.value.clone(),
             cosine_norm: self.cosine_norm,
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             neighbours,
             back_links,
             lifecycle: Arc::default(),
@@ -179,6 +184,8 @@ impl<E: EdgeStorage> Node<E> {
         Self {
             id,
             cosine_norm: crate::distance::cosine_norm(value.as_slice()),
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             value,
             neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
@@ -194,6 +201,8 @@ impl<E: EdgeStorage> Node<E> {
         Self {
             id: get_node_id(&value.0),
             cosine_norm: crate::distance::cosine_norm(value.as_slice()),
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             value,
             neighbours: HashMap::builder()
                 .capacity(1)
@@ -216,6 +225,8 @@ impl<E: EdgeStorage> Node<E> {
         Self {
             id: get_node_id(&value.0),
             cosine_norm: crate::distance::cosine_norm(value.as_slice()),
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             value,
             neighbours: HashMap::builder()
                 .capacity(1)

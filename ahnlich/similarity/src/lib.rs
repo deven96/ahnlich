@@ -45,6 +45,12 @@ pub trait NonLinearAlgorithmWithIndexImpl: DeserializeOwned {
 }
 
 pub trait DistanceFn: Send + Sync + Copy {
+    #[cfg(feature = "bench-experiments")]
+    #[doc(hidden)]
+    fn supports_int8_cosine(&self) -> bool {
+        false
+    }
+
     /// What the metric computes, tagged with which direction means closer.
     ///
     /// Implementors do not state a direction themselves: it comes from the return type

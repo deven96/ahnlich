@@ -144,14 +144,18 @@ impl NonLinearAlgorithmWithIndex {
                     .map(|(key, score)| (embedding_key_to_id(&key), score))
                     .collect()
             }),
-            Self::Hnsw(hnsw) => hnsw
-                .n_nearest_ids_with_ef(search_vector.as_slice(), n, accept_list, ef_search)
-                .map(|results| {
+            Self::Hnsw(hnsw) => {
+                #[cfg(feature = "bench-experiments")]
+                let search = HNSW::n_nearest_ids_with_int8_cosine;
+                #[cfg(not(feature = "bench-experiments"))]
+                let search = HNSW::n_nearest_ids_with_ef;
+                search(hnsw, search_vector.as_slice(), n, accept_list, ef_search).map(|results| {
                     results
                         .into_iter()
                         .map(|(id, score)| (StoreKeyId(id.0), score))
                         .collect()
-                }),
+                })
+            }
         }
         .map_err(|err| ServerError::InternalError(format!("index search failed: {err:?}")))
     }

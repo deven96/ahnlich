@@ -97,3 +97,9 @@ name = "hnsw_stored_result_ids"
 path = "benches/experiments/hnsw_stored_result_ids.rs"
 harness = false
 required-features = ["bench-experiments"]
+
+[[bench]]
+name = "hnsw_int8_traversal"
+path = "benches/experiments/hnsw_int8_traversal.rs"
+harness = false
+required-features = ["bench-experiments"]

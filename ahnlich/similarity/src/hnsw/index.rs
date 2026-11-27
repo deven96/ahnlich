@@ -28,6 +28,8 @@ use std::{
 
 #[cfg(any(test, feature = "bench-experiments"))]
 pub mod experiments;
+#[cfg(feature = "bench-experiments")]
+mod int8_traversal;
 
 #[cfg(test)]
 mod collector_sharing_tests;
@@ -305,6 +307,8 @@ pub struct HNSW<D: DistanceFn, E: EdgeStorage = CompactEdges> {
     collector: Option<Arc<Collector>>,
     // Runtime-only allocation policy, not part of the persisted graph configuration.
     node_counter_shards: Option<NonZeroUsize>,
+    #[cfg(feature = "bench-experiments")]
+    cache_int8_cosine: bool,
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: usize,
 
@@ -439,6 +443,8 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
             nodes: new_hashmap_with_shared_collector(collector.as_ref()),
             collector,
             node_counter_shards: shards,
+            #[cfg(feature = "bench-experiments")]
+            cache_int8_cosine: int8_traversal::cache_requested(distance_algorithm),
             enter_point: ArcSwap::from_pointee(EntryPoint::default()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
@@ -679,6 +685,14 @@ impl<D: DistanceFn, E: EdgeStorage> HNSW<D, E> {
                 )
             }
             _ => value,
+        };
+        #[cfg(feature = "bench-experiments")]
+        let value = {
+            let mut value = value;
+            if self.cache_int8_cosine {
+                value.cache_int8_cosine();
+            }
+            value
         };
         let nodes = self.nodes.pin();
         let id = value.id;
@@ -1681,6 +1695,8 @@ fn node_from_temp_with_shared_collector<E: EdgeStorage>(
     Node {
         id: temp.id,
         cosine_norm: crate::distance::cosine_norm(&temp.value),
+        #[cfg(feature = "bench-experiments")]
+        int8_cosine: None,
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links,
@@ -1707,6 +1723,8 @@ fn node_from_temp_with_counter_shards<E: EdgeStorage>(
     Node {
         id: temp.id,
         cosine_norm: crate::distance::cosine_norm(&temp.value),
+        #[cfg(feature = "bench-experiments")]
+        int8_cosine: None,
         value: EmbeddingKey::new(temp.value),
         neighbours,
         back_links: node_hashset_from_iter(temp.back_links, collector, shards),
@@ -1767,6 +1785,8 @@ impl<D: DistanceFn, E: EdgeStorage> From<&HNSW<D, E>> for TempHNSW<D> {
 
 impl<D: DistanceFn, E: EdgeStorage> From<TempHNSW<D>> for HNSW<D, E> {
     fn from(temp: TempHNSW<D>) -> Self {
+        #[cfg(feature = "bench-experiments")]
+        let cache_int8_cosine = int8_traversal::cache_requested(temp.distance_algorithm);
         let collector = Some(Arc::new(Collector::new()));
         let node_counter_shards = Some(default_node_counter_shards());
         let graph = new_hashmap_with_shared_collector(collector.as_ref());
@@ -1782,14 +1802,28 @@ impl<D: DistanceFn, E: EdgeStorage> From<TempHNSW<D>> for HNSW<D, E> {
         {
             let guard = nodes.pin();
             for (id, temp_node) in temp.nodes {
-                guard.insert(
-                    id,
-                    node_from_temp_with_counter_shards(
-                        temp_node,
-                        collector.as_ref(),
-                        node_counter_shards,
-                    ),
+                let node = node_from_temp_with_counter_shards(
+                    temp_node,
+                    collector.as_ref(),
+                    node_counter_shards,
                 );
+                #[cfg(feature = "bench-experiments")]
+                let node = {
+                    let mut node = node;
+                    if cache_int8_cosine {
+                        node.cache_int8_cosine();
+                    }
+                    node
+                };
+                guard.insert(id, node);
+            }
+            #[cfg(feature = "bench-experiments")]
+            if cache_int8_cosine {
+                let encoded = guard
+                    .iter()
+                    .filter(|(_, node)| node.int8_cosine.is_some())
+                    .count();
+                eprintln!("HNSW INT8 cache on restore: {encoded}/{}", guard.len());
             }
         }
 
@@ -1801,6 +1835,8 @@ impl<D: DistanceFn, E: EdgeStorage> From<TempHNSW<D>> for HNSW<D, E> {
         HNSW {
             collector,
             node_counter_shards,
+            #[cfg(feature = "bench-experiments")]
+            cache_int8_cosine,
             ef_construction: temp.ef_construction,
             maximum_connections: temp.maximum_connections,
             maximum_connections_zero: temp.maximum_connections_zero,
@@ -1887,6 +1923,8 @@ mod tests {
         ] {
             let node = Node {
                 cosine_norm: f32::NAN,
+                #[cfg(feature = "bench-experiments")]
+                int8_cosine: None,
                 id: NodeId(id),
                 value: EmbeddingKey::new(vec![value]),
                 neighbours: HashMap::new(),
@@ -2000,6 +2038,8 @@ mod tests {
         for id in &ids {
             hnsw.insert_node(Node {
                 cosine_norm: f32::NAN,
+                #[cfg(feature = "bench-experiments")]
+                int8_cosine: None,
                 id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
@@ -2050,6 +2090,8 @@ mod tests {
 
         hnsw.insert_node(Node {
             cosine_norm: f32::NAN,
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             id: a,
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
@@ -2061,6 +2103,8 @@ mod tests {
 
         hnsw.insert_node(Node {
             cosine_norm: f32::NAN,
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             id: b,
             value: EmbeddingKey::new(vec![10.0]),
             neighbours: HashMap::new(),
@@ -2073,6 +2117,8 @@ mod tests {
         let node_id = NodeId(99);
         let query_node = Node {
             cosine_norm: f32::NAN,
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             id: node_id,
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
@@ -2094,6 +2140,8 @@ mod tests {
 
         hnsw.insert_node(Node {
             cosine_norm: f32::NAN,
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             id: a,
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
@@ -2105,6 +2153,8 @@ mod tests {
 
         hnsw.insert_node(Node {
             cosine_norm: f32::NAN,
+            #[cfg(feature = "bench-experiments")]
+            int8_cosine: None,
             id: b,
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
@@ -2138,6 +2188,8 @@ mod tests {
         for id in &ids {
             hnsw.insert_node(Node {
                 cosine_norm: f32::NAN,
+                #[cfg(feature = "bench-experiments")]
+                int8_cosine: None,
                 id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),

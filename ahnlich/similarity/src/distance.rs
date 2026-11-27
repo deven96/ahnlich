@@ -3,6 +3,9 @@ use std::sync::OnceLock;
 
 use crate::{DistanceFn, LinearAlgorithm};
 
+#[cfg(feature = "bench-experiments")]
+pub(crate) mod int8_cosine;
+
 static SIMD_ARCH: OnceLock<Arch> = OnceLock::new();
 
 #[inline]
@@ -120,6 +123,11 @@ impl From<Similarity> for Score {
 }
 
 impl DistanceFn for LinearAlgorithm {
+    #[cfg(feature = "bench-experiments")]
+    fn supports_int8_cosine(&self) -> bool {
+        *self == Self::CosineSimilarity
+    }
+
     #[inline]
     fn score(&self, a: &[f32], b: &[f32]) -> Score {
         match self {
