@@ -5,7 +5,7 @@ edition = "2024"
 
 [features]
 default = ["server"]
-bench-experiments = []
+bench-experiments = ["ahnlich_similarity/bench-experiments"]
 server = [
     "dep:tonic",
     "dep:prost",
